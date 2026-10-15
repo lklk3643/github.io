@@ -69,6 +69,7 @@
       else el.value = state.opt[el.dataset.o];
     });
     $('#titleSizeVal').textContent = state.opt.titleSize + 'px';
+    $('#linkRow').hidden = !state.opt.qr;
     $$('[data-c]').forEach(el => { el.value = state.theme[el.dataset.c]; });
     $$('[data-gender]').forEach(b => b.classList.toggle('active', (b.dataset.gender === 'f') === /طالبة/.test(state.by)));
     renderMembers();
@@ -77,6 +78,11 @@
   $$('[data-k]').forEach(el => el.addEventListener('input', () => { state[el.dataset.k] = el.value; changed(); }));
   $$('[data-o]').forEach(el => el.addEventListener('input', () => {
     state.opt[el.dataset.o] = el.type === 'checkbox' ? el.checked : +el.value;
+    if (el.dataset.o === 'qr') {
+      if (el.checked && !state.link) { state.link = DEFAULTS.link; fillForm(); }
+      $('#linkRow').hidden = !el.checked;
+      if (el.checked) setTimeout(() => $('[data-k=link]').select(), 0);
+    }
     $('#titleSizeVal').textContent = state.opt.titleSize + 'px';
     changed();
   }));

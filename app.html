@@ -69,12 +69,15 @@
           </div>
           <div class="field"><label>ملاحظة المكان</label><input type="text" data-k="placeNote"></div>
           <div class="qrbox">
-            <label class="check" style="margin-top:0"><input type="checkbox" data-o="qr"> <b>إظهار رمز QR لرابط البث في الإعلان</b></label>
-            <div style="display:flex;gap:6px">
-              <input type="url" data-k="link" dir="ltr" placeholder="https://www.youtube.com/@..." style="flex:1;min-width:0;padding:8px 10px;border:1px solid var(--line);border-radius:9px">
-              <button class="btn sm" id="linkDefault" title="رابط القناة الافتراضي">↺ الافتراضي</button>
+            <div style="font-weight:700;font-size:13px;color:var(--brand-d)">رابط البث</div>
+            <label class="check" style="margin:0"><input type="checkbox" data-o="qr"> إضافة رابط البث للإعلان (يظهر كرمز QR)</label>
+            <div id="linkRow" hidden>
+              <div style="display:flex;gap:6px">
+                <input type="url" data-k="link" dir="ltr" placeholder="https://..." style="flex:1;min-width:0;padding:8px 10px;border:1px solid var(--line);border-radius:9px">
+                <button class="btn sm" id="linkDefault" title="إرجاع رابط قناة اليوتيوب">↺ اليوتيوب</button>
+              </div>
+              <div class="hint" style="margin-top:4px">تقدر تحط أي رابط: يوتيوب، بلاك بورد، زوم، تيمز أو أي منصة.</div>
             </div>
-            <div class="hint">الافتراضي: قناة اليوتيوب. غيّر الرابط لأي بث آخر، ثم فعّل المربع ليظهر الرمز.</div>
           </div>
 
           <div class="group-title">التذييل</div>
