@@ -140,12 +140,15 @@
   function logout() {
     sessionStorage.removeItem(SESSION_KEY);
     localStorage.removeItem(SESSION_KEY);
-    location.href = 'index.html';
+    if (window.QAuthNoSession) location.reload(); else location.href = 'index.html';
   }
 
   function requireLogin() {
     const s = current();
-    if (!s) { location.replace('index.html'); return null; }
+    if (!s) {
+      if (window.QAuthNoSession) window.QAuthNoSession(); else location.replace('index.html');
+      return null;
+    }
     return s;
   }
 
