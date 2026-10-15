@@ -20,18 +20,18 @@
 .qp[data-layout="wide"] .qp-callig { font-size: 300px; top: -70px; }
 
 .qp-building { position: absolute; left: 0; right: 0; overflow: hidden; }
-.qp-building.is-behind { opacity: .45; }
+.qp-building.is-behind { opacity: .5; }
 .qp-building-svg, .qp-building-img { width: 100%; height: 100%; display: block; }
 .qp-building-img { object-fit: cover; object-position: center bottom;
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 35%); mask-image: linear-gradient(to bottom, transparent 0, #000 35%); }
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 12%); mask-image: linear-gradient(to bottom, transparent 0, #000 12%); }
 
 .qp-region { position: absolute; top: 0; left: 0; right: 0; overflow: hidden; }
 .qp-inner {
   position: absolute; top: 0; left: 0; transform-origin: 0 0;
   display: flex; flex-direction: column; align-items: center; justify-content: space-evenly;
-  padding: 36px 60px 28px; gap: 22px;
+  padding: 30px 42px 22px; gap: 16px;
 }
-.qp-inner > * { width: 100%; max-width: 980px; flex: none; }
+.qp-inner > * { width: 100%; max-width: 1000px; flex: none; }
 
 /* الترويسة */
 .qp-header { display: flex; align-items: center; justify-content: center; gap: 26px; }
@@ -39,10 +39,11 @@
 .qp-logo-text { text-align: center; }
 .qp-uni-ar { font-family: 'Aref Ruqaa', serif; font-weight: 700; font-size: 72px; line-height: 1.05; color: var(--d); }
 .qp-uni-en { font-family: 'Cormorant Garamond', Georgia, 'Times New Roman', serif; font-weight: 600; font-size: 38px; line-height: 1; color: var(--d); letter-spacing: .3px; }
-.qp-logo-img { max-height: 150px; max-width: 70%; object-fit: contain; }
+.qp-logo-img { height: 160px; max-width: 80%; object-fit: contain; }
+.qp[data-layout="wide"] .qp-logo-img { height: 120px; }
 
 /* المقدمة */
-.qp-intro { display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; }
+.qp-intro { display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; }
 .qp-pill { background: var(--l); color: var(--p); font-weight: 700; font-size: 34px; padding: 6px 70px; border-radius: 16px; }
 .qp-announce { color: var(--p); font-size: 32px; font-weight: 500; }
 .qp-degree { margin: 0; font-size: 62px; font-weight: 700; color: var(--d); line-height: 1.25; }
@@ -52,7 +53,7 @@
 
 /* البطاقات */
 .qp-card { position: relative; border: 2px solid color-mix(in srgb, var(--l) 70%, #b9cfce); background: rgba(255,255,255,.55);
-  border-radius: 24px; margin-top: 30px; }
+  border-radius: 24px; margin-top: 26px; }
 .qp-tab { position: absolute; top: -30px; right: 26px; display: flex; align-items: center; gap: 12px;
   background: var(--l); color: var(--d); font-size: 31px; font-weight: 600; padding: 6px 22px; border-radius: 12px 12px 12px 0; }
 .qp-tab::after { content: ''; position: absolute; left: 0; bottom: -14px; border-left: 14px solid transparent;
@@ -61,8 +62,8 @@
 .qp-tab-center { right: 50%; transform: translateX(50%); border-radius: 12px; padding: 8px 36px; }
 .qp-tab-center::after { display: none; }
 .qp-tab-center svg { width: 52px; }
-.qp-title-card { padding: 56px 30px 30px; }
-.qp-title { text-align: center; font-size: var(--title); font-weight: 700; line-height: 1.75; color: #12393b; text-wrap: balance; }
+.qp-title-card { padding: 48px 30px 22px; }
+.qp-title { text-align: center; font-size: var(--title); font-weight: 600; line-height: 1.75; color: #12393b; text-wrap: balance; }
 
 .qp-presenter { display: flex; gap: 16px; align-items: stretch; }
 .qp-presenter-label { display: flex; align-items: center; gap: 12px; background: var(--l); border-radius: 16px; padding: 10px 26px;
@@ -71,7 +72,7 @@
 .qp-presenter-name { flex: 1; display: flex; align-items: center; justify-content: center; background: color-mix(in srgb, var(--l) 75%, #fff);
   border-radius: 16px; font-size: 33px; font-weight: 600; color: #12393b; padding: 12px 20px; text-align: center; }
 
-.qp-committee { padding: 50px 22px 18px; }
+.qp-committee { padding: 44px 18px 12px; }
 .qp-table { width: 100%; border-collapse: separate; border-spacing: 8px; table-layout: fixed; }
 .qp-table th, .qp-table td { border-radius: 8px; text-align: center; padding: 11px 10px; }
 .qp-table th { background: var(--l); color: var(--a); font-size: 27px; font-weight: 500; }
@@ -82,7 +83,7 @@
 .qp-table td { white-space: normal; }
 
 /* المعلومات */
-.qp-info { display: flex; align-items: center; justify-content: space-around; gap: 12px; padding: 18px 26px;
+.qp-info { display: flex; align-items: center; justify-content: space-around; gap: 12px; padding: 14px 26px;
   background: rgba(255,255,255,.62); border: 2px solid color-mix(in srgb, var(--l) 70%, #c4d7d6); border-radius: 24px; }
 .qp-info-item { display: flex; align-items: center; gap: 16px; }
 .qp-ic { width: 76px; height: 76px; border-radius: 50%; background: var(--l); display: grid; place-items: center; color: var(--p); flex: none; }
@@ -96,7 +97,7 @@
 /* التذييل */
 .qp-footer { position: absolute; left: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: space-between;
   padding: 0 70px; color: #fff; background: linear-gradient(90deg, var(--d), color-mix(in srgb, var(--d) 70%, var(--p)), var(--d));
-  font-size: calc(var(--footer) * .36); font-weight: 500; }
+  font-size: calc(var(--footer) * .32); font-weight: 400; }
 .qp-f-item { display: flex; align-items: center; gap: 14px; }
 .qp-f-item svg { width: calc(var(--footer) * .48); height: calc(var(--footer) * .48); }
 

@@ -4,7 +4,7 @@
   const session = QAuth.requireLogin();
   if (!session) return;
 
-  const { DEFAULTS, THEMES, FORMATS, customFormat, render, fit, logoMark } = QPoster;
+  const { DEFAULTS, THEMES, FORMATS, customFormat, render, fit, DEFAULT_LOGO } = QPoster;
   const $ = (s, r = document) => r.querySelector(s);
   const $$ = (s, r = document) => [...r.querySelectorAll(s)];
   const clone = o => JSON.parse(JSON.stringify(o));
@@ -48,7 +48,7 @@
   const nextFrame = () => new Promise(r => requestAnimationFrame(() => setTimeout(r, 0)));
 
   $('#who').textContent = `مرحباً، ${session.name || session.u}`;
-  $('#brandLogo').insertAdjacentHTML('afterbegin', logoMark(DEFAULTS.theme));
+  $('#brandLogo').insertAdjacentHTML('afterbegin', `<img src="${DEFAULT_LOGO}" alt="" class="brand-logo">`);
   if (session.role === 'admin') $('#btnUsers').hidden = false;
   if (session.weak) $('#weakBanner').hidden = false;
   $('#btnLogout').onclick = () => QAuth.logout();

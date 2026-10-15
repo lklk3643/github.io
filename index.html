@@ -26,9 +26,7 @@
 <body>
   <div class="login">
     <div class="head">
-      <div id="mark"></div>
-      <div class="uni-ar">جامعة القصيم</div>
-      <div class="uni-en">Qassim University</div>
+      <img src="assets/img/logo.png" alt="جامعة القصيم" style="height:96px;max-width:100%">
       <h1>مصمم إعلانات المناقشات العلمية</h1>
     </div>
     <form id="f" autocomplete="on">
@@ -44,10 +42,8 @@
   </div>
 
   <script src="assets/js/auth.js"></script>
-  <script src="assets/js/poster.js"></script>
   <script>
     if (QAuth.current()) location.replace('app.html');
-    document.getElementById('mark').innerHTML = QPoster.logoMark(QPoster.DEFAULTS.theme);
     document.getElementById('eye').onclick = () => { const p = document.getElementById('p'); p.type = p.type === 'password' ? 'text' : 'password'; };
     document.getElementById('f').onsubmit = async e => {
       e.preventDefault();

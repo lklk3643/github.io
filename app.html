@@ -86,7 +86,8 @@
             <div class="field"><label>عمود 3</label><input type="text" data-k="colRole"></div>
           </div>
           <div id="members"></div>
-          <button class="btn" id="addMember">➕ إضافة عضو</button>
+          <p class="hint">الأساسي ثلاثة أعضاء، ويمكنك إضافة رابع وخامس أو أكثر، وسيتكيّف التصميم تلقائياً.</p>
+          <button class="btn" id="addMember">➕ إضافة مناقش</button>
         </div>
 
         <!-- المظهر -->
@@ -101,23 +102,19 @@
           </div>
 
           <div class="group-title">الصور</div>
-          <div class="upload" data-asset="logo"><div class="thumb"></div><div class="info"><b>الشعار</b><div class="hint">PNG شفاف يفضّل (يستبدل الشعار المرسوم)</div></div>
+          <div class="upload" data-asset="logo"><div class="thumb"></div><div class="info"><b>الشعار</b><div class="hint">الافتراضي: شعار الجامعة. ارفع PNG شفاف لاستبداله</div></div>
             <label class="btn sm">رفع<input type="file" accept="image/*"></label><button class="btn sm danger" data-clear>حذف</button></div>
-          <div class="upload" data-asset="building"><div class="thumb"></div><div class="info"><b>صورة المبنى</b><div class="hint">صورة حقيقية لمبنى الجامعة (تستبدل الرسم)</div></div>
+          <div class="upload" data-asset="building"><div class="thumb"></div><div class="info"><b>صورة المبنى</b><div class="hint">الافتراضي: مبنى الجامعة من التصميم الأصلي. ارفع صورة بدقة أعلى لاستبداله</div></div>
             <label class="btn sm">رفع<input type="file" accept="image/*"></label><button class="btn sm danger" data-clear>حذف</button></div>
           <div class="upload" data-asset="bg"><div class="thumb"></div><div class="info"><b>خلفية كاملة</b><div class="hint">اختياري</div></div>
             <label class="btn sm">رفع<input type="file" accept="image/*"></label><button class="btn sm danger" data-clear>حذف</button></div>
 
           <div class="group-title">النصوص الزخرفية</div>
-          <div class="row2">
-            <div class="field"><label>اسم الجامعة (عربي)</label><input type="text" data-k="uniAr"></div>
-            <div class="field"><label>اسم الجامعة (إنجليزي)</label><input type="text" data-k="uniEn" dir="ltr"></div>
-          </div>
           <div class="field"><label>الكلمة الخلفية الكبيرة</label><input type="text" data-k="calligraphy"></div>
           <div class="field"><label>حجم خط عنوان الرسالة: <b id="titleSizeVal"></b></label><input type="range" min="24" max="48" data-o="titleSize" style="width:100%"></div>
 
           <div class="group-title">إظهار / إخفاء</div>
-          <label class="check"><input type="checkbox" data-o="building"> المبنى والنخيل</label>
+          <label class="check"><input type="checkbox" data-o="building"> صورة مبنى الجامعة</label>
           <label class="check"><input type="checkbox" data-o="pattern"> الزخارف الإسلامية</label>
           <label class="check"><input type="checkbox" data-o="calligraphy"> الكلمة الخلفية</label>
           <label class="check"><input type="checkbox" data-o="footer"> الشريط السفلي</label>

@@ -47,7 +47,7 @@
 
   // ---------- الأحجام ----------
   const FORMATS = [
-    { id: 'a4', name: 'بوستر A4 (عمودي)', w: 1080, h: 1527, layout: 'tall', building: 250, footer: 70 },
+    { id: 'a4', name: 'بوستر A4 (عمودي)', w: 1080, h: 1527, layout: 'tall', building: 215, footer: 70 },
     { id: 'story', name: 'ستوري / حالات', w: 1080, h: 1920, layout: 'tall', building: 330, footer: 80 },
     { id: 'square', name: 'منشور مربع', w: 1080, h: 1080, layout: 'tall', building: 150, footer: 60 },
     { id: 'youtube', name: 'صورة يوتيوب المصغّرة', w: 1280, h: 720, layout: 'wide', building: 150, footer: 54, behind: true },
@@ -80,108 +80,9 @@
     globe: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9.2"/><path d="M2.8 12h18.4M12 2.8c2.6 2.6 3.9 5.6 3.9 9.2s-1.3 6.6-3.9 9.2c-2.6-2.6-3.9-5.6-3.9-9.2S9.4 5.4 12 2.8zM4.5 7h15M4.5 17h15"/></svg>'
   };
 
-  // ---------- الشعار (علامة شبكية تقريبية – يمكن استبدالها برفع الشعار الرسمي) ----------
-  function logoMark(t) {
-    let s = '';
-    const offs = [-33, -11, 11, 33];
-    offs.forEach((k, i) => {
-      const c = i % 2 ? t.accent : t.primary;
-      // خطوط باتجاه القطر الأول ثم الثاني لتكوين شكل معيّن منسوج
-      s += `<line x1="${60 - 50 + k}" y1="${60 - 50 - k}" x2="${60 + 50 + k}" y2="${60 + 50 - k}" transform="rotate(0)" stroke="${c}" stroke-width="7" stroke-linecap="square" opacity=".95"/>`;
-      s += `<line x1="${60 + 50 + k}" y1="${60 - 50 + k}" x2="${60 - 50 + k}" y2="${60 + 50 + k}" stroke="${i % 2 ? t.primary : t.accent}" stroke-width="7" stroke-linecap="square" opacity=".95"/>`;
-    });
-    return `<svg class="qp-mark" viewBox="0 0 120 120"><defs><clipPath id="qpLogoClip"><polygon points="60,2 118,60 60,118 2,60"/></clipPath></defs>
-      <g clip-path="url(#qpLogoClip)">${s}</g>
-      <circle cx="60" cy="60" r="13" fill="#fff"/><circle cx="60" cy="60" r="9" fill="#1d3a6b"/>
-      <circle cx="60" cy="39" r="4" fill="#fff"/><circle cx="60" cy="39" r="2.4" fill="${t.dark}"/></svg>`;
-  }
-
-  // ---------- المبنى (رسم توضيحي للمبنى الرئيسي بالقبة مع النخيل) ----------
-  function palm(x, base, h, s) {
-    const lean = (x % 7) - 3;
-    const tx = x + lean * 2, ty = base - h;
-    let out = `<path d="M${x} ${base} Q${x + lean} ${base - h / 2} ${tx} ${ty}" stroke="#7b6648" stroke-width="${4.5 * s}" fill="none" stroke-linecap="round"/>`;
-    const L = 34 * s;
-    for (let i = 0; i < 9; i++) {
-      const a = Math.PI + (i * Math.PI) / 8;
-      const ca = Math.cos(a), sa = Math.sin(a);
-      const droop = Math.abs(ca) > 0.55 ? L * 0.45 : 0;
-      const ex = tx + ca * L, ey = ty + sa * L * 0.55 + droop;
-      const cx = tx + ca * L * 0.55, cy = ty + sa * L * 0.6 - 10 * s;
-      out += `<path d="M${tx} ${ty} Q${cx} ${cy} ${ex} ${ey}" stroke="${i % 2 ? '#3d7a4a' : '#2f6a3d'}" stroke-width="${6 * s}" fill="none" stroke-linecap="round"/>`;
-    }
-    out += `<circle cx="${tx}" cy="${ty + 3}" r="${3.5 * s}" fill="#8a6a2e"/>`;
-    return out;
-  }
-
-  function buildingSVG(t) {
-    let win = '';
-    const winRow = (x0, x1, y, step, w, h) => {
-      for (let x = x0; x <= x1 - w; x += step) win += `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="#8aa1b1" opacity=".75"/>`;
-    };
-    // الأجنحة الجانبية
-    [[70, 400], [680, 1010]].forEach(([a, b]) => { winRow(a + 10, b - 6, 212, 16, 9, 12); winRow(a + 10, b - 6, 236, 16, 9, 12); winRow(a + 10, b - 6, 258, 16, 9, 12); });
-    [[322, 425], [655, 758]].forEach(([a, b]) => { for (let y = 180; y < 268; y += 22) winRow(a + 8, b - 4, y, 15, 9, 13); });
-    let towers = '';
-    [[20, 150, 70], [150, 130, 50], [230, 160, 45], [850, 140, 55], [930, 120, 70], [1020, 155, 50]].forEach(([x, y, w]) => {
-      towers += `<rect x="${x}" y="${y}" width="${w}" height="${285 - y}" fill="#b8c6d0" opacity=".55"/>`;
-      for (let yy = y + 8; yy < 270; yy += 14) towers += `<rect x="${x + 6}" y="${yy}" width="${w - 12}" height="5" fill="#dfe7ec" opacity=".6"/>`;
-    });
-    let slats = '';
-    for (let x = 450; x <= 630; x += 12) slats += `<rect x="${x}" y="160" width="4" height="40" fill="#cdbca1"/>`;
-    let palms = '';
-    [[30, 120, 1], [90, 95, .85], [150, 110, .95], [215, 90, .8], [275, 118, 1], [345, 100, .9], [410, 84, .8],
-     [670, 84, .8], [735, 100, .9], [805, 118, 1], [865, 90, .8], [930, 110, .95], [990, 95, .85], [1050, 120, 1]]
-      .forEach(([x, h, s]) => { palms += palm(x, 296, h, s); });
-    let lamps = '';
-    [250, 380, 700, 830].forEach(x => { lamps += `<line x1="${x}" y1="296" x2="${x}" y2="240" stroke="#5c6670" stroke-width="2"/><rect x="${x - 4}" y="236" width="8" height="5" fill="#5c6670"/>`; });
-
-    return `<svg class="qp-building-svg" viewBox="0 0 1080 300" preserveAspectRatio="xMidYMax slice">
-      <defs>
-        <linearGradient id="qpStone" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f1e8da"/><stop offset="1" stop-color="#dccdb6"/></linearGradient>
-        <linearGradient id="qpStone2" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#e2d4bd"/><stop offset=".5" stop-color="#efe6d7"/><stop offset="1" stop-color="#d9c9af"/></linearGradient>
-        <linearGradient id="qpGlass" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6f90a8"/><stop offset="1" stop-color="#2d475b"/></linearGradient>
-        <linearGradient id="qpDome" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#cdb894"/><stop offset=".45" stop-color="#f6eedf"/><stop offset="1" stop-color="#bfa67c"/></linearGradient>
-        <linearGradient id="qpGround" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e6e1d6"/><stop offset="1" stop-color="#cfc9bb"/></linearGradient>
-      </defs>
-      ${towers}
-      <!-- الأجنحة -->
-      <rect x="70" y="198" width="330" height="88" fill="url(#qpStone)"/><rect x="70" y="194" width="330" height="8" fill="#d2c2a8"/>
-      <rect x="680" y="198" width="330" height="88" fill="url(#qpStone)"/><rect x="680" y="194" width="330" height="8" fill="#d2c2a8"/>
-      <rect x="322" y="166" width="103" height="120" fill="url(#qpStone2)"/><rect x="655" y="166" width="103" height="120" fill="url(#qpStone2)"/>
-      ${win}
-      <!-- الكتلة المركزية -->
-      <rect x="425" y="96" width="230" height="190" fill="url(#qpStone2)"/>
-      <rect x="425" y="92" width="230" height="8" fill="#cbb999"/>
-      <rect x="442" y="114" width="196" height="172" fill="#e9dfcd" stroke="#cdbb9e" stroke-width="2"/>
-      ${slats}
-      <!-- القبة -->
-      <rect x="497" y="76" width="86" height="18" fill="#e3d5bd"/>
-      <g fill="#c9b591">${[505, 517, 529, 541, 553, 565].map(x => `<rect x="${x}" y="80" width="5" height="10"/>`).join('')}</g>
-      <rect x="492" y="72" width="96" height="6" rx="2" fill="#cbb999"/>
-      <path d="M498 72 A42 42 0 0 1 582 72 Z" fill="url(#qpDome)"/>
-      <path d="M540 30 V72" stroke="#b39a6e" stroke-width="1" opacity=".5"/>
-      <path d="M519 72 Q522 42 540 30 M561 72 Q558 42 540 30" stroke="#b39a6e" stroke-width="1" fill="none" opacity=".45"/>
-      <line x1="540" y1="30" x2="540" y2="16" stroke="#a88c57" stroke-width="2.5"/><circle cx="540" cy="14" r="3.6" fill="#b8975a"/>
-      <!-- لوحة الشعار -->
-      <g transform="translate(540 132)">
-        <g transform="translate(-14 -17) scale(.24)">${logoMark(t).replace(/<\/?svg[^>]*>/g, '').replace('qpLogoClip', 'qpLogoClipB').replace('url(#qpLogoClip)', 'url(#qpLogoClipB)')}</g>
-        <text x="0" y="23" text-anchor="middle" font-family="Aref Ruqaa, serif" font-size="13" fill="${t.dark}">جامعة القصيم</text>
-        <text x="0" y="33" text-anchor="middle" font-family="Cormorant Garamond, Georgia, serif" font-size="8" fill="${t.dark}">Qassim University</text>
-      </g>
-      <!-- المدخل -->
-      <rect x="474" y="200" width="132" height="86" fill="#d6c6aa"/>
-      <rect x="484" y="210" width="112" height="76" fill="url(#qpGlass)"/>
-      ${[506, 528, 551, 573].map(x => `<line x1="${x}" y1="210" x2="${x}" y2="286" stroke="#a9bccb" stroke-width="1.5" opacity=".7"/>`).join('')}
-      <rect x="484" y="232" width="112" height="2" fill="#a9bccb" opacity=".7"/>
-      <!-- الساحة -->
-      <rect x="0" y="284" width="1080" height="16" fill="url(#qpGround)"/>
-      <path d="M470 300 L500 285 H580 L610 300 Z" fill="#efebe3"/>
-      <g fill="#4f8a55">${[[20, 360], [380, 470], [610, 700], [720, 1060]].map(([a, b]) => `<rect x="${a}" y="279" width="${b - a}" height="11" rx="5"/>`).join('')}</g>
-      ${lamps}
-      ${palms}
-    </svg>`;
-  }
+  // الصور الافتراضية مأخوذة من التصميم الأصلي (يمكن استبدالها من تبويب المظهر)
+  const DEFAULT_LOGO = 'assets/img/logo.png';
+  const DEFAULT_BUILDING = 'assets/img/building.jpg';
 
   // ---------- الزخارف ----------
   function star8(cx, cy, r, color, sw) {
@@ -204,11 +105,6 @@
             <linearGradient id="qpFadeG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".9"/><stop offset=".45" stop-color="#fff" stop-opacity=".15"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
             <mask id="qpFade"><rect width="${W}" height="${H}" fill="url(#qpFadeG)"/></mask></defs>
             <rect width="${W}" height="${H}" fill="url(#qpPat)" opacity=".07" mask="url(#qpFade)"/>`;
-      // نجوم الزوايا السفلية
-      const by = H - f.footer - (state.opt.building ? f.building * 0.55 : 60);
-      const r = Math.min(W, H) * 0.035;
-      [[r * 1.4, by], [r * 3.6, by + r * 1.8], [r * 1.3, by + r * 3.6], [W - r * 1.4, by], [W - r * 3.6, by + r * 1.8], [W - r * 1.3, by + r * 3.6]]
-        .forEach(([x, y]) => { s += `<g opacity=".28">${star8(x, y, r, t.primary, 2)}</g>`; });
       // أوراق نخيل خفيفة على الجانبين
       const leaf = (x, y, dir, sc) => {
         let p = '';
@@ -239,9 +135,7 @@
     const bHeight = o.building ? f.building : 0;
     const regionBottom = reserve + (f.behind ? 0 : bHeight);
 
-    const logo = state.assets.logo
-      ? `<img class="qp-logo-img" src="${state.assets.logo}" alt="">`
-      : `${logoMark(t)}<div class="qp-logo-text"><div class="qp-uni-ar">${esc(state.uniAr)}</div><div class="qp-uni-en">${esc(state.uniEn)}</div></div>`;
+    const logo = `<img class="qp-logo-img" src="${state.assets.logo || DEFAULT_LOGO}" alt="">`;
 
     const rows = (state.committee || []).filter(r => r && (r.name || r.title || r.role)).map(r =>
       `<tr><td class="qp-c-name">${esc(r.name)}</td><td>${esc(r.title)}</td><td>${esc(r.role)}</td></tr>`).join('');
@@ -254,9 +148,7 @@
       } catch (e) { qr = ''; }
     }
 
-    const building = !o.building ? '' : (state.assets.building
-      ? `<img class="qp-building-img" src="${state.assets.building}" alt="">`
-      : buildingSVG(t));
+    const building = o.building ? `<img class="qp-building-img" src="${state.assets.building || DEFAULT_BUILDING}" alt="">` : '';
 
     el.innerHTML = `
       <div class="qp-bg">${bgSVG(state, f)}${o.calligraphy && state.calligraphy ? `<div class="qp-callig">${esc(state.calligraphy)}</div>` : ''}</div>
@@ -297,8 +189,8 @@
       </div>
       ${o.footer ? `<footer class="qp-footer" style="height:${f.footer}px">
         <div class="qp-f-item">${esc(state.dept)}</div>
-        <div class="qp-f-item">${ICON.globe}<span dir="ltr">${esc(state.website)}</span></div>
-        <div class="qp-f-item">${ICON.x}<span dir="ltr">${esc(state.handle)}</span></div>
+        <div class="qp-f-item" dir="ltr">${ICON.globe}<span>${esc(state.website)}</span></div>
+        <div class="qp-f-item" dir="ltr">${ICON.x}<span>${esc(state.handle)}</span></div>
       </footer>` : ''}
       ${f.safe ? `<div class="qp-safe" style="width:${f.safe.w}px;height:${f.safe.h}px" data-export-hide></div>` : ''}`;
   }
@@ -327,5 +219,5 @@
     return s;
   }
 
-  window.QPoster = { DEFAULTS, THEMES, FORMATS, customFormat, render, fit, logoMark, ICON };
+  window.QPoster = { DEFAULTS, THEMES, FORMATS, customFormat, render, fit, ICON, DEFAULT_LOGO };
 })();
