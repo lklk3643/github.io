@@ -142,3 +142,9 @@
 .qp[data-layout="banner"] .qp-title-card { display: none; }
 .qp[data-layout="banner"] .qp-degree { font-size: 76px; }
 .qp[data-layout="banner"] .qp-callig { font-size: 560px; }
+
+/* النسخة المطابقة */
+.qp-exact { font-family: 'Readex Pro', 'IBM Plex Sans Arabic', sans-serif; background-color: #f3f8f8; }
+.qp-exact .ex { position: absolute; display: flex; align-items: center; white-space: nowrap; overflow: hidden; line-height: 1.2; }
+.qp-exact .ex-title { white-space: normal; flex-direction: column; justify-content: center; text-align: center; overflow: hidden; text-wrap: balance; }
+.qp-exact .ex-cell { position: absolute; border-radius: 6px; overflow: hidden; }

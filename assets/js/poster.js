@@ -47,7 +47,8 @@
 
   // ---------- الأحجام ----------
   const FORMATS = [
-    { id: 'a4', name: 'بوستر A4 (عمودي)', w: 1080, h: 1527, layout: 'tall', building: 215, footer: 70 },
+    { id: 'exact', name: 'مطابق للأصل 100%', w: 1045, h: 1505, layout: 'exact' },
+    { id: 'a4', name: 'A4 قابل للتخصيص', w: 1080, h: 1527, layout: 'tall', building: 215, footer: 70 },
     { id: 'story', name: 'ستوري / حالات', w: 1080, h: 1920, layout: 'tall', building: 330, footer: 80 },
     { id: 'square', name: 'منشور مربع', w: 1080, h: 1080, layout: 'tall', building: 150, footer: 60 },
     { id: 'youtube', name: 'صورة يوتيوب المصغّرة', w: 1280, h: 720, layout: 'wide', building: 150, footer: 54, behind: true },
@@ -120,8 +121,86 @@
     return s;
   }
 
+
+  // ---------- النسخة المطابقة للتصميم الأصلي (1045×1505) ----------
+  // الخلفية هي التصميم الأصلي نفسه بعد مسح النصوص المتغيرة، وتُكتب النصوص الجديدة بنفس المواضع والخط والألوان.
+  const EXACT_BG = 'assets/img/template.jpg';
+  // cx: مركز النص، rx: الحافة اليمنى، y: منتصف النص، w: أقصى عرض، s: الحجم، dy: تصحيح رأسي
+  const EXACT = {
+    college: { cx: 524, y: 269.5, w: 430, s: 30.4, wt: 600, c: '#0d5a5e', dy: -3 },
+    intro: { cx: 525, y: 333.5, w: 640, s: 28.3, wt: 500, c: '#0c4a63', dy: -1 },
+    degree: { cx: 524.5, y: 399.5, w: 760, s: 46.2, wt: 700, c: '#0a4d54', dy: -4 },
+    by: { cx: 525.5, y: 481, w: 420, s: 23.6, wt: 400, c: '#ffffff', dy: -1 },
+    title: { cx: 524, top: 592, h: 106, w: 860, s: 26, wt: 500, c: '#0b3462', lh: 49.5, dy: -3.2 },
+    label: { rx: 907, y: 758, w: 90, s: 25.4, wt: 400, c: '#0d5b5f', dy: -2 },
+    student: { cx: 523, y: 760, w: 520, s: 25.5, wt: 400, c: '#0b2c5e', dy: -4.5 },
+    cell: { s: 21.8, wt: 400, c: '#0b3658', dy: -1, padR: 28 },
+    day: { rx: 872.5, y: 1174, w: 140, s: 20, wt: 500, c: '#0b2c5e', dy: 2.5 },
+    date: { rx: 872, y: 1206.5, w: 160, s: 22, wt: 500, c: '#0b2c5e', dy: -0.5 },
+    time: { rx: 545, y: 1190, w: 110, s: 22.4, wt: 400, c: '#0b2c5e', dy: 1 },
+    place: { rx: 272, y: 1180, w: 170, s: 21.5, wt: 400, c: '#0b2c5e', dy: -0.5 },
+    placeNote: { rx: 275, y: 1211.5, w: 175, s: 18.4, wt: 400, c: '#0b2c5e', dy: -1.5 }
+  };
+  const EXACT_ROWS = { top: 929, bottom: 1115, h: 57, gap: 7,
+    cols: [{ x0: 655, x1: 959, k: 'name', bg: '#e5eff1', align: 'right' }, { x0: 307, x1: 649, k: 'title', bg: '#e6eff1' }, { x0: 89, x1: 300, k: 'role', bg: '#e1ecee' }] };
+
+  function exItem(spec, text, key) {
+    if (!text) return '';
+    const H = Math.round(spec.s * 2);
+    const pos = spec.rx != null ? `right:${1045 - spec.rx}px;justify-content:flex-start;` : `left:${spec.cx - spec.w / 2}px;justify-content:center;`;
+    return `<div class="ex" data-ex="${key}" style="${pos}width:${spec.w}px;top:${spec.y - H / 2 + spec.dy}px;height:${H}px;font-size:${spec.s}px;font-weight:${spec.wt};color:${spec.c}">${esc(text)}</div>`;
+  }
+
+  function renderExact(el, state) {
+    const E = EXACT;
+    el.className = 'qp qp-exact';
+    el.dataset.layout = 'exact';
+    el.dataset.format = 'exact';
+    el.style.cssText = `width:1045px;height:1505px;background:url("${EXACT_BG}") 0 0 / 100% 100% no-repeat;`;
+    const t = E.title;
+    let html = '';
+    ['college', 'intro', 'degree', 'by'].forEach(k => { html += exItem(E[k], state[k], k); });
+    html += `<div class="ex ex-title" data-ex="title" style="left:${t.cx - t.w / 2}px;width:${t.w}px;top:${t.top + t.dy}px;height:${t.h}px;font-size:${t.s}px;font-weight:${t.wt};color:${t.c};line-height:${t.lh}px">${lines(state.title)}</div>`;
+    html += exItem(E.label, state.presenterLabel, 'label');
+    html += exItem(E.student, state.student, 'student');
+    // جدول اللجنة: 3 صفوف بنفس مقاسات الأصل، ويُضغط تلقائياً عند إضافة أعضاء
+    const R = EXACT_ROWS;
+    const members = (state.committee || []).filter(m => m && (m.name || m.title || m.role));
+    const n = Math.max(1, members.length);
+    let h = R.h, gap = R.gap;
+    if (n > 3) { gap = 6; h = (R.bottom - R.top - gap * (n - 1)) / n; }
+    const fs = E.cell.s * Math.max(0.74, Math.min(1, h / R.h + 0.22));
+    members.forEach((m, i) => {
+      const top = R.top + i * (h + gap);
+      R.cols.forEach(col => {
+        const right = col.align === 'right';
+        html += `<div class="ex-cell" style="left:${col.x0}px;width:${col.x1 - col.x0 + 1}px;top:${top}px;height:${h}px;background:${col.bg}">
+          <div class="ex" data-ex="cell" style="position:static;width:100%;height:100%;padding:0 ${right ? E.cell.padR : 8}px 0 8px;justify-content:${right ? 'flex-start' : 'center'};font-size:${fs}px;font-weight:${E.cell.wt};color:${E.cell.c};transform:translateY(${E.cell.dy}px)">${esc(m[col.k])}</div></div>`;
+      });
+    });
+    ['day', 'date', 'time', 'place', 'placeNote'].forEach(k => { html += exItem(E[k], state[k], k); });
+    el.innerHTML = html;
+  }
+
+  // يصغّر الخط لأي نص أطول من مكانه في النسخة المطابقة
+  function fitExact(el) {
+    el.querySelectorAll('.ex').forEach(d => {
+      let s = parseFloat(d.style.fontSize);
+      if (d.classList.contains('ex-title')) {
+        const lh0 = parseFloat(d.style.lineHeight), s0 = s;
+        while ((d.scrollHeight > d.clientHeight + 1 || d.scrollWidth > d.clientWidth + 1) && s > 12) {
+          s -= 0.5; d.style.fontSize = s + 'px'; d.style.lineHeight = (lh0 * s / s0) + 'px';
+        }
+      } else {
+        while (d.scrollWidth > d.clientWidth + 1 && s > 9) { s -= 0.5; d.style.fontSize = s + 'px'; }
+      }
+    });
+    return 1;
+  }
+
   // ---------- الرسم ----------
   function render(el, state, f) {
+    if (f.layout === 'exact') return renderExact(el, state);
     const t = state.theme, o = state.opt;
     const wide = f.layout !== 'tall';
     const hideCommittee = f.compact || (wide && o.compactWide);
@@ -197,6 +276,7 @@
 
   // يملأ المساحة بالمحتوى: يصغّر عند الزحمة ويوزّع المسافات عند الفراغ
   function fit(el) {
+    if (el.dataset.layout === 'exact') return fitExact(el);
     const region = el.querySelector('.qp-region');
     const inner = el.querySelector('.qp-inner');
     if (!region || !inner) return 1;
@@ -219,5 +299,5 @@
     return s;
   }
 
-  window.QPoster = { DEFAULTS, THEMES, FORMATS, customFormat, render, fit, ICON, DEFAULT_LOGO };
+  window.QPoster = { DEFAULTS, THEMES, FORMATS, customFormat, render, fit, ICON, DEFAULT_LOGO, EXACT, EXACT_ROWS };
 })();

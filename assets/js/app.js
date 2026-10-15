@@ -188,7 +188,7 @@
     $$('[data-pf]').forEach(x => x.classList.toggle('active', x === b));
     changed(true);
   });
-  $('[data-pf="a4"]').classList.add('active');
+  $('[data-pf="exact"]').classList.add('active');
   ['#cw', '#ch'].forEach(s => $(s).addEventListener('input', () => { if (currentFmt.id === 'custom') { currentFmt = getFormat('custom'); changed(true); } }));
 
   async function settle(el) {
@@ -219,12 +219,13 @@
     sc.style.marginBottom = `${f.h * k - f.h}px`;
     sc.style.marginInline = `${(f.w * k - f.w) / 2}px`;
     $('#sizeBadge').textContent = `${f.name} — ${f.w} × ${f.h} بكسل (المعاينة ${Math.round(k * 100)}%)` +
-      (f.safe ? ' — المربع الأحمر هو المنطقة الآمنة الظاهرة على كل الأجهزة' : '');
+      (f.safe ? ' — المربع الأحمر هو المنطقة الآمنة الظاهرة على كل الأجهزة' : '') +
+      (f.layout === 'exact' ? ' — نسخة طبق الأصل من التصميم الرسمي (الألوان والصور ثابتة؛ لتغييرها استخدم المقاسات الأخرى)' : '');
   }
   window.addEventListener('resize', () => layoutPreview());
 
   // ---------- التحميل ----------
-  $('#exportFormats').innerHTML = FORMATS.map(f => `<label class="fmt"><input type="checkbox" value="${f.id}" ${f.id === 'a4' ? 'checked' : ''}>
+  $('#exportFormats').innerHTML = FORMATS.map(f => `<label class="fmt"><input type="checkbox" value="${f.id}" ${f.id === 'exact' ? 'checked' : ''}>
       <span>${f.name}<small>${f.w}×${f.h}</small></span></label>`).join('') +
     `<label class="fmt"><input type="checkbox" value="custom"><span>المقاس المخصص<small>من شريط المعاينة</small></span></label>`;
   const selectedFormats = () => $$('#exportFormats input:checked').map(i => getFormat(i.value));
