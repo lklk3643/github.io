@@ -68,7 +68,14 @@
             <div class="field"><label>المكان</label><input type="text" data-k="place"></div>
           </div>
           <div class="field"><label>ملاحظة المكان</label><input type="text" data-k="placeNote"></div>
-          <div class="field"><label>رابط البث (يظهر كرمز QR)</label><input type="url" data-k="link" placeholder="https://youtube.com/..."></div>
+          <div class="qrbox">
+            <label class="check" style="margin-top:0"><input type="checkbox" data-o="qr"> <b>إظهار رمز QR لرابط البث في الإعلان</b></label>
+            <div style="display:flex;gap:6px">
+              <input type="url" data-k="link" dir="ltr" placeholder="https://www.youtube.com/@..." style="flex:1;min-width:0;padding:8px 10px;border:1px solid var(--line);border-radius:9px">
+              <button class="btn sm" id="linkDefault" title="رابط القناة الافتراضي">↺ الافتراضي</button>
+            </div>
+            <div class="hint">الافتراضي: قناة اليوتيوب. غيّر الرابط لأي بث آخر، ثم فعّل المربع ليظهر الرمز.</div>
+          </div>
 
           <div class="group-title">التذييل</div>
           <div class="field"><label>الجهة</label><input type="text" data-k="dept"></div>
@@ -119,7 +126,6 @@
           <label class="check"><input type="checkbox" data-o="pattern"> الزخارف الإسلامية</label>
           <label class="check"><input type="checkbox" data-o="calligraphy"> الكلمة الخلفية</label>
           <label class="check"><input type="checkbox" data-o="footer"> الشريط السفلي</label>
-          <label class="check"><input type="checkbox" data-o="qr"> رمز QR لرابط البث</label>
           <label class="check"><input type="checkbox" data-o="compactWide"> إخفاء جدول اللجنة في المقاسات العريضة (يوتيوب/X) لوضوح أكبر</label>
 
           <div class="group-title">إعادة الضبط</div>
@@ -128,17 +134,29 @@
 
         <!-- البيانات -->
         <div class="tab-pane" data-pane="data">
-          <p class="hint">كل صف في الملف = إعلان مستقل. الأعمدة غير الموجودة تأخذ قيمها من التصميم الحالي.</p>
-          <button class="btn" id="dlTemplate">⬇️ تنزيل ملف إكسل نموذجي</button>
+          <div class="howto">
+            <b>كيف تسوي إعلانات كثيرة دفعة وحدة؟</b>
+            <ol>
+              <li>افتح <b>جدول البيانات</b> (تحت). كل سطر = إعلان.</li>
+              <li>اكتب فيه مباشرة، أو انسخ الخلايا من Excel أو Google Sheets (Ctrl+C) واضغط على أول خانة ثم الصق (Ctrl+V).</li>
+              <li>إذا نسخت سطر العناوين مع البيانات، الأعمدة تترتب تلقائياً حتى لو ترتيبها مختلف.</li>
+              <li>ارجع هنا، حدد الإعلانات اللي تبيها، واضغط <b>«تحميل صفوف الإكسل المحددة»</b> تحت المعاينة.</li>
+            </ol>
+            <span class="hint">الأعمدة الفاضية تأخذ قيمتها من التصميم الحالي. في العنوان استخدم | لسطر جديد. للمناقشين: عضو1، عضو2... (الاسم/الصفة/الدور).</span>
+          </div>
+          <button class="btn primary" id="openGrid" style="width:100%;justify-content:center;padding:11px">📋 فتح جدول البيانات (الصق من Excel)</button>
 
-          <div class="group-title">ملف Excel / CSV</div>
-          <label class="btn primary">📄 اختيار ملف<input type="file" id="xlsFile" accept=".xlsx,.xls,.csv,.ods" hidden></label>
-
-          <div class="group-title">Google Sheets</div>
-          <div class="field"><label>رابط الشيت (شارِكه: «أي شخص لديه الرابط – عارض»)</label>
-            <input type="url" id="sheetUrl" dir="ltr" placeholder="https://docs.google.com/spreadsheets/d/..."></div>
+          <div class="group-title">أو استورد ملف</div>
           <div style="display:flex;gap:8px;flex-wrap:wrap">
-            <button class="btn primary" id="loadSheet">🔗 ربط وتحميل</button>
+            <label class="btn">📄 ملف Excel / CSV<input type="file" id="xlsFile" accept=".xlsx,.xls,.csv,.ods" hidden></label>
+            <button class="btn" id="dlTemplate">⬇️ ملف إكسل نموذجي</button>
+          </div>
+
+          <div class="group-title">أو اربط Google Sheets</div>
+          <p class="hint" style="margin-top:0">في الشيت: زر «مشاركة» ← «أي شخص لديه الرابط» (عارض) ← انسخ الرابط والصقه هنا. اضغط «تحديث» كل ما عدّلت الشيت.</p>
+          <div class="field"><input type="url" id="sheetUrl" dir="ltr" placeholder="https://docs.google.com/spreadsheets/d/..."></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn" id="loadSheet">🔗 ربط وتحميل</button>
             <button class="btn" id="refreshSheet" hidden>🔄 تحديث</button>
           </div>
 
@@ -198,6 +216,23 @@
       </div>
     </main>
   </div>
+
+  <!-- نافذة جدول البيانات -->
+  <div class="modal" id="mGrid"><div class="box gridbox">
+    <h2>جدول البيانات <span class="hint" id="gridCount"></span> <button class="btn sm" data-close>✕</button></h2>
+    <div class="hbar">
+      <button class="btn sm" id="gAdd">➕ صف</button>
+      <button class="btn sm" id="gAdd5">➕ 5 صفوف</button>
+      <button class="btn sm" id="gFromDesign">➕ التصميم الحالي كصف</button>
+      <button class="btn sm danger" id="gDel">🗑️ حذف المحدد</button>
+      <button class="btn sm danger" id="gClear">🧹 مسح الكل</button>
+      <span style="flex:1"></span>
+      <button class="btn sm" id="gExport">⬇️ حفظ كملف Excel</button>
+      <button class="btn sm primary" data-close>✓ تم</button>
+    </div>
+    <p class="hint" style="margin:0 0 8px">📋 انسخ من Excel أو Google Sheets والصق في أي خانة (Ctrl+V). Enter ينزلك للسطر التالي. كل شي ينحفظ تلقائياً.</p>
+    <div class="gridwrap"><table class="sheet" id="sheet"></table></div>
+  </div></div>
 
   <!-- نافذة سجل التصاميم -->
   <div class="modal" id="mHistory"><div class="box" style="width:min(1100px,100%)">

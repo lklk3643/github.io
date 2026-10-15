@@ -24,7 +24,7 @@
     time: '8 صباحاً',
     place: 'قاعة ابن عثيمين',
     placeNote: '(والبث عبر الإنترنت)',
-    link: '',
+    link: 'https://www.youtube.com/@src.sds1',
     handle: '@QassimUniv',
     website: 'www.qu.edu.sa',
     dept: 'الإعلام والاتصال المؤسسي',
@@ -32,7 +32,7 @@
     uniEn: 'Qassim University',
     calligraphy: 'دعوة',
     theme: { primary: '#2b7574', dark: '#0f4a4d', light: '#d9eae9', accent: '#5e9998' },
-    opt: { building: true, pattern: true, calligraphy: true, footer: true, qr: true, compactWide: false, titleSize: 32 },
+    opt: { building: true, pattern: true, calligraphy: true, footer: true, qr: false, compactWide: false, titleSize: 32 },
     assets: { logo: '', building: '', bg: '' }
   };
 
@@ -151,6 +151,12 @@
     return `<div class="ex" data-ex="${key}" style="${pos}width:${spec.w}px;top:${spec.y - H / 2 + spec.dy}px;height:${H}px;font-size:${spec.s}px;font-weight:${spec.wt};color:${spec.c}">${esc(text)}</div>`;
   }
 
+  function qrSvg(state) {
+    if (!state.opt || !state.opt.qr || !state.link || !window.qrcode) return '';
+    try { const q = window.qrcode(0, 'M'); q.addData(state.link); q.make(); return q.createSvgTag({ cellSize: 4, margin: 0, scalable: true }); }
+    catch (e) { return ''; }
+  }
+
   function renderExact(el, state) {
     const E = EXACT;
     el.className = 'qp qp-exact';
@@ -179,6 +185,8 @@
       });
     });
     ['day', 'date', 'time', 'place', 'placeNote'].forEach(k => { html += exItem(E[k], state[k], k); });
+    const qr = qrSvg(state);
+    if (qr) html += `<div class="ex-qr">${qr}<span>شاهد البث المباشر</span></div>`;
     el.innerHTML = html;
   }
 

@@ -20,6 +20,8 @@
     out.opt = { ...d.opt, ...(s.opt || {}) };
     out.assets = { ...d.assets, ...(s.assets || {}) };
     out.committee = Array.isArray(s.committee) ? s.committee : d.committee;
+    if (!out.link) out.link = d.link;
+    if (out.v !== 2) { out.opt.qr = false; out.v = 2; } // رمز QR يظهر فقط عند تفعيل المربع
     return out;
   }
   let state;
@@ -565,12 +567,149 @@
     return s;
   }
 
-  function setRows(list) {
-    rows = list.map((r, i) => ({ n: i + 1, data: parseRow(r), sel: true }))
-      .filter(r => Object.keys(r.data).length);
-    renderRows();
-    toast(rows.length ? `تم تحميل ${rows.length} صف ✓` : 'لم يتم العثور على أعمدة مطابقة – استخدم الملف النموذجي', !rows.length);
+  // ---------- جدول البيانات (صف = إعلان) ----------
+  const GCOLS = ['الكلية', 'نص الإعلان', 'الدرجة', 'الجنس', 'الطالب', 'العنوان', 'اليوم', 'التاريخ', 'الوقت', 'المكان', 'ملاحظة المكان', 'رابط البث'];
+  const GFIELD = { 'الكلية': 'college', 'نص الإعلان': 'intro', 'الدرجة': 'degree', 'الجنس': 'gender', 'الطالب': 'student', 'العنوان': 'title',
+    'اليوم': 'day', 'التاريخ': 'date', 'الوقت': 'time', 'المكان': 'place', 'ملاحظة المكان': 'placeNote', 'رابط البث': 'link' };
+  const GMEM = 5;
+  for (let i = 1; i <= GMEM; i++) GCOLS.push(`عضو${i} الاسم`, `عضو${i} الصفة`, `عضو${i} الدور`);
+  const emptyRow = () => GCOLS.map(() => '');
+  let grid = [];
+  try { grid = JSON.parse(localStorage.getItem(userKey('grid'))) || []; } catch (e) { grid = []; }
+  const gridSel = new Set();
+  const isEmptyRow = r => r.every(v => !String(v || '').trim());
+  const gridToObj = r => Object.fromEntries(GCOLS.map((c, i) => [c, r[i] || '']));
+  function dataToGrid(d) {
+    const r = emptyRow();
+    GCOLS.forEach((c, i) => { const f = GFIELD[c]; if (f && d[f] != null) r[i] = String(d[f]).replace(/\r?\n/g, ' | '); });
+    (d.committee || []).slice(0, GMEM).forEach((m, k) => {
+      const base = GCOLS.indexOf(`عضو${k + 1} الاسم`);
+      r[base] = m.name || ''; r[base + 1] = m.title || ''; r[base + 2] = m.role || '';
+    });
+    return r;
   }
+  let gridSaveT;
+  function gridChanged() {
+    clearTimeout(gridSaveT);
+    gridSaveT = setTimeout(() => {
+      try { localStorage.setItem(userKey('grid'), JSON.stringify(grid)); } catch (e) { /* مساحة */ }
+      syncRows();
+    }, 250);
+  }
+  function syncRows() {
+    const prev = new Map(rows.map(r => [r.n, r.sel]));
+    rows = grid.map((g, i) => isEmptyRow(g) ? null : ({ n: i + 1, data: parseRow(gridToObj(g)), sel: prev.has(i + 1) ? prev.get(i + 1) : true }))
+      .filter(Boolean);
+    renderRows();
+  }
+  function setRows(list) {
+    grid = list.map(o => dataToGrid(parseRow(o))).filter(r => !isEmptyRow(r));
+    gridSel.clear(); rows = [];
+    try { localStorage.setItem(userKey('grid'), JSON.stringify(grid)); } catch (e) { /* مساحة */ }
+    syncRows();
+    if ($('#mGrid').classList.contains('open')) renderGrid();
+    toast(rows.length ? `تم تحميل ${rows.length} صف ✓ (تقدر تعدّلها من «جدول البيانات»)` : 'لم يتم العثور على أعمدة مطابقة – استخدم الملف النموذجي', !rows.length);
+  }
+
+  function renderGrid() {
+    if (!grid.length) grid = Array.from({ length: 5 }, emptyRow);
+    const cls = c => /العنوان/.test(c) ? 'w-title' : /رابط/.test(c) ? 'w-link' : /الجنس|اليوم|الوقت|الدور/.test(c) ? 'w-sm' : '';
+    $('#sheet').innerHTML = `<thead><tr><th class="n">#</th>${GCOLS.map(c => `<th class="${/^عضو/.test(c) ? 'mem' : ''}">${c}</th>`).join('')}</tr></thead>
+      <tbody>${grid.map((r, i) => `<tr data-r="${i}" class="${gridSel.has(i) ? 'sel' : ''}"><td class="n"><label><input type="checkbox" data-gsel ${gridSel.has(i) ? 'checked' : ''}>${i + 1}</label></td>${
+        GCOLS.map((c, j) => `<td><input type="text" class="${cls(c)}" data-c="${j}" value="${esc(r[j] || '')}"${/رابط/.test(c) ? ' dir="ltr"' : ''}></td>`).join('')}</tr>`).join('')}</tbody>`;
+    $('#gridCount').textContent = `(${grid.filter(r => !isEmptyRow(r)).length} إعلان)`;
+  }
+  const cellAt = (r, c) => $(`#sheet tr[data-r="${r}"] input[data-c="${c}"]`);
+
+  // تحليل نص منسوخ من Excel/Sheets (مفصول بـ Tab ويدعم الخلايا بين علامات تنصيص)
+  function parseTSV(t) {
+    const out = [[]]; let cell = '', q = false;
+    for (let i = 0; i < t.length; i++) {
+      const ch = t[i];
+      if (q) { if (ch === '"') { if (t[i + 1] === '"') { cell += '"'; i++; } else q = false; } else cell += ch; }
+      else if (ch === '"' && cell === '') q = true;
+      else if (ch === '\t') { out[out.length - 1].push(cell); cell = ''; }
+      else if (ch === '\n' || ch === '\r') { if (ch === '\r' && t[i + 1] === '\n') i++; out[out.length - 1].push(cell); cell = ''; out.push([]); }
+      else cell += ch;
+    }
+    out[out.length - 1].push(cell);
+    while (out.length && out[out.length - 1].every(v => v === '')) out.pop();
+    return out.map(r => r.map(v => v.replace(/\r?\n/g, ' | ').trim()));
+  }
+
+  $('#openGrid').onclick = () => { renderGrid(); openModal('#mGrid'); };
+  $('#sheet').addEventListener('input', e => {
+    const inp = e.target; if (!inp.dataset.c) return;
+    const r = +inp.closest('tr').dataset.r;
+    grid[r][+inp.dataset.c] = inp.value;
+    $('#gridCount').textContent = `(${grid.filter(x => !isEmptyRow(x)).length} إعلان)`;
+    gridChanged();
+  });
+  $('#sheet').addEventListener('change', e => {
+    if (!e.target.matches('[data-gsel]')) return;
+    const tr = e.target.closest('tr'), r = +tr.dataset.r;
+    if (e.target.checked) gridSel.add(r); else gridSel.delete(r);
+    tr.classList.toggle('sel', e.target.checked);
+  });
+  $('#sheet').addEventListener('paste', e => {
+    const inp = e.target; if (!inp.dataset || inp.dataset.c == null) return;
+    const text = (e.clipboardData || window.clipboardData).getData('text');
+    if (!/[\t\n]/.test(text.trim())) return; // لصق قيمة واحدة: يتصرف طبيعياً
+    e.preventDefault();
+    let data = parseTSV(text);
+    const r0 = +inp.closest('tr').dataset.r;
+    let map = null; // إذا كان أول سطر عناوين، نرتّب الأعمدة حسب أسمائها
+    const norm = v => normKey(v).replace(/عضو\s*(\d+)/, 'عضو$1');
+    const hdr = data[0].map(h => GCOLS.findIndex(c => norm(c) === norm(h) || NMAP[norm(h)] && NMAP[norm(h)] === GFIELD[c]));
+    if (hdr.filter(i => i >= 0).length >= 2) { map = hdr; data = data.slice(1); }
+    const c0 = map ? 0 : +inp.dataset.c;
+    data.forEach((vals, k) => {
+      const r = r0 + k;
+      while (grid.length <= r) grid.push(emptyRow());
+      vals.forEach((v, j) => {
+        const col = map ? map[j] : c0 + j;
+        if (col >= 0 && col < GCOLS.length) grid[r][col] = v;
+      });
+    });
+    renderGrid(); gridChanged();
+    toast(`تم لصق ${data.length} سطر ✓`);
+  });
+  $('#sheet').addEventListener('keydown', e => {
+    const inp = e.target; if (inp.dataset.c == null) return;
+    const r = +inp.closest('tr').dataset.r, c = +inp.dataset.c;
+    let to = null;
+    if (e.key === 'Enter' || e.key === 'ArrowDown') to = r + 1;
+    else if (e.key === 'ArrowUp') to = r - 1;
+    if (to == null) return;
+    e.preventDefault();
+    if (to < 0) return;
+    if (to >= grid.length) { grid.push(emptyRow()); renderGrid(); }
+    const nx = cellAt(to, c); if (nx) { nx.focus(); nx.select(); }
+  });
+  $('#gAdd').onclick = () => { grid.push(emptyRow()); renderGrid(); gridChanged(); };
+  $('#gAdd5').onclick = () => { for (let i = 0; i < 5; i++) grid.push(emptyRow()); renderGrid(); gridChanged(); };
+  $('#gFromDesign').onclick = () => {
+    const firstEmpty = grid.findIndex(isEmptyRow);
+    const row = dataToGrid({ ...state, gender: /طالبة/.test(state.by) ? 'أنثى' : 'ذكر' });
+    if (firstEmpty >= 0) grid[firstEmpty] = row; else grid.push(row);
+    renderGrid(); gridChanged(); toast('تمت إضافة التصميم الحالي كصف ✓');
+  };
+  $('#gDel').onclick = () => {
+    if (!gridSel.size) return toast('حدد الصفوف من المربعات بجانب الأرقام', true);
+    grid = grid.filter((_, i) => !gridSel.has(i)); gridSel.clear(); rows = []; renderGrid(); gridChanged();
+  };
+  $('#gClear').onclick = () => {
+    if (!confirm('مسح كل بيانات الجدول؟')) return;
+    grid = []; gridSel.clear(); rows = []; renderGrid(); gridChanged();
+  };
+  $('#gExport').onclick = () => {
+    const ws = XLSX.utils.aoa_to_sheet([GCOLS, ...grid.filter(r => !isEmptyRow(r))]);
+    ws['!cols'] = GCOLS.map(h => ({ wch: /العنوان/.test(h) ? 60 : 22 })); ws['!views'] = [{ RTL: true }];
+    const wb = XLSX.utils.book_new(); wb.Workbook = { Views: [{ RTL: true }] };
+    XLSX.utils.book_append_sheet(wb, ws, 'المناقشات');
+    XLSX.writeFile(wb, 'بيانات-المناقشات.xlsx');
+  };
+
   function renderRows() {
     $('#rowCount').textContent = rows.length ? `(${rows.length})` : '';
     $('#rows').innerHTML = rows.length ? rows.map((r, i) => `
@@ -589,7 +728,10 @@
   });
   $('#selAll').onclick = () => { rows.forEach(r => { r.sel = true; }); renderRows(); };
   $('#selNone').onclick = () => { rows.forEach(r => { r.sel = false; }); renderRows(); };
-  $('#clearRows').onclick = () => { rows = []; renderRows(); };
+  $('#clearRows').onclick = () => {
+    if (!confirm('مسح كل الصفوف وبيانات الجدول؟')) return;
+    rows = []; grid = []; gridSel.clear(); gridChanged(); renderRows();
+  };
 
   function sheetToRows(wb) {
     const ws = wb.Sheets[wb.SheetNames[0]];
@@ -628,20 +770,19 @@
     } finally { overlay.hide(); }
   }
   $('#loadSheet').onclick = loadSheet;
+  $('#linkDefault').onclick = () => { state.link = DEFAULTS.link; fillForm(); changed(); };
   $('#refreshSheet').onclick = loadSheet;
   const savedSheet = localStorage.getItem(userKey('sheet'));
   if (savedSheet) { $('#sheetUrl').value = savedSheet; $('#refreshSheet').hidden = false; }
 
   $('#dlTemplate').onclick = () => {
-    const head = ['الكلية', 'نص الإعلان', 'الدرجة', 'الجنس', 'الطالب', 'العنوان', 'اليوم', 'التاريخ', 'الوقت', 'المكان', 'ملاحظة المكان', 'رابط البث'];
-    for (let i = 1; i <= 4; i++) head.push(`عضو${i} الاسم`, `عضو${i} الصفة`, `عضو${i} الدور`);
     const d = DEFAULTS;
-    const r1 = [d.college, d.intro, d.degree, 'ذكر', d.student, d.title.replace('\n', ' | '), d.day, d.date, d.time, d.place, d.placeNote, ''];
-    d.committee.forEach(m => r1.push(m.name, m.title, m.role));
-    const r2 = ['يسر كلية الشريعة', d.intro, 'الدكتوراه في أصول الفقه', 'أنثى', 'نورة بنت محمد العتيبي', 'عنوان الرسالة هنا | (دراسة تطبيقية)',
-      'الثلاثاء', '1448/5/2 هـ', '10 صباحاً', 'القاعة الكبرى', '(والبث عبر الإنترنت)', '', 'أ.د. ...', 'الأستاذ في قسم أصول الفقه', 'مشرفاً ومقرراً', 'د. ...', 'الأستاذ المشارك', 'مناقشاً'];
-    const ws = XLSX.utils.aoa_to_sheet([head, r1, r2]);
-    ws['!cols'] = head.map(h => ({ wch: /العنوان/.test(h) ? 60 : 22 }));
+    const r1 = dataToGrid({ ...d, gender: 'ذكر' });
+    const r2 = dataToGrid({ college: 'يسر كلية الشريعة', intro: d.intro, degree: 'الدكتوراه في أصول الفقه', gender: 'أنثى', student: 'نورة بنت محمد العتيبي',
+      title: 'عنوان الرسالة هنا\n(دراسة تطبيقية)', day: 'الثلاثاء', date: '1448/5/2 هـ', time: '10 صباحاً', place: 'القاعة الكبرى', placeNote: '(والبث عبر الإنترنت)', link: d.link,
+      committee: [{ name: 'أ.د. ...', title: 'الأستاذ في قسم أصول الفقه', role: 'مشرفاً ومقرراً' }, { name: 'د. ...', title: 'الأستاذ المشارك', role: 'مناقشاً' }] });
+    const ws = XLSX.utils.aoa_to_sheet([GCOLS, r1, r2]);
+    ws['!cols'] = GCOLS.map(h => ({ wch: /العنوان/.test(h) ? 60 : 22 }));
     ws['!views'] = [{ RTL: true }];
     const wb = XLSX.utils.book_new();
     wb.Workbook = { Views: [{ RTL: true }] };
@@ -736,6 +877,7 @@
   // ---------- البدء ----------
   fillForm();
   drawPreview();
+  if (grid.some(r => !isEmptyRow(r))) syncRows();
   HDB.get(editingId || -1).then(it => setEditing(it ? it.id : null, it && it.title)).catch(() => setEditing(null));
   if (document.fonts) document.fonts.ready.then(() => drawPreview());
 })();
