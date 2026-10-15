@@ -306,7 +306,7 @@
     saveBlob(await zip.generateAsync({ type: 'blob' }), zipName);
   }
 
-  async function runExport(items, zipName) {
+  async function runExport(items, zipName, { history = true } = {}) {
     const fmts = selectedFormats();
     if (!fmts.length) return toast('اختر مقاساً واحداً على الأقل', true);
     if (!items.length) return toast('لا توجد تصاميم للتحميل', true);
@@ -316,31 +316,204 @@
       const files = await produce(items, fmts, type, scale);
       await deliver(files, zipName);
       toast(`تم تجهيز ${files.length} ملف ✓`);
+      if (history) {
+        for (const it of items) await saveToHistory({ s: it.state === state ? state : it.state, quiet: true });
+        toast(`تم تجهيز ${files.length} ملف ✓ — وحُفظ في السجل`);
+      }
     } catch (e) {
       console.error(e);
       toast('حدث خطأ أثناء التحميل: ' + (e.message || e), true);
     } finally { overlay.hide(); }
   }
 
-  $('#exCurrent').onclick = () => runExport([{ label: state.student || 'اعلان', state: clone(state) }], `${safeName(state.student)}.zip`);
+  $('#exCurrent').onclick = () => runExport([{ label: state.student || 'اعلان', state }], `${safeName(state.student)}.zip`);
   $('#exRows').onclick = () => {
     const items = rows.filter(r => r.sel).map(r => ({ label: r.data.student || `صف ${r.n}`, state: applyRow(state, r.data) }));
     if (!items.length) return toast('حمّل ملف إكسل/شيت وحدد الصفوف أولاً (تبويب إكسل / شيت)', true);
     runExport(items, 'اعلانات-المناقشات.zip');
   };
 
-  $('#printBtn').onclick = async () => {
+  async function printState(s) { return printStates([s]); }
+  // يطبع تصميماً أو عدة تصاميم (صفحة لكل تصميم)
+  async function printStates(list) {
     overlay.show('جارٍ تجهيز الطباعة...');
     try {
-      const canvas = await capture(state, FORMATS[0], 2);
+      const imgs = [];
+      for (let i = 0; i < list.length; i++) {
+        overlay.progress(i / list.length, `جارٍ تجهيز ${i + 1} من ${list.length} للطباعة`);
+        imgs.push((await capture(list[i], FORMATS[0], 2)).toDataURL('image/jpeg', .93));
+      }
       const fr = document.createElement('iframe');
       fr.style.cssText = 'position:fixed;width:0;height:0;border:0';
       document.body.appendChild(fr);
-      fr.contentDocument.write(`<html><head><style>@page{size:A4;margin:0}body{margin:0}img{width:100%;height:100vh;object-fit:contain;display:block}</style></head><body><img src="${canvas.toDataURL('image/jpeg', .95)}"></body></html>`);
+      fr.contentDocument.write(`<html><head><style>@page{size:A4;margin:0}body{margin:0}img{width:100%;height:100vh;object-fit:contain;display:block;page-break-after:always}img:last-child{page-break-after:auto}</style></head><body>${imgs.map(u => `<img src="${u}">`).join('')}</body></html>`);
       fr.contentDocument.close();
       fr.contentWindow.onafterprint = () => fr.remove();
       setTimeout(() => { fr.contentWindow.focus(); fr.contentWindow.print(); }, 400);
-    } catch (e) { toast('تعذّرت الطباعة', true); } finally { overlay.hide(); }
+      return true;
+    } catch (e) { toast('تعذّرت الطباعة', true); return false; } finally { overlay.hide(); }
+  }
+  $('#printBtn').onclick = async () => { if (await printState(state)) saveToHistory({ quiet: true }); };
+
+  // ---------- سجل التصاميم (محفوظ في IndexedDB لكل موظف) ----------
+  const HDB = {
+    db: null,
+    open() {
+      if (this.db) return Promise.resolve(this.db);
+      return new Promise((res, rej) => {
+        const r = indexedDB.open('qu_history', 1);
+        r.onupgradeneeded = () => { const st = r.result.createObjectStore('items', { keyPath: 'id', autoIncrement: true }); st.createIndex('user', 'user'); };
+        r.onsuccess = () => { this.db = r.result; res(this.db); };
+        r.onerror = () => rej(r.error);
+      });
+    },
+    async tx(mode, fn) {
+      const db = await this.open();
+      return new Promise((res, rej) => {
+        const t = db.transaction('items', mode), st = t.objectStore('items');
+        const out = fn(st);
+        t.oncomplete = () => res(out && out.result !== undefined ? out.result : out);
+        t.onerror = () => rej(t.error);
+      });
+    },
+    put(item) { return this.tx('readwrite', st => st.put(item)); },
+    get(id) { return this.tx('readonly', st => st.get(id)); },
+    del(id) { return this.tx('readwrite', st => st.delete(id)); },
+    list() { return this.tx('readonly', st => st.index('user').getAll(session.u.toLowerCase())); }
+  };
+  let editingId = null;
+  const histSel = new Set();
+  let histShown = [];
+  try { editingId = JSON.parse(localStorage.getItem(userKey('editing'))) || null; } catch (e) { editingId = null; }
+  const setEditing = (id, title) => {
+    editingId = id;
+    try { localStorage.setItem(userKey('editing'), JSON.stringify(id)); } catch (e) { /* اختياري */ }
+    $('#editingLabel').textContent = id ? `تعدّل الآن: ${title || ''}` : 'تصميم جديد (غير محفوظ في السجل بعد)';
+  };
+  const titleOf = s => s.student || s.degree || 'تصميم بدون اسم';
+
+  async function thumbOf(s) {
+    const c = await capture(s, FORMATS[0], 0.3);
+    return c.toDataURL('image/jpeg', 0.8);
+  }
+
+  // يحفظ التصميم في السجل: يحدّث النسخة التي تعدّلها، أو ينشئ نسخة جديدة
+  async function saveToHistory({ asNew = false, s = state, quiet = false } = {}) {
+    try {
+      const now = Date.now();
+      const existing = !asNew && s === state && editingId ? await HDB.get(editingId) : null;
+      const item = existing || { user: session.u.toLowerCase(), createdAt: now, by: session.name || session.u };
+      Object.assign(item, { title: titleOf(s), updatedAt: now, state: clone(s), thumb: await thumbOf(s),
+        versions: (existing ? existing.versions || 1 : 0) + 1 });
+      const id = await HDB.put(item);
+      if (s === state) setEditing(id, item.title);
+      if (!quiet) toast(existing ? 'تم تحديث التصميم في السجل ✓' : 'تم الحفظ في السجل ✓');
+      return id;
+    } catch (e) { console.error(e); toast('تعذّر الحفظ في السجل', true); return null; }
+  }
+
+  async function renderHistory() {
+    const q = $('#histSearch').value.trim();
+    let list = (await HDB.list()).sort((a, b) => b.updatedAt - a.updatedAt);
+    if (q) list = list.filter(it => JSON.stringify([it.title, it.state.title, it.state.degree, it.state.date]).includes(q));
+    $('#histCount').textContent = `(${list.length})`;
+    histShown = list;
+    const ids = new Set(list.map(it => it.id));
+    [...histSel].forEach(id => { if (!ids.has(id)) histSel.delete(id); });
+    updateHistSel();
+    $('#histGrid').innerHTML = list.length ? list.map(it => `
+      <div class="hcard ${it.id === editingId ? 'current' : ''} ${histSel.has(it.id) ? 'sel' : ''}" data-id="${it.id}">
+        <label class="hcheck" title="تحديد"><input type="checkbox" data-sel ${histSel.has(it.id) ? 'checked' : ''}></label>
+        <img src="${it.thumb}" alt="" data-act="edit">
+        <div class="hmeta"><b title="${esc(it.title)}">${esc(it.title)}</b>
+          <span>${esc(it.state.degree || '')}</span>
+          <span>${new Date(it.updatedAt).toLocaleString('ar-SA')}${it.versions > 1 ? ` • عُدّل ${it.versions - 1} مرة` : ''}</span></div>
+        <div class="hact">
+          <button class="btn sm primary" data-act="edit">✏️ تعديل</button>
+          <button class="btn sm" data-act="copy">📄 نسخة جديدة</button>
+          <button class="btn sm" data-act="print">🖨️ طباعة</button>
+          <button class="btn sm" data-act="dl">⬇️ تحميل</button>
+          <button class="btn sm danger" data-act="del">🗑️</button>
+        </div>
+      </div>`).join('') : '<p class="hint">لا توجد تصاميم في السجل بعد. كل تصميم تحمّله أو تطبعه يُحفظ هنا تلقائياً، ويمكنك الحفظ يدوياً بزر «حفظ في السجل».</p>';
+  }
+
+  $('#btnHistory').onclick = () => { renderHistory(); openModal('#mHistory'); };
+  $('#histSearch').addEventListener('input', renderHistory);
+  function updateHistSel() {
+    const n = histSel.size;
+    $('#histSelCount').textContent = n ? `محدد: ${n}` : 'لم يتم تحديد شيء';
+    ['#histDl', '#histPrint', '#histDel'].forEach(x => { $(x).disabled = !n; });
+  }
+  const selectedItems = async () => (await HDB.list()).filter(it => histSel.has(it.id)).sort((a, b) => b.updatedAt - a.updatedAt);
+  $('#histAll').onclick = () => { histShown.forEach(it => histSel.add(it.id)); renderHistory(); };
+  $('#histNone').onclick = () => { histSel.clear(); renderHistory(); };
+  $('#histDl').onclick = async () => {
+    const items = (await selectedItems()).map(it => ({ label: it.title, state: normalize(it.state) }));
+    $('#mHistory').classList.remove('open');
+    runExport(items, 'اعلانات-المناقشات.zip', { history: false });
+  };
+  $('#histPrint').onclick = async () => {
+    const list = (await selectedItems()).map(it => normalize(it.state));
+    $('#mHistory').classList.remove('open'); printStates(list);
+  };
+  $('#histDel').onclick = async () => {
+    if (!confirm(`حذف ${histSel.size} تصميم من السجل نهائياً؟`)) return;
+    for (const id of histSel) { await HDB.del(id); if (id === editingId) setEditing(null); }
+    histSel.clear(); renderHistory();
+  };
+  // نسخة احتياطية للسجل (لنقله لجهاز آخر أو حفظه)
+  $('#histBackup').onclick = async () => {
+    const list = await HDB.list();
+    if (!list.length) return toast('السجل فارغ', true);
+    saveBlob(new Blob([JSON.stringify({ type: 'qu-history', v: 1, items: list.map(({ id, user, ...r }) => r) })], { type: 'application/json' }),
+      `سجل-التصاميم-${new Date().toISOString().slice(0, 10)}.json`);
+  };
+  $('#histRestore').addEventListener('change', async e => {
+    const f = e.target.files[0]; if (!f) return;
+    try {
+      const data = JSON.parse(await f.text());
+      if (data.type !== 'qu-history' || !Array.isArray(data.items)) throw new Error();
+      for (const it of data.items) await HDB.put({ ...it, user: session.u.toLowerCase() });
+      renderHistory(); toast(`تمت استعادة ${data.items.length} تصميم ✓`);
+    } catch (err) { toast('ملف النسخة الاحتياطية غير صالح', true); }
+    e.target.value = '';
+  });
+  $('#histGrid').addEventListener('change', e => {
+    if (!e.target.matches('[data-sel]')) return;
+    const card = e.target.closest('.hcard'), id = +card.dataset.id;
+    if (e.target.checked) histSel.add(id); else histSel.delete(id);
+    card.classList.toggle('sel', e.target.checked); updateHistSel();
+  });
+  $('#histGrid').addEventListener('click', async e => {
+    const b = e.target.closest('[data-act]'); if (!b) return;
+    const id = +b.closest('.hcard').dataset.id, it = await HDB.get(id);
+    if (!it) return;
+    const act = b.dataset.act;
+    if (act === 'edit') {
+      state = normalize(it.state); setEditing(id, it.title); fillForm(); changed();
+      $('#mHistory').classList.remove('open'); toast('فُتح التصميم للتعديل — التعديلات تُحفظ على نفس النسخة');
+    } else if (act === 'copy') {
+      state = normalize(it.state); setEditing(null); fillForm(); changed();
+      await saveToHistory({ asNew: true, quiet: true });
+      $('#mHistory').classList.remove('open'); toast('تم إنشاء نسخة جديدة — عدّل عليها كما تريد والأصل محفوظ');
+    } else if (act === 'print') {
+      $('#mHistory').classList.remove('open'); printState(normalize(it.state));
+    } else if (act === 'dl') {
+      $('#mHistory').classList.remove('open');
+      runExport([{ label: it.title, state: normalize(it.state) }], `${safeName(it.title)}.zip`, { history: false });
+    } else if (act === 'del' && confirm(`حذف «${it.title}» من السجل؟`)) {
+      await HDB.del(id); if (id === editingId) setEditing(null); renderHistory();
+    }
+  });
+  $('#btnSaveHist').onclick = () => saveToHistory();
+  document.addEventListener('keydown', e => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); saveToHistory(); }
+  });
+  $('#btnSaveCopy').onclick = () => saveToHistory({ asNew: true });
+  $('#btnNew').onclick = () => {
+    if (!confirm('بدء تصميم جديد من النموذج الافتراضي؟ (التصاميم المحفوظة في السجل لا تتأثر)')) return;
+    state = normalize(); setEditing(null); fillForm(); changed();
   };
 
   // ---------- الإكسل وجوجل شيت ----------
@@ -563,5 +736,6 @@
   // ---------- البدء ----------
   fillForm();
   drawPreview();
+  HDB.get(editingId || -1).then(it => setEditing(it ? it.id : null, it && it.title)).catch(() => setEditing(null));
   if (document.fonts) document.fonts.ready.then(() => drawPreview());
 })();
