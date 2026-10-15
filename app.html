@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>مصمم إعلانات المناقشات</title>
+  <script>
+    // حماية الصفحة: يجب تسجيل الدخول أولاً
+    if (!(sessionStorage.getItem('qu_session') || localStorage.getItem('qu_session'))) location.replace('index.html');
+  </script>
+  <link rel="stylesheet" href="assets/fonts/fonts.css">
+  <link rel="stylesheet" href="assets/css/app.css">
+  <link rel="stylesheet" href="assets/css/poster.css">
+</head>
+<body>
+  <div class="topbar">
+    <div class="brand" id="brandLogo"><span>مصمم إعلانات المناقشات العلمية</span></div>
+    <div class="spacer"></div>
+    <span class="who" id="who"></span>
+    <button class="btn sm" id="btnDesigns">📁 قوالبي</button>
+    <button class="btn sm" id="btnUsers" hidden>👥 الموظفون</button>
+    <button class="btn sm" id="btnPass">🔑 كلمة المرور</button>
+    <button class="btn sm" id="btnLogout">خروج</button>
+  </div>
+  <div class="banner" id="weakBanner" hidden>⚠️ أنت تستخدم كلمة المرور الافتراضية للمدير. غيّرها الآن من زر «كلمة المرور».</div>
+
+  <div class="layout">
+    <!-- لوحة التحرير -->
+    <aside class="panel side">
+      <div class="tabs">
+        <button data-tab="content" class="active">المحتوى</button>
+        <button data-tab="committee">اللجنة</button>
+        <button data-tab="design">المظهر</button>
+        <button data-tab="data">إكسل / شيت</button>
+      </div>
+      <div class="tab-body">
+        <!-- المحتوى -->
+        <div class="tab-pane active" data-pane="content">
+          <div class="group-title">الترويسة</div>
+          <div class="field"><label>سطر الافتتاح</label><input type="text" data-k="college"></div>
+          <div class="field"><label>نص الإعلان</label><input type="text" data-k="intro"></div>
+          <div class="field"><label>الدرجة / التخصص (العنوان الكبير)</label><input type="text" data-k="degree"></div>
+          <div class="field"><label>المقدِّم</label>
+            <div class="chips" style="margin-bottom:6px">
+              <button class="chip" data-gender="m">طالب</button>
+              <button class="chip" data-gender="f">طالبة</button>
+            </div>
+            <input type="text" data-k="by">
+          </div>
+
+          <div class="group-title">الرسالة</div>
+          <div class="row2">
+            <div class="field"><label>عنوان البطاقة</label><input type="text" data-k="titleLabel"></div>
+            <div class="field"><label>عنوان المقدِّم</label><input type="text" data-k="presenterLabel"></div>
+          </div>
+          <div class="field"><label>عنوان الرسالة (اضغط Enter لسطر جديد)</label><textarea data-k="title"></textarea></div>
+          <div class="field"><label>اسم الطالب / الطالبة</label><input type="text" data-k="student"></div>
+
+          <div class="group-title">الموعد والمكان</div>
+          <div class="field"><label>اختر التاريخ الميلادي لتعبئة اليوم والتاريخ الهجري تلقائياً</label><input type="date" id="gDate"></div>
+          <div class="row2">
+            <div class="field"><label>اليوم</label><input type="text" data-k="day"></div>
+            <div class="field"><label>التاريخ</label><input type="text" data-k="date"></div>
+          </div>
+          <div class="row2">
+            <div class="field"><label>الوقت</label><input type="text" data-k="time"></div>
+            <div class="field"><label>المكان</label><input type="text" data-k="place"></div>
+          </div>
+          <div class="field"><label>ملاحظة المكان</label><input type="text" data-k="placeNote"></div>
+          <div class="field"><label>رابط البث (يظهر كرمز QR)</label><input type="url" data-k="link" placeholder="https://youtube.com/..."></div>
+
+          <div class="group-title">التذييل</div>
+          <div class="field"><label>الجهة</label><input type="text" data-k="dept"></div>
+          <div class="row2">
+            <div class="field"><label>الموقع</label><input type="text" data-k="website" dir="ltr"></div>
+            <div class="field"><label>حساب X</label><input type="text" data-k="handle" dir="ltr"></div>
+          </div>
+        </div>
+
+        <!-- اللجنة -->
+        <div class="tab-pane" data-pane="committee">
+          <div class="field"><label>عنوان القسم</label><input type="text" data-k="committeeLabel"></div>
+          <div class="row2" style="grid-template-columns:1fr 1fr 1fr">
+            <div class="field"><label>عمود 1</label><input type="text" data-k="colName"></div>
+            <div class="field"><label>عمود 2</label><input type="text" data-k="colTitle"></div>
+            <div class="field"><label>عمود 3</label><input type="text" data-k="colRole"></div>
+          </div>
+          <div id="members"></div>
+          <button class="btn" id="addMember">➕ إضافة عضو</button>
+        </div>
+
+        <!-- المظهر -->
+        <div class="tab-pane" data-pane="design">
+          <div class="group-title">الألوان</div>
+          <div class="chips" id="themes" style="margin-bottom:10px"></div>
+          <div class="colors">
+            <label>الأساسي<input type="color" data-c="primary"></label>
+            <label>الداكن<input type="color" data-c="dark"></label>
+            <label>الفاتح<input type="color" data-c="light"></label>
+            <label>المساند<input type="color" data-c="accent"></label>
+          </div>
+
+          <div class="group-title">الصور</div>
+          <div class="upload" data-asset="logo"><div class="thumb"></div><div class="info"><b>الشعار</b><div class="hint">PNG شفاف يفضّل (يستبدل الشعار المرسوم)</div></div>
+            <label class="btn sm">رفع<input type="file" accept="image/*"></label><button class="btn sm danger" data-clear>حذف</button></div>
+          <div class="upload" data-asset="building"><div class="thumb"></div><div class="info"><b>صورة المبنى</b><div class="hint">صورة حقيقية لمبنى الجامعة (تستبدل الرسم)</div></div>
+            <label class="btn sm">رفع<input type="file" accept="image/*"></label><button class="btn sm danger" data-clear>حذف</button></div>
+          <div class="upload" data-asset="bg"><div class="thumb"></div><div class="info"><b>خلفية كاملة</b><div class="hint">اختياري</div></div>
+            <label class="btn sm">رفع<input type="file" accept="image/*"></label><button class="btn sm danger" data-clear>حذف</button></div>
+
+          <div class="group-title">النصوص الزخرفية</div>
+          <div class="row2">
+            <div class="field"><label>اسم الجامعة (عربي)</label><input type="text" data-k="uniAr"></div>
+            <div class="field"><label>اسم الجامعة (إنجليزي)</label><input type="text" data-k="uniEn" dir="ltr"></div>
+          </div>
+          <div class="field"><label>الكلمة الخلفية الكبيرة</label><input type="text" data-k="calligraphy"></div>
+          <div class="field"><label>حجم خط عنوان الرسالة: <b id="titleSizeVal"></b></label><input type="range" min="24" max="48" data-o="titleSize" style="width:100%"></div>
+
+          <div class="group-title">إظهار / إخفاء</div>
+          <label class="check"><input type="checkbox" data-o="building"> المبنى والنخيل</label>
+          <label class="check"><input type="checkbox" data-o="pattern"> الزخارف الإسلامية</label>
+          <label class="check"><input type="checkbox" data-o="calligraphy"> الكلمة الخلفية</label>
+          <label class="check"><input type="checkbox" data-o="footer"> الشريط السفلي</label>
+          <label class="check"><input type="checkbox" data-o="qr"> رمز QR لرابط البث</label>
+          <label class="check"><input type="checkbox" data-o="compactWide"> إخفاء جدول اللجنة في المقاسات العريضة (يوتيوب/X) لوضوح أكبر</label>
+
+          <div class="group-title">إعادة الضبط</div>
+          <button class="btn danger" id="resetAll">↺ استرجاع النموذج الافتراضي</button>
+        </div>
+
+        <!-- البيانات -->
+        <div class="tab-pane" data-pane="data">
+          <p class="hint">كل صف في الملف = إعلان مستقل. الأعمدة غير الموجودة تأخذ قيمها من التصميم الحالي.</p>
+          <button class="btn" id="dlTemplate">⬇️ تنزيل ملف إكسل نموذجي</button>
+
+          <div class="group-title">ملف Excel / CSV</div>
+          <label class="btn primary">📄 اختيار ملف<input type="file" id="xlsFile" accept=".xlsx,.xls,.csv,.ods" hidden></label>
+
+          <div class="group-title">Google Sheets</div>
+          <div class="field"><label>رابط الشيت (شارِكه: «أي شخص لديه الرابط – عارض»)</label>
+            <input type="url" id="sheetUrl" dir="ltr" placeholder="https://docs.google.com/spreadsheets/d/..."></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn primary" id="loadSheet">🔗 ربط وتحميل</button>
+            <button class="btn" id="refreshSheet" hidden>🔄 تحديث</button>
+          </div>
+
+          <div class="group-title">الصفوف <span id="rowCount"></span></div>
+          <div style="display:flex;gap:6px;margin-bottom:8px">
+            <button class="btn sm" id="selAll">تحديد الكل</button>
+            <button class="btn sm" id="selNone">إلغاء التحديد</button>
+            <button class="btn sm danger" id="clearRows">مسح</button>
+          </div>
+          <div class="rows" id="rows"><div class="hint" style="padding:12px">لا توجد بيانات بعد.</div></div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- المعاينة والتصدير -->
+    <main class="main">
+      <div class="panel toolbar">
+        <span class="label">المعاينة:</span>
+        <div class="chips" id="previewFormats"></div>
+        <span style="display:inline-flex;gap:4px;align-items:center" id="customBox" hidden>
+          <input type="number" id="cw" value="1200" style="width:80px;padding:5px;border:1px solid var(--line);border-radius:8px"> ×
+          <input type="number" id="ch" value="630" style="width:80px;padding:5px;border:1px solid var(--line);border-radius:8px">
+        </span>
+      </div>
+
+      <div class="panel" style="overflow:hidden">
+        <div class="stage" id="stage"><div class="scaler" id="scaler"><div id="poster"></div></div></div>
+        <div class="sizebadge" id="sizeBadge"></div>
+      </div>
+
+      <div class="panel export">
+        <h3>التحميل</h3>
+        <div class="fmt-grid" id="exportFormats"></div>
+        <div class="export-actions">
+          <select id="exType">
+            <option value="png">PNG (أعلى جودة)</option>
+            <option value="jpg">JPG (حجم أصغر)</option>
+            <option value="pdf">PDF</option>
+          </select>
+          <select id="exScale">
+            <option value="1">الدقة الأصلية</option>
+            <option value="2" selected>دقة مضاعفة ×2 (للطباعة)</option>
+          </select>
+          <button class="btn primary" id="exCurrent">⬇️ تحميل التصميم الحالي</button>
+          <button class="btn" id="exRows">📦 تحميل صفوف الإكسل المحددة (ZIP)</button>
+          <button class="btn" id="printBtn">🖨️ طباعة</button>
+        </div>
+        <p class="hint" style="margin:10px 0 0">يمكنك تحديد أكثر من مقاس ليتم تحميلها دفعة واحدة. عند اختيار PDF مع عدة صفوف ستحصل على ملف PDF لكل إعلان إضافةً إلى ملف PDF مجمّع.</p>
+      </div>
+    </main>
+  </div>
+
+  <!-- نافذة القوالب -->
+  <div class="modal" id="mDesigns"><div class="box">
+    <h2>قوالبي المحفوظة <button class="btn sm" data-close>✕</button></h2>
+    <div style="display:flex;gap:8px;margin-bottom:10px">
+      <input type="text" id="designName" placeholder="اسم القالب" style="flex:1;padding:8px;border:1px solid var(--line);border-radius:9px">
+      <button class="btn primary" id="saveDesign">💾 حفظ الحالي</button>
+    </div>
+    <table class="ulist"><tbody id="designList"></tbody></table>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn" id="exportDesign">⬇️ تصدير التصميم (JSON)</button>
+      <label class="btn">⬆️ استيراد تصميم<input type="file" id="importDesign" accept=".json" hidden></label>
+    </div>
+  </div></div>
+
+  <!-- نافذة الموظفين -->
+  <div class="modal" id="mUsers"><div class="box">
+    <h2>إدارة الموظفين <button class="btn sm" data-close>✕</button></h2>
+    <div class="row2">
+      <div class="field"><label>اسم المستخدم (إنجليزي)</label><input type="text" id="nuUser" dir="ltr"></div>
+      <div class="field"><label>الاسم الظاهر</label><input type="text" id="nuName"></div>
+    </div>
+    <div class="row2">
+      <div class="field"><label>كلمة المرور (اتركها فارغة عند التعديل)</label><input type="password" id="nuPass" dir="ltr"></div>
+      <div class="field"><label>الصلاحية</label><select id="nuRole"><option value="employee">موظف</option><option value="admin">مدير</option></select></div>
+    </div>
+    <button class="btn primary" id="nuSave">حفظ المستخدم</button>
+    <table class="ulist"><thead><tr><th>المستخدم</th><th>الاسم</th><th>الصلاحية</th><th></th></tr></thead><tbody id="userList"></tbody></table>
+    <p class="hint">المستخدمون الجدد يُحفظون في هذا المتصفح. لتفعيلهم على كل الأجهزة: صدّر الملف <b>users.json</b> وارفعه مكان الملف الموجود في المستودع.</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn" id="exportUsers">⬇️ تصدير users.json</button>
+      <label class="btn">⬆️ استيراد<input type="file" id="importUsers" accept=".json" hidden></label>
+    </div>
+  </div></div>
+
+  <!-- نافذة كلمة المرور -->
+  <div class="modal" id="mPass"><div class="box" style="width:min(420px,100%)">
+    <h2>تغيير كلمة المرور <button class="btn sm" data-close>✕</button></h2>
+    <div class="field"><label>كلمة المرور الحالية</label><input type="password" id="pOld" dir="ltr"></div>
+    <div class="field"><label>كلمة المرور الجديدة</label><input type="password" id="pNew" dir="ltr"></div>
+    <div class="field"><label>تأكيد كلمة المرور</label><input type="password" id="pNew2" dir="ltr"></div>
+    <button class="btn primary" id="pSave">حفظ</button>
+  </div></div>
+
+  <div class="overlay" id="overlay"><div id="overlayText">جارٍ التجهيز...</div><div class="progress"><div id="overlayBar"></div></div></div>
+  <div class="toast" id="toast"></div>
+  <div class="export-root"><div id="exportPoster"></div></div>
+
+  <script src="assets/vendor/xlsx.full.min.js"></script>
+  <script src="assets/vendor/jszip.min.js"></script>
+  <script src="assets/vendor/jspdf.umd.min.js"></script>
+  <script src="assets/vendor/qrcode.js"></script>
+  <script src="assets/vendor/html-to-image.js"></script>
+  <script src="assets/js/auth.js"></script>
+  <script src="assets/js/poster.js"></script>
+  <script src="assets/js/app.js"></script>
+</body>
+</html>

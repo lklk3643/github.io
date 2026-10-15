@@ -1,0 +1,143 @@
+/* تصميم الإعلان (بالبكسل الحقيقي للتصدير) */
+.qp {
+  --p: #2b7574; --d: #0f4a4d; --l: #d9eae9; --a: #5e9998; --title: 34px;
+  position: relative; overflow: hidden; direction: rtl;
+  background-color: #eef6f5;
+  background-image: linear-gradient(180deg, #f3f9f8 0%, #e9f3f2 55%, #f4f8f7 100%);
+  background-size: cover; background-position: center;
+  font-family: 'IBM Plex Sans Arabic', 'Tajawal', 'Segoe UI', Tahoma, sans-serif;
+  color: var(--d); line-height: 1.45; box-sizing: border-box;
+}
+.qp *, .qp *::before, .qp *::after { box-sizing: border-box; }
+.qp svg { display: block; }
+
+.qp-bg { position: absolute; inset: 0; pointer-events: none; }
+.qp-bg-svg { position: absolute; inset: 0; }
+.qp-callig {
+  position: absolute; top: -90px; left: -20px; font-family: 'Aref Ruqaa', serif; font-weight: 700;
+  font-size: 380px; line-height: 1; color: var(--p); opacity: .06; transform: rotate(-8deg); white-space: nowrap;
+}
+.qp[data-layout="wide"] .qp-callig { font-size: 300px; top: -70px; }
+
+.qp-building { position: absolute; left: 0; right: 0; overflow: hidden; }
+.qp-building.is-behind { opacity: .45; }
+.qp-building-svg, .qp-building-img { width: 100%; height: 100%; display: block; }
+.qp-building-img { object-fit: cover; object-position: center bottom;
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 35%); mask-image: linear-gradient(to bottom, transparent 0, #000 35%); }
+
+.qp-region { position: absolute; top: 0; left: 0; right: 0; overflow: hidden; }
+.qp-inner {
+  position: absolute; top: 0; left: 0; transform-origin: 0 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: space-evenly;
+  padding: 36px 60px 28px; gap: 22px;
+}
+.qp-inner > * { width: 100%; max-width: 980px; flex: none; }
+
+/* الترويسة */
+.qp-header { display: flex; align-items: center; justify-content: center; gap: 26px; }
+.qp-mark { width: 150px; height: 150px; }
+.qp-logo-text { text-align: center; }
+.qp-uni-ar { font-family: 'Aref Ruqaa', serif; font-weight: 700; font-size: 72px; line-height: 1.05; color: var(--d); }
+.qp-uni-en { font-family: 'Cormorant Garamond', Georgia, 'Times New Roman', serif; font-weight: 600; font-size: 38px; line-height: 1; color: var(--d); letter-spacing: .3px; }
+.qp-logo-img { max-height: 150px; max-width: 70%; object-fit: contain; }
+
+/* المقدمة */
+.qp-intro { display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; }
+.qp-pill { background: var(--l); color: var(--p); font-weight: 700; font-size: 34px; padding: 6px 70px; border-radius: 16px; }
+.qp-announce { color: var(--p); font-size: 32px; font-weight: 500; }
+.qp-degree { margin: 0; font-size: 62px; font-weight: 700; color: var(--d); line-height: 1.25; }
+.qp-by { width: 100%; display: flex; align-items: center; gap: 18px; margin-top: 10px; }
+.qp-line { flex: 1; height: 2px; background: var(--a); opacity: .8; }
+.qp-by-pill { background: var(--a); color: #fff; font-size: 28px; font-weight: 500; padding: 8px 64px; border-radius: 20px; white-space: nowrap; }
+
+/* البطاقات */
+.qp-card { position: relative; border: 2px solid color-mix(in srgb, var(--l) 70%, #b9cfce); background: rgba(255,255,255,.55);
+  border-radius: 24px; margin-top: 30px; }
+.qp-tab { position: absolute; top: -30px; right: 26px; display: flex; align-items: center; gap: 12px;
+  background: var(--l); color: var(--d); font-size: 31px; font-weight: 600; padding: 6px 22px; border-radius: 12px 12px 12px 0; }
+.qp-tab::after { content: ''; position: absolute; left: 0; bottom: -14px; border-left: 14px solid transparent;
+  border-top: 14px solid color-mix(in srgb, var(--l) 55%, var(--a)); }
+.qp-tab svg { width: 40px; height: 40px; color: var(--p); }
+.qp-tab-center { right: 50%; transform: translateX(50%); border-radius: 12px; padding: 8px 36px; }
+.qp-tab-center::after { display: none; }
+.qp-tab-center svg { width: 52px; }
+.qp-title-card { padding: 56px 30px 30px; }
+.qp-title { text-align: center; font-size: var(--title); font-weight: 700; line-height: 1.75; color: #12393b; text-wrap: balance; }
+
+.qp-presenter { display: flex; gap: 16px; align-items: stretch; }
+.qp-presenter-label { display: flex; align-items: center; gap: 12px; background: var(--l); border-radius: 16px; padding: 10px 26px;
+  font-size: 30px; font-weight: 500; color: var(--d); white-space: nowrap; }
+.qp-presenter-label svg { width: 42px; height: 42px; color: var(--p); }
+.qp-presenter-name { flex: 1; display: flex; align-items: center; justify-content: center; background: color-mix(in srgb, var(--l) 75%, #fff);
+  border-radius: 16px; font-size: 33px; font-weight: 600; color: #12393b; padding: 12px 20px; text-align: center; }
+
+.qp-committee { padding: 50px 22px 18px; }
+.qp-table { width: 100%; border-collapse: separate; border-spacing: 8px; table-layout: fixed; }
+.qp-table th, .qp-table td { border-radius: 8px; text-align: center; padding: 11px 10px; }
+.qp-table th { background: var(--l); color: var(--a); font-size: 27px; font-weight: 500; }
+.qp-table th.qp-c-name { color: var(--d); font-weight: 700; }
+.qp-table td { background: color-mix(in srgb, var(--l) 70%, #fff); color: #173f41; font-size: 27px; font-weight: 500; }
+.qp-table td.qp-c-name { text-align: right; }
+.qp-table th:nth-child(1) { width: 36%; } .qp-table th:nth-child(2) { width: 40%; } .qp-table th:nth-child(3) { width: 24%; }
+.qp-table td { white-space: normal; }
+
+/* المعلومات */
+.qp-info { display: flex; align-items: center; justify-content: space-around; gap: 12px; padding: 18px 26px;
+  background: rgba(255,255,255,.62); border: 2px solid color-mix(in srgb, var(--l) 70%, #c4d7d6); border-radius: 24px; }
+.qp-info-item { display: flex; align-items: center; gap: 16px; }
+.qp-ic { width: 76px; height: 76px; border-radius: 50%; background: var(--l); display: grid; place-items: center; color: var(--p); flex: none; }
+.qp-ic svg { width: 44px; height: 44px; }
+.qp-info-text { display: flex; flex-direction: column; font-size: 29px; font-weight: 600; line-height: 1.35; color: #12393b; }
+.qp-info-text span { font-size: 25px; font-weight: 500; }
+.qp-sep { width: 2px; align-self: stretch; background: color-mix(in srgb, var(--l) 60%, #b9cfce); margin: 6px 0; }
+.qp-qr svg { width: 88px; height: 88px; background: #fff; padding: 4px; border-radius: 8px; }
+.qp-qr svg path, .qp-qr svg rect[fill="black"] { fill: var(--d); }
+
+/* التذييل */
+.qp-footer { position: absolute; left: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: space-between;
+  padding: 0 70px; color: #fff; background: linear-gradient(90deg, var(--d), color-mix(in srgb, var(--d) 70%, var(--p)), var(--d));
+  font-size: calc(var(--footer) * .36); font-weight: 500; }
+.qp-f-item { display: flex; align-items: center; gap: 14px; }
+.qp-f-item svg { width: calc(var(--footer) * .48); height: calc(var(--footer) * .48); }
+
+.qp-safe { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); border: 4px dashed rgba(220, 40, 40, .7); pointer-events: none; }
+
+/* التخطيط العريض (يوتيوب / X) */
+.qp[data-layout="wide"] .qp-inner {
+  display: grid; grid-template-columns: 1fr 1fr; column-gap: 36px; row-gap: 18px; align-content: space-evenly; padding: 26px 56px 22px;
+  grid-template-areas: "header header" "intro intro" "title committee" "presenter committee" "info info";
+}
+.qp[data-layout="wide"] .qp-inner > * { max-width: none; }
+.qp[data-layout="wide"] .qp-inner.no-committee { grid-template-areas: "header header" "intro intro" "title title" "presenter presenter" "info info"; }
+.qp[data-layout="wide"] .qp-header { grid-area: header; }
+.qp[data-layout="wide"] .qp-intro { grid-area: intro; }
+.qp[data-layout="wide"] .qp-title-card { grid-area: title; margin-top: 30px; }
+.qp[data-layout="wide"] .qp-presenter { grid-area: presenter; }
+.qp[data-layout="wide"] .qp-committee { grid-area: committee; margin-top: 30px; align-self: stretch; }
+.qp[data-layout="wide"] .qp-info { grid-area: info; }
+.qp[data-layout="wide"] .qp-by { max-width: 1100px; margin-inline: auto; }
+.qp[data-layout="wide"] .qp-header .qp-mark { width: 120px; height: 120px; }
+.qp[data-layout="wide"] .qp-uni-ar { font-size: 60px; }
+.qp[data-layout="wide"] .qp-uni-en { font-size: 32px; }
+.qp[data-layout="wide"] .qp-degree { font-size: 70px; }
+.qp[data-layout="wide"] .qp-inner.no-committee .qp-title-card,
+.qp[data-layout="wide"] .qp-inner.no-committee .qp-presenter { max-width: 1300px; width: 100%; justify-self: center; }
+
+/* فوق صورة المبنى في المقاسات العريضة تصبح البطاقات أوضح */
+.qp[data-layout="wide"] .qp-info, .qp[data-layout="banner"] .qp-info { background: rgba(255,255,255,.93); }
+.qp[data-layout="wide"] .qp-card, .qp[data-layout="banner"] .qp-card { background: rgba(255,255,255,.85); }
+.qp[data-layout="wide"] .qp-presenter-name { background: color-mix(in srgb, var(--l) 55%, #fff); }
+
+/* غلاف قناة يوتيوب: كل المحتوى داخل المنطقة الآمنة */
+.qp[data-layout="banner"] .qp-inner {
+  display: grid; grid-template-columns: auto 1fr; column-gap: 50px; row-gap: 20px; align-content: space-evenly; padding: 20px 40px;
+  grid-template-areas: "header intro" "presenter presenter" "info info";
+}
+.qp[data-layout="banner"] .qp-inner > * { max-width: none; }
+.qp[data-layout="banner"] .qp-header { grid-area: header; flex-direction: column; gap: 6px; }
+.qp[data-layout="banner"] .qp-intro { grid-area: intro; }
+.qp[data-layout="banner"] .qp-presenter { grid-area: presenter; }
+.qp[data-layout="banner"] .qp-info { grid-area: info; }
+.qp[data-layout="banner"] .qp-title-card { display: none; }
+.qp[data-layout="banner"] .qp-degree { font-size: 76px; }
+.qp[data-layout="banner"] .qp-callig { font-size: 560px; }
