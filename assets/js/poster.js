@@ -84,8 +84,8 @@
   };
 
   // الصور الافتراضية مأخوذة من التصميم الأصلي (يمكن استبدالها من تبويب المظهر)
-  const DEFAULT_LOGO = 'assets/img/logo.png?v=202610160308';
-  const DEFAULT_BUILDING = 'assets/img/building.jpg?v=202610160308';
+  const DEFAULT_LOGO = 'assets/img/logo.png?v=202610160330';
+  const DEFAULT_BUILDING = 'assets/img/building.jpg?v=202610160330';
 
   // ---------- الزخارف ----------
   function star8(cx, cy, r, color, sw) {
@@ -126,7 +126,7 @@
 
   // ---------- النسخة المطابقة للتصميم الأصلي (1045×1505) ----------
   // الخلفية هي التصميم الأصلي نفسه بعد مسح النصوص المتغيرة، وتُكتب النصوص الجديدة بنفس المواضع والخط والألوان.
-  const EXACT_BG = 'assets/img/template.jpg?v=202610160308';
+  const EXACT_BG = 'assets/img/template.jpg?v=202610160330';
   // cx: مركز النص، rx: الحافة اليمنى، y: منتصف النص، w: أقصى عرض، s: الحجم، dy: تصحيح رأسي
   const EXACT = {
     college: { cx: 524, y: 269.5, w: 430, s: 30.4, wt: 600, c: '#0d5a5e', dy: -3 },
@@ -173,14 +173,16 @@
     icon: '<circle cx="12" cy="12" r="12" fill="#2b7574"/><path d="M10.6 13.4a3 3 0 0 0 4.2 0l2.4-2.4a3 3 0 0 0-4.2-4.2l-.9.9M13.4 10.6a3 3 0 0 0-4.2 0L6.8 13a3 3 0 0 0 4.2 4.2l.9-.9" stroke="#fff" stroke-width="1.8" fill="none" stroke-linecap="round"/>' };
   const platformOf = link => PLATFORMS.find(p => p.re.test(String(link || ''))) || GENERIC;
   // عدد وحدات الرمز (كلما زاد صار أكثف) — للتنبيه على الروابط الطويلة
-  // يختار أعلى مستوى تصحيح لا يجعل الرمز كثيفاً: H للروابط القصيرة، ثم Q ثم M للطويلة
+  // يختار أقل كثافة ممكنة (مربعات أكبر = يتحمّل ضغط الواتساب)، ومع التساوي أعلى تصحيح.
+  // «www.» تُحذف من الرابط داخل الرمز فقط (نفس العنوان) لتقليل الكثافة.
+  const qrText = link => String(link || '').trim().replace(/^(https?:\/\/)www\./i, '$1');
   function qrBuild(link) {
-    let q = null;
+    let best = null;
     for (const lvl of ['H', 'Q', 'M']) {
-      q = window.qrcode(0, lvl); q.addData(String(link || '')); q.make();
-      if (q.getModuleCount() <= 45) break;
+      const q = window.qrcode(0, lvl); q.addData(qrText(link)); q.make();
+      if (!best || q.getModuleCount() < best.getModuleCount()) best = q;
     }
-    return q;
+    return best;
   }
   function qrModules(link) { try { return qrBuild(link).getModuleCount(); } catch (e) { return 0; } }
 
