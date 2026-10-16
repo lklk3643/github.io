@@ -797,6 +797,139 @@
     saveBlob(new Blob(['\ufeff' + XLSX.utils.sheet_to_csv(ws)], { type: 'text/csv;charset=utf-8' }), 'بيانات-المناقشات.csv');
   };
 
+  // ---------- قراءة «جدول حجز القاعة» كما هو (يوم / تاريخ هجري / س8..س2) ----------
+  const FEMALE = new Set(['مها', 'هند', 'غدير', 'عهود', 'آمال', 'امال', 'منال', 'ثريا', 'نوف', 'ريم', 'رهف', 'شهد', 'مرام', 'جواهر', 'دلال', 'وجدان', 'ابتسام', 'أريج', 'اريج',
+    'سعاد', 'هيا', 'أمل', 'امل', 'إيمان', 'ايمان', 'نور', 'مريم', 'زينب', 'عبير', 'أثير', 'اثير', 'رغد', 'سحر', 'حنان', 'نوال', 'إلهام', 'الهام', 'وعد', 'بدور', 'أفنان', 'افنان',
+    'العنود', 'الجوهرة', 'البندري', 'الهنوف', 'شوق', 'ميعاد', 'وداد', 'رحاب', 'إشراق', 'اشراق', 'تغريد', 'أروى', 'اروى', 'أسيل', 'اسيل', 'جود', 'لين', 'ديم', 'غيداء',
+    'سهام', 'أنفال', 'انفال', 'جيهان', 'بشاير', 'بشائر', 'بتول', 'نهال', 'روان', 'رزان', 'هلا', 'ابتسام', 'أبتسام', 'مآثر', 'وئام', 'ريهام', 'مشاعل', 'بنان', 'ثمار', 'بيان',
+    'أشواق', 'اشواق', 'أماني', 'اماني', 'تهاني', 'أغاريد', 'سلمى', 'لمى', 'ندى', 'حلا', 'جنى', 'سماح', 'إسراء', 'اسراء', 'آلاء', 'الاء', 'نجود', 'هتون', 'وسن', 'رنا', 'لانا',
+    'سارا', 'ديما', 'دعاء', 'عائشة', 'خلود', 'أنوار', 'انوار', 'إخلاص', 'اخلاص', 'تسنيم', 'سوزان', 'ميار', 'رهام', 'سجى', 'أسماء', 'لجين', 'ابرار', 'أبرار', 'عفاف', 'نجلاء']);
+  const MALE_EXC = new Set(['طه', 'عبيده', 'معاويه', 'أسامه', 'اسامه', 'حذيفه', 'طلحه', 'حمزة', 'حمزه', 'أسامة', 'اسامة', 'طلحة', 'عبيدة', 'معاوية', 'عروة', 'قتادة', 'عطية', 'خليفة', 'حذيفة', 'عكرمة', 'علاء', 'زكرياء', 'بهاء', 'ضياء', 'مصطفى', 'موسى', 'عيسى', 'يحيى', 'مرتضى', 'هدى الله']);
+  function guessGender(name) {
+    const first = String(name || '').trim().split(/\s+/)[0] || '';
+    if (!first || MALE_EXC.has(first)) return 'ذكر';
+    if (/^عبد/.test(first)) return 'ذكر';
+    if (FEMALE.has(first) || /(ة|اء|ه)$/.test(first) || (/ى$/.test(first) && !/^(مصطفى|موسى|عيسى|يحيى|مرتضى|مجتبى)$/.test(first))) return 'أنثى';
+    return 'ذكر';
+  }
+  function fixSpelling(t) {
+    return String(t || '').replace(/\s+/g, ' ').trim()
+      .replace(/(^|\s)(ال)?فق[ةه](?=\s|$)/g, (m, sp, al) => `${sp}${al || 'ال'}فقه`)
+      .replace(/(^|\s)(ال)?قر[اأآ]ن/g, (m, sp) => `${sp}القرآن`)
+      .replace(/وعلوم[ةه](?=\s|$)/g, 'وعلومه').replace(/و\s+علومها/g, 'وعلومها')
+      .replace(/(^|\s)اصول/g, '$1أصول').replace(/أصول (?!ال)فقه/g, 'أصول الفقه')
+      .replace(/(^|\s)(ال)?سن[ةه](?=\s|$)/g, (m, sp) => `${sp}السنة`)
+      .replace(/(^|\s)(ال)?عقيد[ةه](?=\s|$)/g, (m, sp) => `${sp}العقيدة`);
+  }
+  const hourText = h => h >= 6 && h <= 11 ? `${h} صباحاً` : (h === 12 || h === 1 || h === 2) ? `${h} ظهراً` : `${h} مساءً`;
+  function timeIn(text) {
+    let m = text.match(/(\d{1,2}(?::\d{2})?)\s*(صباحاً|صباحا|ص|ظهراً|ظهرا|مساءً|مساء|م)(?![؀-ۿ])/);
+    if (m) { const suf = /^ص/.test(m[2]) ? 'صباحاً' : /^ظ/.test(m[2]) ? 'ظهراً' : 'مساءً'; return `${m[1]} ${suf}`; }
+    m = text.match(/الساع[ةه]\s*(\d{1,2})(:\d{2})?/);
+    if (m) { const h = +m[1]; return `${m[1]}${m[2] || ''} ${h >= 6 && h <= 11 ? 'صباحاً' : h === 12 ? 'ظهراً' : 'مساءً'}`; }
+    return '';
+  }
+  function parseBookingCell(raw, colHour) {
+    const text = String(raw || '').replace(/\s+/g, ' ').trim();
+    if (!/مناقش/.test(text)) return null;
+    const remote = /عن\s*بعد/.test(text);
+    const time = timeIn(text) || (colHour ? hourText(colHour) : '');
+    const parts = text.replace(/^مناقش(ة|ات)\s*/, '').split(/\s+[-–—]\s*|\s*[-–—]\s+/).map(x => x.trim()).filter(Boolean);
+    let degree = '', student = '';
+    for (const part of parts) {
+      const clean = part.replace(/عن\s*بعد.*$/, '').replace(/(الساع[ةه]\s*)?\d{1,2}(:\d{2})?\s*(صباحاً|صباحا|ص|ظهراً|ظهرا|مساءً|مساء|م)?(?![؀-ۿ]).*$/, '').trim();
+      const dm = clean.match(/^(?:ال)?(ماجستير|دكتوراه|دكتوراة)\s*(.*)$/);
+      if (dm && !degree) {
+        const level = /ماجستير/.test(dm[1]) ? 'الماجستير' : 'الدكتوراه';
+        const spec = fixSpelling(dm[2]).replace(/^في\s+/, '');
+        degree = spec ? `${level} في ${spec}` : level;
+      } else if (clean && !student && !/^عن\s*بعد/.test(clean)) student = clean;
+    }
+    if (!degree) return null; // خانة بدون درجة (مثل «مناقشات الدراسات العليا») ليست إعلاناً
+    return { degree, student, gender: student ? guessGender(student) : '', time,
+      place: remote ? 'عن بعد' : 'قاعة ابن عثيمين', placeNote: remote ? '(عبر الإنترنت)' : '(والبث عبر الإنترنت)' };
+  }
+  function findBooking(aoa) {
+    for (let r = 0; r < Math.min(aoa.length, 15); r++) {
+      const row = aoa[r].map(v => String(v || '').trim());
+      const hours = row.map((v, i) => { const m = v.match(/^س\s*(\d{1,2})$/); return m ? [i, +m[1]] : null; }).filter(Boolean);
+      const dayCol = row.findIndex(v => v === 'يوم' || v === 'اليوم');
+      const hijriCol = row.findIndex(v => /هجري/.test(v));
+      if (hours.length >= 2 && hijriCol >= 0) return { headerRow: r, hours, dayCol, hijriCol, noteCol: row.findIndex(v => /ملاحظ/.test(v)) };
+    }
+    return null;
+  }
+  function parseBooking(aoa, info) {
+    const out = [];
+    for (let r = info.headerRow + 1; r < aoa.length; r++) {
+      const row = aoa[r] || [];
+      const hj = String(row[info.hijriCol] || '').trim().match(/(\d{4})\D+(\d{1,2})\D+(\d{1,2})/);
+      if (!hj) continue;
+      const [y, m, d] = [+hj[1], +hj[2], +hj[3]];
+      const note = info.noteCol >= 0 ? String(row[info.noteCol] || '').trim() : '';
+      info.hours.forEach(([col, h]) => {
+        const data = parseBookingCell(row[col], h);
+        if (!data) return;
+        out.push({ ...data, day: info.dayCol >= 0 ? String(row[info.dayCol] || '').trim() : '', date: `${y}/${m}/${d} هـ`,
+          _y: y, _m: m, _d: d, _note: note, _postponed: /تأجيل|التأجيل/.test(note) && !/انتهت/.test(note) });
+      });
+    }
+    return out;
+  }
+  function todayHijri() {
+    try {
+      const parts = new Intl.DateTimeFormat('en-u-ca-islamic-umalqura', { day: 'numeric', month: 'numeric', year: 'numeric' }).formatToParts(new Date());
+      const g = t => parseInt((parts.find(p => p.type === t) || {}).value, 10);
+      return g('year') * 10000 + g('month') * 100 + g('day');
+    } catch (e) { return 0; }
+  }
+  const HMONTHS = ['محرم', 'صفر', 'ربيع الأول', 'ربيع الآخر', 'جمادى الأولى', 'جمادى الآخرة', 'رجب', 'شعبان', 'رمضان', 'شوال', 'ذو القعدة', 'ذو الحجة'];
+  let bookingItems = [];
+  function importWorkbook(wb) {
+    for (const name of wb.SheetNames) {
+      const aoa = XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1, defval: '', raw: false });
+      const info = findBooking(aoa);
+      if (info) { bookingItems = parseBooking(aoa, info); return openBookingDialog(name); }
+    }
+    setRows(sheetToRows(wb));
+  }
+  function openBookingDialog(sheetName) {
+    const items = bookingItems, today = todayHijri();
+    const months = new Map();
+    items.forEach(it => { const k = it._y * 100 + it._m; months.set(k, (months.get(k) || 0) + 1); });
+    const upcoming = items.filter(it => it._y * 10000 + it._m * 100 + it._d >= today).length;
+    const postponed = items.filter(it => it._postponed).length;
+    $('#bkSummary').innerHTML = `ورقة «${esc(sheetName)}»: <b>${items.length}</b> مناقشة` +
+      ` — القادمة: <b>${upcoming}</b>` + (postponed ? ` — المؤجلة: <b>${postponed}</b>` : '');
+    $('#bkMonths').innerHTML = [...months.entries()].sort((a, b) => b[0] - a[0]).map(([k, n]) =>
+      `<label class="check bk-m"><input type="checkbox" value="${k}" ${k * 100 + 31 >= today ? 'checked' : ''}> ${HMONTHS[(k % 100) - 1] || k % 100} ${Math.floor(k / 100)} هـ <span class="hint">(${n})</span></label>`).join('');
+    $('#bkMode').value = grid.some(r => !isEmptyRow(r)) ? 'append' : 'replace';
+    updBkCount(); openModal('#mBooking');
+  }
+  function bkSelected() {
+    const ms = new Set($$('#bkMonths input:checked').map(i => +i.value));
+    const skip = $('#bkSkipPost').checked;
+    return bookingItems.filter(it => ms.has(it._y * 100 + it._m) && !(skip && it._postponed));
+  }
+  function updBkCount() { $('#bkGo').textContent = `📥 استيراد ${bkSelected().length} مناقشة إلى الجدول`; }
+  $('#bkMonths').addEventListener('change', updBkCount);
+  $('#bkSkipPost').addEventListener('change', updBkCount);
+  $('#bkAll').onclick = () => { $$('#bkMonths input').forEach(i => { i.checked = true; }); updBkCount(); };
+  $('#bkNone').onclick = () => { $$('#bkMonths input').forEach(i => { i.checked = false; }); updBkCount(); };
+  $('#bkUpcoming').onclick = () => { const t = todayHijri(); $$('#bkMonths input').forEach(i => { i.checked = +i.value * 100 + 31 >= t; }); updBkCount(); };
+  $('#bkGo').onclick = () => {
+    const sel = bkSelected().sort((a, b) => (a._y * 10000 + a._m * 100 + a._d) - (b._y * 10000 + b._m * 100 + b._d));
+    if (!sel.length) return toast('اختر شهراً واحداً على الأقل', true);
+    const rowsNew = sel.map(it => dataToGrid(it));
+    if ($('#bkMode').value === 'replace') { grid = []; gridSel.clear(); activeRow = -1; }
+    grid = grid.filter(r => !isEmptyRow(r));
+    const start = grid.length; grid.push(...rowsNew); rowsNew.forEach((_, k) => gridSel.add(start + k));
+    renderGrid(); gridChanged();
+    $('#mBooking').classList.remove('open');
+    $('#dataSheet').scrollIntoView({ behavior: 'smooth' });
+    toast(`تم استيراد ${sel.length} مناقشة ✓ — كمّل العنوان واللجنة (عليها ⚠️) والاقتراحات تساعدك`);
+  };
+
   function sheetToRows(wb) {
     const ws = wb.Sheets[wb.SheetNames[0]];
     return XLSX.utils.sheet_to_json(ws, { defval: '', raw: false });
@@ -804,9 +937,10 @@
   $('#xlsFile').addEventListener('change', async e => {
     const f = e.target.files[0]; if (!f) return;
     try {
-      const buf = await f.arrayBuffer();
-      setRows(sheetToRows(XLSX.read(buf, { type: 'array' })));
-    } catch (err) { toast('تعذّر قراءة الملف', true); }
+      // ملفات CSV تُقرأ كنص UTF-8 حتى لا تتشوّه الحروف العربية
+      if (/\.(csv|tsv|txt)$/i.test(f.name)) importWorkbook(XLSX.read((await f.text()).replace(/^\ufeff/, ''), { type: 'string' }));
+      else importWorkbook(XLSX.read(await f.arrayBuffer(), { type: 'array' }));
+    } catch (err) { console.error(err); toast('تعذّر قراءة الملف', true); }
     e.target.value = '';
   });
 
@@ -826,7 +960,7 @@
       if (!r.ok) throw new Error(r.status);
       const text = await r.text();
       if (/^\s*<!DOCTYPE|<html/i.test(text)) throw new Error('private');
-      setRows(sheetToRows(XLSX.read(text, { type: 'string' })));
+      importWorkbook(XLSX.read(text, { type: 'string' }));
       localStorage.setItem(userKey('sheet'), url);
       $('#refreshSheet').hidden = false;
     } catch (e) {
@@ -840,7 +974,7 @@
   if (savedSheet) { $('#sheetUrl').value = savedSheet; $('#refreshSheet').hidden = false; }
 
   // نموذج التعبئة الجاهز (منسّق، بقوائم اختيار وورقة شرح)
-  const TEMPLATE_URL = 'assets/templates/template.xlsx?v=202610160107';
+  const TEMPLATE_URL = 'assets/templates/template.xlsx?v=202610160114';
   // نموذج Google Sheets: يفتح نسخة جديدة منه في حسابك (أنشئ نسختك ثم عبّئها)
   const GSHEET_TEMPLATE = 'https://docs.google.com/spreadsheets/d/1Xkwe3rF0iIVspBlWcr0tGOJA1KpJKWjERlh-gfOPqUQ/copy';
   $('#gsCopy').href = GSHEET_TEMPLATE;
@@ -985,7 +1119,7 @@
   // تتعلّم من: الجدول، سجل التصاميم، القوالب المحفوظة، والقيم المكتوبة سابقاً
   window.QSuggest = (function () {
     const SEEDS = {
-      degree: ['الماجستير في الفقه المقارن', 'الماجستير في الفقه', 'الماجستير في أصول الفقه', 'الدكتوراه في الفقه', 'الدكتوراه في الفقه المقارن', 'الدكتوراه في أصول الفقه'],
+      degree: ['الماجستير', 'الدكتوراه'].flatMap(d => ['الفقه', 'الفقه المقارن', 'أصول الفقه', 'العقيدة', 'السنة وعلومها', 'القرآن وعلومه'].map(x => `${d} في ${x}`)),
       day: ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'],
       time: ['8 صباحاً', '9 صباحاً', '10 صباحاً', '11 صباحاً', '12 ظهراً', '1 ظهراً', '7 مساءً', '8 مساءً'],
       gender: ['ذكر', 'أنثى'],

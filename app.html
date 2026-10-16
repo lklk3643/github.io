@@ -8,9 +8,9 @@
     // حماية الصفحة: يجب تسجيل الدخول أولاً
     if (!(sessionStorage.getItem('qu_session') || localStorage.getItem('qu_session'))) location.replace('index.html');
   </script>
-  <link rel="stylesheet" href="assets/fonts/fonts.css?v=202610160107">
-  <link rel="stylesheet" href="assets/css/app.css?v=202610160107">
-  <link rel="stylesheet" href="assets/css/poster.css?v=202610160107">
+  <link rel="stylesheet" href="assets/fonts/fonts.css?v=202610160114">
+  <link rel="stylesheet" href="assets/css/app.css?v=202610160114">
+  <link rel="stylesheet" href="assets/css/poster.css?v=202610160114">
 </head>
 <body>
   <div class="topbar">
@@ -305,6 +305,23 @@
       <li>في «المحتوى ← رابط البث» فعّل المربع، ويظهر رمز QR في الإعلان. تقدر تحط أي رابط (يوتيوب، زوم، بلاك بورد...).</li></ol></div>
   </div></div>
 
+  <!-- استيراد جدول حجز القاعة -->
+  <div class="modal" id="mBooking"><div class="box" style="width:min(640px,100%)">
+    <h2>📅 تم التعرّف على «جدول حجز القاعة» <button class="btn sm" data-close>✕</button></h2>
+    <p id="bkSummary" style="margin-top:0"></p>
+    <p class="hint">كل حجز «مناقشة ...» يتحوّل لإعلان: الدرجة والطالب واليوم والتاريخ والوقت (من عمود الساعة) والمكان. العنوان واللجنة تكمّلها في الجدول، والجنس مقترح من الاسم (تقدر تعدّله).</p>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
+      <button class="btn sm" id="bkUpcoming">⏭️ القادمة فقط</button>
+      <button class="btn sm" id="bkAll">☑️ كل الأشهر</button>
+      <button class="btn sm" id="bkNone">إلغاء التحديد</button>
+    </div>
+    <div class="bk-list" id="bkMonths"></div>
+    <label class="check"><input type="checkbox" id="bkSkipPost" checked> تجاهل المناقشات المؤجلة</label>
+    <div class="field" style="margin-top:8px"><label>إلى الجدول</label>
+      <select id="bkMode"><option value="append">إضافة للبيانات الموجودة</option><option value="replace">استبدال الجدول</option></select></div>
+    <button class="btn primary" id="bkGo" style="width:100%;justify-content:center;padding:11px"></button>
+  </div></div>
+
   <!-- نافذة سجل التصاميم -->
   <div class="modal" id="mHistory"><div class="box" style="width:min(1100px,100%)">
     <h2>سجل التصاميم <span id="histCount" class="hint"></span> <button class="btn sm" data-close>✕</button></h2>
@@ -377,13 +394,13 @@
   <div class="toast" id="toast"></div>
   <div class="export-root"><div id="exportPoster"></div></div>
 
-  <script src="assets/vendor/xlsx.full.min.js?v=202610160107"></script>
-  <script src="assets/vendor/jszip.min.js?v=202610160107"></script>
-  <script src="assets/vendor/jspdf.umd.min.js?v=202610160107"></script>
-  <script src="assets/vendor/qrcode.js?v=202610160107"></script>
-  <script src="assets/vendor/html-to-image.js?v=202610160107"></script>
-  <script src="assets/js/auth.js?v=202610160107"></script>
-  <script src="assets/js/poster.js?v=202610160107"></script>
-  <script src="assets/js/app.js?v=202610160107"></script>
+  <script src="assets/vendor/xlsx.full.min.js?v=202610160114"></script>
+  <script src="assets/vendor/jszip.min.js?v=202610160114"></script>
+  <script src="assets/vendor/jspdf.umd.min.js?v=202610160114"></script>
+  <script src="assets/vendor/qrcode.js?v=202610160114"></script>
+  <script src="assets/vendor/html-to-image.js?v=202610160114"></script>
+  <script src="assets/js/auth.js?v=202610160114"></script>
+  <script src="assets/js/poster.js?v=202610160114"></script>
+  <script src="assets/js/app.js?v=202610160114"></script>
 </body>
 </html>
