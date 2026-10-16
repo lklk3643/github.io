@@ -2,7 +2,7 @@
 (function () {
   'use strict';
   // تحديث تلقائي: إذا نُشرت نسخة أحدث من المفتوحة يُعاد تحميل الصفحة (يتجاوز ذاكرة المتصفح المؤقتة)
-  const APP_V = '?v=202610160844'.slice(3);
+  const APP_V = '?v=202610160955'.slice(3);
   let lastVCheck = 0;
   function checkVersion() {
     if (location.protocol === 'file:' || Date.now() - lastVCheck < 60000) return;
@@ -701,6 +701,7 @@
     gridSnap('استيراد ملف'); toTrash(grid, 'استبدال بالاستيراد');
     grid = list.map(o => parseRow(o)).filter(d => !isWeekendRow(d)).map(d => dataToGrid(d)).filter(r => !isEmptyRow(r));
     grid.forEach(r => { if (!r[WCOL]) stamp(r); });
+    grid = sortRows(grid);
     gridSel.clear();
     grid.forEach((_, i) => gridSel.add(i));
     try { localStorage.setItem(userKey('grid'), JSON.stringify(grid)); } catch (e) { /* مساحة */ }
@@ -980,7 +981,7 @@
       });
       stamp(grid[r]);
     });
-    renderGrid(); gridChanged();
+    renderGrid(); gridChanged(); autoSort();
     toast(`تم لصق ${data.length} سطر ✓`);
   });
   $('#sheet').addEventListener('keydown', e => {
@@ -1002,7 +1003,7 @@
     const firstEmpty = grid.findIndex(isEmptyRow);
     const row = dataToGrid({ ...state, gender: /طالبة/.test(state.by) ? 'أنثى' : 'ذكر' }); stamp(row);
     if (firstEmpty >= 0) grid[firstEmpty] = row; else grid.push(row);
-    renderGrid(); gridChanged(); toast('تمت إضافة التصميم الحالي كصف ✓');
+    renderGrid(); gridChanged(); autoSort(row); toast('تمت إضافة التصميم الحالي كصف ✓');
   };
   // ترتيب تصاعدي: التاريخ الهجري ثم الوقت (الأسطر بلا تاريخ في الآخر)
   function gridDateKey(r) {
@@ -1014,6 +1015,37 @@
   { const wk = $('#gWeeks'); wk.checked = weeksOn();
     wk.onchange = () => { try { localStorage.setItem(userKey('weeks'), wk.checked ? '1' : '0'); } catch (e) { /* اختياري */ } renderGrid();
       toast(wk.checked ? '🌙 تظهر الإجازة الأسبوعية بين الأسابيع (وفي الملف المصدَّر)' : 'أُخفيت فواصل الأسابيع — الصفوف ورا بعض'); }; }
+  // ترتيب تلقائي بالتاريخ ثم الوقت (الأسطر الفاضية تبقى في الآخر)، مع الحفاظ على التحديد والسطر المفتوح
+  function autoSort(focusRow) {
+    const order = grid.map((r, i) => [isEmptyRow(r) ? 1 : 0, gridDateKey(r), i, r])
+      .sort((a, b) => a[0] - b[0] || a[1] - b[1] || a[2] - b[2]);
+    if (order.every((x, i) => x[2] === i)) return false;
+    gridSnap('ترتيب تلقائي');
+    const map = new Map(order.map((x, ni) => [x[2], ni]));
+    grid = order.map(x => x[3]);
+    const sel = [...gridSel].map(i => map.get(i)); gridSel.clear(); sel.forEach(i => gridSel.add(i));
+    if (activeRow >= 0) activeRow = map.get(activeRow);
+    renderGrid(); gridChanged();
+    const ni = focusRow ? grid.indexOf(focusRow) : -1, tr = ni >= 0 && $(`#sheet tr[data-r="${ni}"]`);
+    if (tr) { tr.scrollIntoView({ behavior: 'smooth', block: 'center' }); tr.classList.add('flash'); setTimeout(() => tr.classList.remove('flash'), 1600); }
+    return true;
+  }
+  let sortPending = null; // السطر اللي تغيّر تاريخه/وقته — يُرتّب لما تطلع منه
+  const SORT_COLS = new Set([CI('التاريخ'), CI('الوقت')]);
+  $('#sheet').addEventListener('input', e => {
+    const c = e.target.dataset && e.target.dataset.c; if (c == null || !SORT_COLS.has(+c)) return;
+    sortPending = grid[+e.target.closest('tr').dataset.r];
+  });
+  $('#sheet').addEventListener('focusout', e => {
+    if (!sortPending) return;
+    const tr = e.target.closest && e.target.closest('tr'), to = e.relatedTarget;
+    if (to && (to.closest('tr') === tr || to.closest('#picker'))) return; // ما زال في نفس السطر
+    setTimeout(() => {
+      const a = document.activeElement, row = sortPending;
+      if (!row || (a && a.closest && a.closest('tr') && grid[+a.closest('tr').dataset.r] === row)) return;
+      sortPending = null; autoSort(row);
+    }, 250);
+  });
   $('#gSort').onclick = () => {
     gridSnap('ترتيب بالتاريخ');
     grid = sortRows(grid); gridSel.clear(); activeRow = -1; renderGrid(); gridChanged();
@@ -1022,7 +1054,7 @@
   // بيانات الكلية المشتركة (جدول حجز القاعة): تُضاف للجدول مرة لكل إصدار بدون تكرار ثم يُرتّب
   (async function loadShared() {
     try {
-      const res = await fetch('assets/data/defenses.json?v=202610160844', { cache: 'no-cache' }); if (!res.ok) return;
+      const res = await fetch('assets/data/defenses.json?v=202610160955', { cache: 'no-cache' }); if (!res.ok) return;
       const data = await res.json(), seenKey = userKey('sharedv');
       if (!data || !data.v || localStorage.getItem(seenKey) === data.v) return;
       const demo = new Set(SAMPLES.map(x => JSON.stringify(dataToGrid(x)))); // الأمثلة غير المعدّلة تُستبدل بالبيانات الحقيقية
@@ -1321,7 +1353,7 @@
     gridSnap(`استيراد ${sel.length} مناقشة`);
     if ($('#bkMode').value === 'replace') { toTrash(grid, 'استبدال بالاستيراد'); grid = []; gridSel.clear(); activeRow = -1; }
     grid = grid.filter(r => !isEmptyRow(r));
-    const start = grid.length; grid.push(...rowsNew); rowsNew.forEach((_, k) => gridSel.add(start + k));
+    grid.push(...rowsNew); grid = sortRows(grid); rowsNew.forEach(r => gridSel.add(grid.indexOf(r)));
     renderGrid(); gridChanged();
     $('#mBooking').classList.remove('open');
     $('#dataSheet').scrollIntoView({ behavior: 'smooth' });
@@ -1372,7 +1404,7 @@
   if (savedSheet) { $('#sheetUrl').value = savedSheet; $('#refreshSheet').hidden = false; }
 
   // نموذج التعبئة الجاهز (منسّق، بقوائم اختيار وورقة شرح)
-  const TEMPLATE_URL = 'assets/templates/template.xlsx?v=202610160844';
+  const TEMPLATE_URL = 'assets/templates/template.xlsx?v=202610160955';
   // نموذج Google Sheets: يفتح نسخة جديدة منه في حسابك (أنشئ نسختك ثم عبّئها)
   const GSHEET_TEMPLATE = 'https://docs.google.com/spreadsheets/d/1UeSeDlmeC8X-bhU-4uUWxqbu2aTQFDURwSryk6Z49to/copy';
   $('#gsCopy').href = GSHEET_TEMPLATE;
@@ -2007,7 +2039,7 @@
   // ينقل للسطر فقط الحقول التي غيّرها المستخدم في النموذج منذ فتح السطر
   function syncActiveRow() {
     if (activeRow < 0 || !grid[activeRow] || !rowSnap) return;
-    const fresh = gridOfState();
+    const fresh = gridOfState(), prevSnap = rowSnap;
     const row = grid[activeRow]; let changedAny = false;
     GCOLS.forEach((c, j) => {
       if ((fresh[j] || '') === (rowSnap[j] || '')) return; // لم يتغيّر في النموذج
@@ -2018,7 +2050,9 @@
     });
     rowSnap = fresh;
     if (changedAny) { stamp(row); const wc = cellAt(activeRow, WCOL); if (wc) wc.value = row[WCOL]; updRowWarn(activeRow); refreshConflictsSoon(activeRow); gridChanged(); }
+    if (changedAny && [...SORT_COLS].some(j => (fresh[j] || '') !== (prevSnap[j] || ''))) { clearTimeout(formSortT); formSortT = setTimeout(() => autoSort(row), 1200); }
   }
+  let formSortT;
   let histAutoT;
   function autoSync() {
     syncActiveRow();
