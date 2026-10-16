@@ -2,7 +2,7 @@
 (function () {
   'use strict';
   // تحديث تلقائي: إذا نُشرت نسخة أحدث من المفتوحة يُعاد تحميل الصفحة (يتجاوز ذاكرة المتصفح المؤقتة)
-  const APP_V = '?v=202610160416'.slice(3);
+  const APP_V = '?v=202610160826'.slice(3);
   let lastVCheck = 0;
   function checkVersion() {
     if (location.protocol === 'file:' || Date.now() - lastVCheck < 60000) return;
@@ -1018,7 +1018,7 @@
   // بيانات الكلية المشتركة (جدول حجز القاعة): تُضاف للجدول مرة لكل إصدار بدون تكرار ثم يُرتّب
   (async function loadShared() {
     try {
-      const res = await fetch('assets/data/defenses.json?v=202610160416', { cache: 'no-cache' }); if (!res.ok) return;
+      const res = await fetch('assets/data/defenses.json?v=202610160826', { cache: 'no-cache' }); if (!res.ok) return;
       const data = await res.json(), seenKey = userKey('sharedv');
       if (!data || !data.v || localStorage.getItem(seenKey) === data.v) return;
       const demo = new Set(SAMPLES.map(x => JSON.stringify(dataToGrid(x)))); // الأمثلة غير المعدّلة تُستبدل بالبيانات الحقيقية
@@ -1117,26 +1117,31 @@
     if (m) { const suf = /^ص/.test(m[2]) ? 'صباحاً' : /^ظ/.test(m[2]) || /^12\b/.test(m[1]) ? 'ظهراً' : 'مساءً'; return `${m[1]} ${suf}`; }
     m = text.match(/الساع[ةه]\s*(\d{1,2})(:\d{2})?/);
     if (m) { const h = +m[1]; return `${m[1]}${m[2] || ''} ${h >= 6 && h <= 11 ? 'صباحاً' : h === 12 ? 'ظهراً' : 'مساءً'}`; }
-    m = text.match(/(?:عن\s*بعد|[-–—])\s*(\d{1,2}):(\d{2})(?!\d)/); // وقت بدون ص/م: 9:30 → صباحاً
+    m = text.match(/(?:^|\s)(\d{1,2}):(\d{2})(?!\d)/); // وقت بدون ص/م: 9:30 → صباحاً، 4:30 → مساءً
     if (m) { const h = +m[1]; return `${m[1]}:${m[2]} ${h >= 6 && h <= 11 ? 'صباحاً' : h === 12 ? 'ظهراً' : 'مساءً'}`; }
     return '';
   }
-  function parseBookingCell(raw, colHour) {
-    const text = String(raw || '').replace(/\s+/g, ' ').trim()
+  // o: { remoteCol: عمود «المناقشة (1)» أو «عن بعد»، usesHall: الورقة تكتب «حضوري» صراحة }
+  function parseBookingCell(raw, colHour, o = {}) {
+    let text = toLatin(String(raw || '')).replace(/\s+/g, ' ').trim();
+    if (!/(ماجستير|دكتوراه|دكتوراة)/.test(text) || /^(محجوز|لقاء)/.test(text)) return null; // حجوزات غير المناقشات
+    if (!/^مناقش/.test(text)) text = 'مناقشة ' + text; // «ماجستير فقة - ...» بدون كلمة مناقشة
+    text = text.replace(/(ماجستير|دكتوراه|دكتوراة)(?=[^\s])/g, '$1 ') // «ماجستيرأصول» → «ماجستير أصول»
+      .replace(/(^|\s)س\s*(?=\d)/g, '$1') // «س 10 ص» → «10 ص»
       .replace(/([^\s\-–—])\s+((?:ال)?(?:ماجستير|دكتوراه|دكتوراة)(?:\s|$))/, '$1 - $2'); // «مناقشة الاسم ماجستير ...» بدون شرطة
-    if (!/مناقش/.test(text)) return null;
-    const own = timeIn(text);
-    // في جدول الحجز: الوقت المكتوب داخل الخانة يعني مناقشة عن بعد (خانة الساعة مجرد مكان في الجدول)
-    const remote = /عن\s*بعد/.test(text) || !!own;
+    const own = timeIn(text), hall = /حضور/.test(text);
+    // عن بعد: مكتوب صراحة أو في عمود المناقشات عن بعد. وفي الأوراق القديمة (بدون «حضوري») الوقت المكتوب داخل الخانة يعني عن بعد
+    const remote = !hall && (/عن\s*بعد/.test(text) || !!o.remoteCol || (!o.usesHall && !!own));
     const time = own || (colHour ? hourText(colHour) : '');
     const parts = text.replace(/^مناقش(ة|ات)\s*/, '').split(/\s+[-–—]\s*|\s*[-–—]\s+/).map(x => x.trim()).filter(Boolean);
     let degree = '', student = '';
     for (const part of parts) {
-      const clean = part.replace(/عن\s*بعد.*$/, '').replace(/(الساع[ةه]\s*)?\d{1,2}(:\d{2})?\s*(صباحاً|صباحا|ص|ظهراً|ظهرا|مساءً|مساء|م)?(?![؀-ۿ]).*$/, '').trim();
+      const clean = part.replace(/عن\s*بعد.*$/, '').replace(/\s*حضور\S*.*$/, '').replace(/(الساع[ةه]\s*)?\d{1,2}(:\d{2})?\s*(صباحاً|صباحا|ص|ظهراً|ظهرا|مساءً|مساء|م)?(?![؀-ۿ]).*$/, '').trim();
       const dm = clean.match(/^(?:ال)?(ماجستير|دكتوراه|دكتوراة)\s*(.*)$/);
       if (dm && !degree) {
         const level = /ماجستير/.test(dm[1]) ? 'الماجستير' : 'الدكتوراه';
-        const spec = fixSpelling(dm[2]).replace(/^في\s+/, '');
+        const spec = fixSpelling(dm[2]).replace(/^في\s+/, '')
+          .replace(/^القرآن$/, 'القرآن وعلومه').replace(/^السنة$/, 'السنة وعلومها'); // اسم القسم كاملاً
         degree = spec ? `${level} في ${spec}` : level;
       } else if (clean && !student && !/^عن\s*بعد/.test(clean)) student = clean;
     }
@@ -1147,15 +1152,16 @@
   function findBooking(aoa) {
     for (let r = 0; r < Math.min(aoa.length, 15); r++) {
       const row = aoa[r].map(v => String(v || '').trim());
-      const hours = row.map((v, i) => { const m = v.match(/^س\s*(\d{1,2})$/); return m ? [i, +m[1]] : null; }).filter(Boolean);
+      const hours = row.map((v, i) => { const m = v.match(/^س\s*(\d{1,2})$/); return m ? [i, +m[1]]
+        : /^المناقش[ةه]\s*\(?\d|^عن\s*بعد$|^مسائي$/.test(v) ? [i, null, !/مسائي/.test(v)] : null; }).filter(Boolean); // أعمدة إضافية: عن بعد / مسائي
       const dayCol = row.findIndex(v => v === 'يوم' || v === 'اليوم');
       const hijriCol = row.findIndex(v => /هجري/.test(v));
-      if (hours.length >= 2 && hijriCol >= 0) return { headerRow: r, hours, dayCol, hijriCol, noteCol: row.findIndex(v => /ملاحظ/.test(v)), coordCol: row.findIndex(v => /منسق/.test(v)) };
+      if (hours.filter(h => h[1]).length >= 2 && hijriCol >= 0) return { headerRow: r, hours, dayCol, hijriCol, noteCol: row.findIndex(v => /ملاحظ/.test(v)), coordCol: row.findIndex(v => /منسق/.test(v)) };
     }
     return null;
   }
   function parseBooking(aoa, info) {
-    const out = [];
+    const out = [], usesHall = aoa.some(r => (r || []).some(v => /حضور/.test(String(v || ''))));
     for (let r = info.headerRow + 1; r < aoa.length; r++) {
       const row = aoa[r] || [];
       const hj = String(row[info.hijriCol] || '').trim().match(/(\d{4})\D+(\d{1,2})\D+(\d{1,2})/);
@@ -1165,8 +1171,8 @@
       const coord = info.coordCol >= 0 ? String(row[info.coordCol] || '').trim() : '';
       let k = 0; // ترتيب المناقشة في اليوم (لملاحظة مثل «تم تأجيل المناقشة الأولى والثانية انتهت»)
       const nth = ['الاولي', 'الثانيه', 'الثالثه', 'الرابعه'], nn = nrm(note);
-      info.hours.forEach(([col, h]) => {
-        const data = parseBookingCell(row[col], h);
+      info.hours.forEach(([col, h, remoteCol]) => {
+        const data = parseBookingCell(row[col], h, { remoteCol, usesHall });
         if (!data) return;
         const which = nth[k++];
         const postponed = /تاجيل|التاجيل/.test(nn) && (new RegExp(`تاجيل المناقشه ${which}`).test(nn) || (!/انتهت/.test(nn) && !/المناقشه (الاولي|الثانيه)/.test(nn)));
@@ -1186,12 +1192,15 @@
   }
   const HMONTHS = ['محرم', 'صفر', 'ربيع الأول', 'ربيع الآخر', 'جمادى الأولى', 'جمادى الآخرة', 'رجب', 'شعبان', 'رمضان', 'شوال', 'ذو القعدة', 'ذو الحجة'];
   let bookingItems = [];
-  function importWorkbook(wb) {
+  function importWorkbook(wb) { // كل أوراق الحجز في الملف (مثل ورقة لكل سنة) تُقرأ معاً
+    const names = [];
+    bookingItems = [];
     for (const name of wb.SheetNames) {
       const aoa = XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1, defval: '', raw: false });
       const info = findBooking(aoa);
-      if (info) { bookingItems = parseBooking(aoa, info); return openBookingDialog(name); }
+      if (info) { bookingItems.push(...parseBooking(aoa, info)); names.push(name); }
     }
+    if (names.length) return openBookingDialog(names.join('، '));
     setRows(sheetToRows(wb));
   }
   function openBookingDialog(sheetName) {
@@ -1275,7 +1284,7 @@
   if (savedSheet) { $('#sheetUrl').value = savedSheet; $('#refreshSheet').hidden = false; }
 
   // نموذج التعبئة الجاهز (منسّق، بقوائم اختيار وورقة شرح)
-  const TEMPLATE_URL = 'assets/templates/template.xlsx?v=202610160416';
+  const TEMPLATE_URL = 'assets/templates/template.xlsx?v=202610160826';
   // نموذج Google Sheets: يفتح نسخة جديدة منه في حسابك (أنشئ نسختك ثم عبّئها)
   const GSHEET_TEMPLATE = 'https://docs.google.com/spreadsheets/d/1UeSeDlmeC8X-bhU-4uUWxqbu2aTQFDURwSryk6Z49to/copy';
   $('#gsCopy').href = GSHEET_TEMPLATE;
