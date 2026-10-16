@@ -2,7 +2,7 @@
 (function () {
   'use strict';
   // تحديث تلقائي: إذا نُشرت نسخة أحدث من المفتوحة يُعاد تحميل الصفحة (يتجاوز ذاكرة المتصفح المؤقتة)
-  const APP_V = '?v=202610160331'.slice(3);
+  const APP_V = '?v=202610160416'.slice(3);
   let lastVCheck = 0;
   function checkVersion() {
     if (location.protocol === 'file:' || Date.now() - lastVCheck < 60000) return;
@@ -600,7 +600,8 @@
     'رابط اللجنة': 'committeeLink', 'رابط الزوم': 'committeeLink', 'رابط المناقش الخارجي': 'committeeLink', 'رابط خاص باللجنة': 'committeeLink',
     'رابط التسجيل': 'recordingLink', 'التسجيل': 'recordingLink',
     'الملاحظات': 'notes', 'ملاحظات': 'notes', 'notes': 'notes',
-    'منسق الحجز': 'coordinator', 'اسم منسق الحجز': 'coordinator', 'المنسق': 'coordinator', 'coordinator': 'coordinator'
+    'منسق الحجز': 'coordinator', 'اسم منسق الحجز': 'coordinator', 'المنسق': 'coordinator', 'coordinator': 'coordinator',
+    'الكاتب': 'writer', 'كتبه': 'writer', 'writer': 'writer'
   };
   const normKey = k => String(k).replace(/[_\-]+/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase().replace(/[إأآ]/g, 'ا');
   const NMAP = Object.fromEntries(Object.entries(FIELD_MAP).map(([k, v]) => [normKey(k), v]));
@@ -639,10 +640,10 @@
 
   // ---------- جدول البيانات (صف = إعلان) ----------
   // الكلية ونص الإعلان ثابتان في التصميم، فلا يحتاجان أعمدة
-  const GCOLS = ['الدرجة', 'الجنس', 'الطالب', 'العنوان', 'اليوم', 'التاريخ', 'الوقت', 'المكان', 'ملاحظة المكان', 'رابط البث', 'رابط اللجنة', 'رابط التسجيل', 'الملاحظات', 'منسق الحجز'];
+  const GCOLS = ['الدرجة', 'الجنس', 'الطالب', 'العنوان', 'اليوم', 'التاريخ', 'الوقت', 'المكان', 'ملاحظة المكان', 'رابط البث', 'رابط اللجنة', 'رابط التسجيل', 'الملاحظات', 'منسق الحجز', 'الكاتب'];
   const GFIELD = { 'الدرجة': 'degree', 'الجنس': 'gender', 'الطالب': 'student', 'العنوان': 'title',
     'اليوم': 'day', 'التاريخ': 'date', 'الوقت': 'time', 'المكان': 'place', 'ملاحظة المكان': 'placeNote', 'رابط البث': 'link',
-    'رابط اللجنة': 'committeeLink', 'رابط التسجيل': 'recordingLink', 'الملاحظات': 'notes', 'منسق الحجز': 'coordinator' };
+    'رابط اللجنة': 'committeeLink', 'رابط التسجيل': 'recordingLink', 'الملاحظات': 'notes', 'منسق الحجز': 'coordinator', 'الكاتب': 'writer' };
   const GMEM = 5;
   const PICK_COL = { 'اليوم': 'day', 'التاريخ': 'date', 'الوقت': 'time', 'الجنس': 'list:gender', 'الدرجة': 'list:degree',
     'المكان': 'list:place', 'ملاحظة المكان': 'list:placeNote', 'الملاحظات': 'list:notes', 'منسق الحجز': 'list:coord' };
@@ -659,9 +660,14 @@
   }
   if (grid.length && +(localStorage.getItem(userKey('gridv')) || 0) < 4) // إضافة عمودي الملاحظات ومنسق الحجز
     grid = grid.map(r => r.length === 27 ? [...r.slice(0, 12), '', '', ...r.slice(12)] : r);
-  try { localStorage.setItem(userKey('gridv'), '4'); } catch (e) { /* اختياري */ }
+  if (grid.length && +(localStorage.getItem(userKey('gridv')) || 0) < 5) // إضافة عمود الكاتب بعد منسق الحجز
+    grid = grid.map(r => r.length === 29 ? [...r.slice(0, 14), '', ...r.slice(14)] : r);
+  try { localStorage.setItem(userKey('gridv'), '5'); } catch (e) { /* اختياري */ }
   const gridSel = new Set();
-  const isEmptyRow = r => r.every(v => !String(v || '').trim());
+  // عمود «الكاتب» يتعبّى تلقائياً باسم المستخدم اللي كتب أو عدّل السطر (لا يُحسب في كون السطر فاضياً)
+  const WCOL = GCOLS.indexOf('الكاتب');
+  const isEmptyRow = r => r.every((v, i) => i === WCOL || !String(v || '').trim());
+  const stamp = r => { if (r) r[WCOL] = isEmptyRow(r) ? '' : session.u; };
   const gridToObj = r => Object.fromEntries(GCOLS.map((c, i) => [c, r[i] || '']));
   function dataToGrid(d) {
     const r = emptyRow();
@@ -693,6 +699,7 @@
   }
   function setRows(list) {
     grid = list.map(o => parseRow(o)).filter(d => !isWeekendRow(d)).map(d => dataToGrid(d)).filter(r => !isEmptyRow(r));
+    grid.forEach(r => { if (!r[WCOL]) stamp(r); });
     gridSel.clear();
     grid.forEach((_, i) => gridSel.add(i));
     try { localStorage.setItem(userKey('grid'), JSON.stringify(grid)); } catch (e) { /* مساحة */ }
@@ -741,10 +748,10 @@
   function renderGrid() {
     if (!grid.length) grid = Array.from({ length: 5 }, emptyRow);
     computeConflicts();
-    const cls = c => /العنوان/.test(c) ? 'w-title' : /رابط/.test(c) ? 'w-link' : /الجنس|اليوم|الوقت|الدور/.test(c) ? 'w-sm' : '';
+    const cls = c => /العنوان/.test(c) ? 'w-title' : /رابط/.test(c) ? 'w-link' : c === 'الكاتب' ? 'w-sm w-auto' : /الجنس|اليوم|الوقت|الدور/.test(c) ? 'w-sm' : '';
     $('#sheet').innerHTML = `<thead><tr><th class="n">#</th><th class="act">عرض / نسخ</th>${GCOLS.map(c => `<th class="${/^عضو/.test(c) ? 'mem' : ''}">${c}</th>`).join('')}</tr></thead>
       <tbody>${grid.map((r, i) => `${(b => b ? `<tr class="wk-sep"><td colspan="${GCOLS.length + 2}"><span>🌙 إجازة أسبوعية</span> الجمعة ${b.fri} · السبت ${b.sat}${b.gap ? ` <small>(بعدها ${b.gap === 1 ? 'أسبوع' : b.gap + ' أسابيع'} بدون مناقشات)</small>` : ''}</td></tr>` : '')(weekBreak(i))}<tr data-r="${i}" class="${gridSel.has(i) ? 'sel' : ''} ${i === activeRow ? 'active' : ''} ${missingOf(r).length ? 'incomplete' : ''} ${isPast(r) ? 'past' : ''} ${conflicts.has(i) ? 'conflict' : ''}"><td class="n"><label><input type="checkbox" data-gsel ${gridSel.has(i) ? 'checked' : ''}>${i + 1}</label>${warnHtml(r)}${conflictHtml(i)}</td><td class="act"><button data-view title="عرض في التصميم">👁</button><button data-dup title="تكرار السطر (نفس اللجنة لطالب آخر)">⧉</button><button data-msg="invite" class="msg-b" title="نسخ رسالة الدعوة">دعوة</button><button data-wa="invite" class="wa-i" title="إرسال الدعوة بالواتساب">💬</button><button data-msg="record" class="msg-b ${r[GCOLS.indexOf('رابط التسجيل')] ? 'has' : ''}" title="نسخ رسالة التسجيل">تسجيل</button><button data-wa="record" class="wa-i" title="إرسال التسجيل بالواتساب">💬</button></td>${
-        GCOLS.map((c, j) => `<td><input type="text" class="${cls(c)}" data-c="${j}" value="${esc(r[j] || '')}"${pickOf(c) ? ` inputmode="none" data-pick="${pickOf(c)}"` : ''}${c === 'رابط البث' ? ' dir="ltr" placeholder="يوتيوب (افتراضي)"' : c === 'رابط اللجنة' ? ' dir="ltr" placeholder="زوم (اختياري)"' : c === 'رابط التسجيل' ? ' dir="ltr" placeholder="بعد المناقشة"' : ''}></td>`).join('')}</tr>`).join('')}</tbody>`;
+        GCOLS.map((c, j) => `<td><input type="text" class="${cls(c)}" data-c="${j}" value="${esc(r[j] || '')}"${pickOf(c) ? ` inputmode="none" data-pick="${pickOf(c)}"` : ''}${c === 'الكاتب' ? ' readonly tabindex="-1" title="يتعبّى تلقائياً باسم المستخدم اللي كتب السطر أو عدّله آخر مرة"' : ''}${c === 'رابط البث' ? ' dir="ltr" placeholder="يوتيوب (افتراضي)"' : c === 'رابط اللجنة' ? ' dir="ltr" placeholder="زوم (اختياري)"' : c === 'رابط التسجيل' ? ' dir="ltr" placeholder="بعد المناقشة"' : ''}></td>`).join('')}</tr>`).join('')}</tbody>`;
     updateGridInfo();
     const b = $('#gConflicts'); if (b) { b.hidden = !conflicts.size; b.textContent = `🔴 ${conflicts.size} سطر فيه تعارض`; }
     formConflictCheck();
@@ -903,7 +910,7 @@
       const r = +dup.closest('tr').dataset.r;
       if (isEmptyRow(grid[r])) return toast('هذا السطر فاضي', true);
       const copy = grid[r].slice();
-      ['الطالب', 'العنوان', 'الجنس'].forEach(c => { copy[GCOLS.indexOf(c)] = ''; });
+      ['الطالب', 'العنوان', 'الجنس'].forEach(c => { copy[GCOLS.indexOf(c)] = ''; }); stamp(copy);
       grid.splice(r + 1, 0, copy);
       const shifted = [...gridSel].map(i => i > r ? i + 1 : i); gridSel.clear(); shifted.forEach(i => gridSel.add(i));
       if (activeRow > r) activeRow++;
@@ -926,6 +933,7 @@
     const inp = e.target; if (!inp.dataset.c) return;
     const r = +inp.closest('tr').dataset.r;
     grid[r][+inp.dataset.c] = inp.value;
+    stamp(grid[r]); const wc = cellAt(r, WCOL); if (wc) wc.value = grid[r][WCOL];
     updRowWarn(r);
     refreshConflictsSoon(r);
     gridChanged();
@@ -966,8 +974,9 @@
       while (grid.length <= r) grid.push(emptyRow());
       vals.forEach((v, j) => {
         const col = map ? map[j] : c0 + j;
-        if (col >= 0 && col < GCOLS.length) grid[r][col] = v;
+        if (col >= 0 && col < GCOLS.length && col !== WCOL) grid[r][col] = v;
       });
+      stamp(grid[r]);
     });
     renderGrid(); gridChanged();
     toast(`تم لصق ${data.length} سطر ✓`);
@@ -988,7 +997,7 @@
   $('#gAdd5').onclick = () => { for (let i = 0; i < 5; i++) grid.push(emptyRow()); renderGrid(); gridChanged(); };
   $('#gFromDesign').onclick = () => {
     const firstEmpty = grid.findIndex(isEmptyRow);
-    const row = dataToGrid({ ...state, gender: /طالبة/.test(state.by) ? 'أنثى' : 'ذكر' });
+    const row = dataToGrid({ ...state, gender: /طالبة/.test(state.by) ? 'أنثى' : 'ذكر' }); stamp(row);
     if (firstEmpty >= 0) grid[firstEmpty] = row; else grid.push(row);
     renderGrid(); gridChanged(); toast('تمت إضافة التصميم الحالي كصف ✓');
   };
@@ -1009,7 +1018,7 @@
   // بيانات الكلية المشتركة (جدول حجز القاعة): تُضاف للجدول مرة لكل إصدار بدون تكرار ثم يُرتّب
   (async function loadShared() {
     try {
-      const res = await fetch('assets/data/defenses.json?v=202610160331', { cache: 'no-cache' }); if (!res.ok) return;
+      const res = await fetch('assets/data/defenses.json?v=202610160416', { cache: 'no-cache' }); if (!res.ok) return;
       const data = await res.json(), seenKey = userKey('sharedv');
       if (!data || !data.v || localStorage.getItem(seenKey) === data.v) return;
       const demo = new Set(SAMPLES.map(x => JSON.stringify(dataToGrid(x)))); // الأمثلة غير المعدّلة تُستبدل بالبيانات الحقيقية
@@ -1212,7 +1221,7 @@
   $('#bkGo').onclick = () => {
     const sel = bkSelected().sort((a, b) => (a._y * 10000 + a._m * 100 + a._d) - (b._y * 10000 + b._m * 100 + b._d));
     if (!sel.length) return toast('اختر شهراً واحداً على الأقل', true);
-    const rowsNew = sel.map(it => dataToGrid(it));
+    const rowsNew = sel.map(it => dataToGrid(it)); rowsNew.forEach(stamp);
     if ($('#bkMode').value === 'replace') { grid = []; gridSel.clear(); activeRow = -1; }
     grid = grid.filter(r => !isEmptyRow(r));
     const start = grid.length; grid.push(...rowsNew); rowsNew.forEach((_, k) => gridSel.add(start + k));
@@ -1266,7 +1275,7 @@
   if (savedSheet) { $('#sheetUrl').value = savedSheet; $('#refreshSheet').hidden = false; }
 
   // نموذج التعبئة الجاهز (منسّق، بقوائم اختيار وورقة شرح)
-  const TEMPLATE_URL = 'assets/templates/template.xlsx?v=202610160331';
+  const TEMPLATE_URL = 'assets/templates/template.xlsx?v=202610160416';
   // نموذج Google Sheets: يفتح نسخة جديدة منه في حسابك (أنشئ نسختك ثم عبّئها)
   const GSHEET_TEMPLATE = 'https://docs.google.com/spreadsheets/d/1UeSeDlmeC8X-bhU-4uUWxqbu2aTQFDURwSryk6Z49to/copy';
   $('#gsCopy').href = GSHEET_TEMPLATE;
@@ -1906,7 +1915,7 @@
       }
     });
     rowSnap = fresh;
-    if (changedAny) { updRowWarn(activeRow); refreshConflictsSoon(activeRow); gridChanged(); }
+    if (changedAny) { stamp(row); const wc = cellAt(activeRow, WCOL); if (wc) wc.value = row[WCOL]; updRowWarn(activeRow); refreshConflictsSoon(activeRow); gridChanged(); }
   }
   let histAutoT;
   function autoSync() {

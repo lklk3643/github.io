@@ -329,3 +329,4 @@ a.btn { text-decoration: none; }
   .sheet td.act button { padding: 3px 4px; font-size: 14px; }
   .gridwrap { max-height: 70vh; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; }
 }
+.sheet input.w-auto { color: var(--muted); background: #f6f8f8; cursor: default; }
