@@ -127,8 +127,8 @@
           </span></div>
         <input type="text" data-m="name" placeholder="الاسم" value="${esc(m.name)}">
         <input type="text" data-m="title" placeholder="الصفة" value="${esc(m.title)}">
-        <input type="text" data-m="role" placeholder="الدور" value="${esc(m.role)}" list="roles">
-      </div>`).join('') + `<datalist id="roles"><option value="مشرفاً ومقرراً"><option value="مشرفاً"><option value="مشرفاً مشاركاً"><option value="مناقشاً"><option value="مناقشاً خارجياً"><option value="مناقشةً"></datalist>`;
+        <input type="text" data-m="role" placeholder="الدور" value="${esc(m.role)}">
+      </div>`).join('');
   }
   $('#members').addEventListener('input', e => {
     const m = e.target.closest('.member');
@@ -419,6 +419,7 @@
         versions: (existing ? existing.versions || 1 : 0) + 1 });
       const id = await HDB.put(item);
       if (s === state) setEditing(id, item.title);
+      if (window.QSuggest) QSuggest.refreshHistory();
       if (!quiet) toast(existing ? 'تم تحديث التصميم في السجل ✓' : 'تم الحفظ في السجل ✓');
       return id;
     } catch (e) { console.error(e); toast('تعذّر الحفظ في السجل', true); return null; }
@@ -606,6 +607,7 @@
     gridSaveT = setTimeout(() => {
       try { localStorage.setItem(userKey('grid'), JSON.stringify(grid)); } catch (e) { /* مساحة */ }
       syncRows();
+      if (window.QSuggest) QSuggest.markDirty();
     }, 250);
   }
   // الإعلانات (الأسطر غير الفاضية) من الجدول؛ onlySel = المحددة فقط
@@ -797,7 +799,7 @@
   if (savedSheet) { $('#sheetUrl').value = savedSheet; $('#refreshSheet').hidden = false; }
 
   // نموذج التعبئة الجاهز (منسّق، بقوائم اختيار وورقة شرح)
-  const TEMPLATE_URL = 'assets/templates/template.xlsx?v=202610160045';
+  const TEMPLATE_URL = 'assets/templates/template.xlsx?v=202610160048';
   // نموذج Google Sheets: يفتح نسخة جديدة منه في حسابك (أنشئ نسختك ثم عبّئها)
   const GSHEET_TEMPLATE = 'https://docs.google.com/spreadsheets/d/1Xkwe3rF0iIVspBlWcr0tGOJA1KpJKWjERlh-gfOPqUQ/copy';
   $('#gsCopy').href = GSHEET_TEMPLATE;
@@ -893,6 +895,193 @@
       toast(session.role === 'admin' ? 'تم التغيير ✓ — صدّر users.json من «الموظفون» لتطبيقه على كل الأجهزة' : 'تم تغيير كلمة المرور ✓');
     } catch (e) { toast(e.message, true); }
   };
+
+  // ---------- أمثلة جاهزة (2 دكتوراه + 2 ماجستير) ----------
+  const SAMPLES = [
+    { degree: 'الدكتوراه في الفقه', gender: 'ذكر', student: 'سلطان بن فهد الحربي',
+      title: 'أحكام التقنيات الطبية الحديثة في العبادات\n(دراسة فقهية مقارنة)', day: 'الاثنين', date: '1448/5/8 هـ', time: '9 صباحاً',
+      place: 'قاعة ابن عثيمين', placeNote: '(والبث عبر الإنترنت)', link: DEFAULTS.link,
+      committee: [
+        { name: 'أ.د. عمر بن علي السديس', title: 'الأستاذ في قسم الفقه', role: 'مشرفاً ومقرراً' },
+        { name: 'أ.د. فهد بن صالح الحمود', title: 'الأستاذ في قسم الفقه', role: 'مناقشاً' },
+        { name: 'د. خالد بن محمد الرشيد', title: 'الأستاذ المشارك في قسم الفقه', role: 'مناقشاً' },
+        { name: 'أ.د. عبد الله بن ناصر الخضير', title: 'الأستاذ في كلية الشريعة بجامعة الإمام', role: 'مناقشاً خارجياً' }] },
+    { degree: 'الدكتوراه في أصول الفقه', gender: 'أنثى', student: 'نورة بنت عبد الرحمن العتيبي',
+      title: 'القواعد الأصولية المتعلقة بدلالات الألفاظ عند ابن القيم\n(جمعاً ودراسة)', day: 'الثلاثاء', date: '1448/5/16 هـ', time: '10 صباحاً',
+      place: 'القاعة الكبرى بمبنى الطالبات', placeNote: '(والبث عبر الإنترنت)', link: DEFAULTS.link,
+      committee: [
+        { name: 'أ.د. سليمان بن عبد العزيز العودة', title: 'الأستاذ في قسم أصول الفقه', role: 'مشرفاً ومقرراً' },
+        { name: 'د. منيرة بنت سعد القحطاني', title: 'الأستاذ المشارك في قسم أصول الفقه', role: 'مناقِشةً' },
+        { name: 'أ.د. عمر بن علي السديس', title: 'الأستاذ في قسم الفقه', role: 'مناقشاً' }] },
+    { degree: 'الماجستير في الفقه المقارن', gender: 'ذكر', student: 'عبد الله بن عادل السعدي',
+      title: DEFAULTS.title, day: 'الأحد', date: '1448/4/16 هـ', time: '8 صباحاً',
+      place: 'قاعة ابن عثيمين', placeNote: '(والبث عبر الإنترنت)', link: DEFAULTS.link,
+      committee: clone(DEFAULTS.committee) },
+    { degree: 'الماجستير في أصول الفقه', gender: 'أنثى', student: 'ريم بنت خالد الدوسري',
+      title: 'تخصيص العام بالمصلحة\n(دراسة أصولية تطبيقية)', day: 'الأربعاء', date: '1448/5/24 هـ', time: '11 صباحاً',
+      place: 'القاعة الكبرى بمبنى الطالبات', placeNote: '(والبث عبر الإنترنت)', link: DEFAULTS.link,
+      committee: [
+        { name: 'د. منيرة بنت سعد القحطاني', title: 'الأستاذ المشارك في قسم أصول الفقه', role: 'مشرفةً ومقررةً' },
+        { name: 'د. خالد بن محمد الرشيد', title: 'الأستاذ المشارك في قسم الفقه', role: 'مناقشاً' },
+        { name: 'د. أحمد بن سليمان العودة', title: 'الأستاذ المساعد في قسم الفقه', role: 'مناقشاً' }] }
+  ];
+  function addSamples() {
+    const rowsToAdd = SAMPLES.map(dataToGrid);
+    const firstEmpty = grid.findIndex(isEmptyRow);
+    if (firstEmpty >= 0) grid = grid.filter(r => !isEmptyRow(r));
+    const start = grid.length;
+    grid.push(...rowsToAdd);
+    rowsToAdd.forEach((_, k) => gridSel.add(start + k));
+    renderGrid(); gridChanged();
+  }
+  $('#gSamples').onclick = () => { addSamples(); toast('تمت إضافة 4 أمثلة (دكتوراه وماجستير) ✓'); };
+  if (!localStorage.getItem(userKey('samples')) && !grid.some(r => !isEmptyRow(r))) {
+    addSamples();
+    try { localStorage.setItem(userKey('samples'), '1'); } catch (e) { /* اختياري */ }
+  }
+
+  // ---------- الاقتراحات الذكية أثناء الكتابة ----------
+  // تتعلّم من: الجدول، سجل التصاميم، القوالب المحفوظة، والقيم المكتوبة سابقاً
+  window.QSuggest = (function () {
+    const SEEDS = {
+      degree: ['الماجستير في الفقه المقارن', 'الماجستير في الفقه', 'الماجستير في أصول الفقه', 'الدكتوراه في الفقه', 'الدكتوراه في الفقه المقارن', 'الدكتوراه في أصول الفقه'],
+      day: ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'],
+      time: ['8 صباحاً', '9 صباحاً', '10 صباحاً', '11 صباحاً', '12 ظهراً', '1 ظهراً', '7 مساءً', '8 مساءً'],
+      gender: ['ذكر', 'أنثى'],
+      place: ['قاعة ابن عثيمين'], placeNote: ['(والبث عبر الإنترنت)'],
+      mTitle: ['الأستاذ في قسم الفقه', 'الأستاذ المشارك في قسم الفقه', 'الأستاذ المساعد في قسم الفقه',
+        'الأستاذ في قسم أصول الفقه', 'الأستاذ المشارك في قسم أصول الفقه', 'الأستاذ المساعد في قسم أصول الفقه'],
+      mRole: ['مشرفاً ومقرراً', 'مشرفاً', 'مشرفاً مشاركاً', 'مناقشاً', 'مناقشاً خارجياً', 'مشرفةً ومقررةً', 'مناقِشةً'],
+      mName: []
+    };
+    const FORM_KEYS = { degree: 'degree', day: 'day', time: 'time', place: 'place', placeNote: 'placeNote' };
+    const M_KEYS = { name: 'mName', title: 'mTitle', role: 'mRole' };
+    const COL_KEY = c => /الاسم$/.test(c) ? 'mName' : /الصفة$/.test(c) ? 'mTitle' : /الدور$/.test(c) ? 'mRole'
+      : { 'الدرجة': 'degree', 'اليوم': 'day', 'الوقت': 'time', 'الجنس': 'gender', 'المكان': 'place', 'ملاحظة المكان': 'placeNote' }[c] || null;
+    const norm = v => String(v || '').replace(/[ً-ٰٟـ]/g, '').replace(/[إأآٱ]/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه').replace(/\s+/g, ' ').trim().toLowerCase();
+    let histStates = [];
+    let dirty = true, counts = {}, nameTitle = {};
+    const learnKey = userKey('learn');
+    const readLearn = () => { try { return JSON.parse(localStorage.getItem(learnKey)) || {}; } catch (e) { return {}; } };
+
+    function add(key, v, w = 1) {
+      v = String(v || '').trim(); if (!v || v.length > 200) return;
+      (counts[key] = counts[key] || new Map()).set(v, (counts[key].get(v) || 0) + w);
+    }
+    function addState(s) {
+      if (!s) return;
+      Object.entries(FORM_KEYS).forEach(([f, k]) => add(k, s[f]));
+      (s.committee || []).forEach(m => {
+        add('mName', m.name); add('mTitle', m.title); add('mRole', m.role);
+        if (m.name && m.title) { const t = (nameTitle[m.name] = nameTitle[m.name] || new Map()); t.set(m.title, (t.get(m.title) || 0) + 1); }
+      });
+    }
+    function rebuild() {
+      counts = {}; nameTitle = {};
+      Object.entries(SEEDS).forEach(([k, arr]) => arr.forEach(v => add(k, v, 0.5)));
+      grid.forEach(r => { if (!isEmptyRow(r)) addState(applyRow({ committee: [] }, parseRow(gridToObj(r)))); });
+      histStates.forEach(addState);
+      try { getDesigns().forEach(d => addState(d.state)); } catch (e) { /* لا قوالب */ }
+      addState(state);
+      Object.entries(readLearn()).forEach(([k, arr]) => (arr || []).forEach(v => add(k, v)));
+      dirty = false;
+    }
+    async function refreshHistory() {
+      try { histStates = (await HDB.list()).map(it => it.state); } catch (e) { histStates = []; }
+      dirty = true;
+    }
+    function learn(key, v) {
+      v = String(v || '').trim(); if (!key || !v) return;
+      const L = readLearn(); const arr = (L[key] = L[key] || []);
+      if (!arr.includes(v)) { arr.unshift(v); L[key] = arr.slice(0, 300); try { localStorage.setItem(learnKey, JSON.stringify(L)); } catch (e) { /* مساحة */ } }
+      dirty = true;
+    }
+    function keyOf(el) {
+      if (!el || el.tagName !== 'INPUT' || el.type === 'checkbox') return null;
+      if (el.dataset.k && FORM_KEYS[el.dataset.k]) return FORM_KEYS[el.dataset.k];
+      if (el.dataset.m && M_KEYS[el.dataset.m]) return M_KEYS[el.dataset.m];
+      if (el.dataset.c != null && el.closest('#sheet')) return COL_KEY(GCOLS[+el.dataset.c]);
+      return null;
+    }
+    function matches(key, q) {
+      if (dirty) rebuild();
+      const m = counts[key]; if (!m) return [];
+      const nq = norm(q);
+      const out = [];
+      m.forEach((n, v) => {
+        const nv = norm(v);
+        if (nq && nv === nq) return;
+        let score = 0;
+        if (!nq) score = 1;
+        else if (nv.startsWith(nq)) score = 4;
+        else if (nv.split(' ').some(w => w.startsWith(nq) || w.replace(/^ال/, '').startsWith(nq))) score = 3;
+        else if (nv.includes(nq)) score = 2;
+        else if (nq.split(' ').length > 1 && nq.split(' ').every(p => nv.includes(p))) score = 1;
+        if (score) out.push({ v, score, n });
+      });
+      return out.sort((a, b) => b.score - a.score || b.n - a.n || a.v.localeCompare(b.v, 'ar')).slice(0, 8).map(x => x.v);
+    }
+
+    const box = document.createElement('div');
+    box.className = 'sugg'; box.hidden = true; document.body.appendChild(box);
+    let target = null, items = [], idx = -1;
+    function hide() { box.hidden = true; target = null; items = []; idx = -1; }
+    function show(el) {
+      const key = keyOf(el); if (!key) return hide();
+      items = matches(key, el.value);
+      if (!items.length) return hide();
+      target = el; idx = -1;
+      const q = norm(el.value);
+      box.innerHTML = `<div class="sugg-h">${key === 'mName' ? 'أسماء سابقة' : 'اقتراحات'}</div>` + items.map((v, i) => {
+        const t = key === 'mName' && nameTitle[v] ? [...nameTitle[v].entries()].sort((a, b) => b[1] - a[1])[0][0] : '';
+        return `<div class="sugg-i" data-i="${i}"><span>${esc(v)}</span>${t ? `<small>${esc(t)}</small>` : ''}</div>`;
+      }).join('');
+      const r = el.getBoundingClientRect();
+      const w = Math.max(r.width, 240);
+      box.style.width = w + 'px';
+      box.style.left = Math.max(8, Math.min(r.right - w, innerWidth - w - 8)) + 'px';
+      box.hidden = false;
+      const below = innerHeight - r.bottom, h = box.offsetHeight;
+      box.style.top = (below < h + 10 && r.top > h + 10 ? r.top - h - 4 : r.bottom + 4) + 'px';
+      if (!q && document.activeElement !== el) hide();
+    }
+    function pick(i) {
+      const el = target, v = items[i]; if (!el || v == null) return;
+      const key = keyOf(el);
+      el.value = v; el.dispatchEvent(new Event('input', { bubbles: true }));
+      // اختيار اسم عضو يعبّي صفته تلقائياً إن كانت فاضية
+      if (key === 'mName' && nameTitle[v]) {
+        const best = [...nameTitle[v].entries()].sort((a, b) => b[1] - a[1])[0][0];
+        let t = null;
+        if (el.dataset.m) t = el.closest('.member').querySelector('[data-m=title]');
+        else if (el.dataset.c != null) t = el.closest('tr').querySelector(`input[data-c="${+el.dataset.c + 1}"]`);
+        if (t && !t.value.trim()) { t.value = best; t.dispatchEvent(new Event('input', { bubbles: true })); }
+      }
+      learn(key, v); hide();
+    }
+    box.addEventListener('mousedown', e => e.preventDefault());
+    box.addEventListener('click', e => { const it = e.target.closest('.sugg-i'); if (it) pick(+it.dataset.i); });
+    document.addEventListener('focusin', e => { if (keyOf(e.target)) show(e.target); });
+    document.addEventListener('input', e => { if (keyOf(e.target) && e.isTrusted) show(e.target); });
+    document.addEventListener('focusout', e => {
+      const k = keyOf(e.target); if (k) learn(k, e.target.value);
+      setTimeout(() => { if (document.activeElement !== target) hide(); }, 120);
+    });
+    document.addEventListener('keydown', e => {
+      if (box.hidden || e.target !== target) return;
+      const all = box.querySelectorAll('.sugg-i');
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault(); e.stopPropagation();
+        idx = (idx + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length;
+        all.forEach((n, i) => n.classList.toggle('on', i === idx));
+      } else if (e.key === 'Enter' && idx >= 0) { e.preventDefault(); e.stopPropagation(); pick(idx); }
+      else if (e.key === 'Escape') hide();
+    }, true);
+    window.addEventListener('scroll', () => { if (target) show(target); }, true);
+    window.addEventListener('resize', hide);
+    refreshHistory();
+    return { refreshHistory, markDirty: () => { dirty = true; } };
+  })();
 
   // ---------- البدء ----------
   fillForm();
