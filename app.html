@@ -8,9 +8,9 @@
     // حماية الصفحة: يجب تسجيل الدخول أولاً
     if (!(sessionStorage.getItem('qu_session') || localStorage.getItem('qu_session'))) location.replace('index.html');
   </script>
-  <link rel="stylesheet" href="assets/fonts/fonts.css?v=202610161153">
-  <link rel="stylesheet" href="assets/css/app.css?v=202610161153">
-  <link rel="stylesheet" href="assets/css/poster.css?v=202610161153">
+  <link rel="stylesheet" href="assets/fonts/fonts.css?v=202610161159">
+  <link rel="stylesheet" href="assets/css/app.css?v=202610161159">
+  <link rel="stylesheet" href="assets/css/poster.css?v=202610161159">
 </head>
 <body>
   <div class="topbar">
@@ -226,7 +226,7 @@
           <button class="btn sm" id="gFromDesign">➕ التصميم الحالي</button>
           <button class="btn sm" id="gSamples">📝 أمثلة</button>
           <label class="check wk-chk" title="يفصل بين الأسابيع بسطر «إجازة أسبوعية» (الجمعة والسبت) كما في جدول الحجز، ويظهر في الملف المصدَّر"><input type="checkbox" id="gWeeks" checked> 🌙 فواصل الأسابيع</label>
-          <label class="check wk-chk past-chk" title="«ناقص» و«تعارض» تظهر افتراضياً على المناقشات الجاية بس. فعّله لمراجعة المناقشات المنتهية بعد"><input type="checkbox" id="gPastWarn"> ⚠️ تنبيهات المنتهية</label>
+          <label class="check wk-chk past-chk" title="«ناقص» و«تعارض» على المناقشات المنتهية أيضاً (مفعّل افتراضياً — شيل الصح لإخفائها)"><input type="checkbox" id="gPastWarn" checked> ⚠️ تنبيهات المنتهية</label>
           <button class="btn sm" id="gSort" title="ترتيب الجدول تصاعدياً حسب التاريخ ثم الوقت">↕️ ترتيب بالتاريخ</button>
           <button class="btn sm" id="gUndo" disabled title="تراجع عن آخر تغيير في الجدول (Ctrl+Z)">↶ تراجع</button>
           <button class="btn sm" id="gRedo" disabled title="إعادة (Ctrl+Y)">↷ إعادة</button>
@@ -257,9 +257,9 @@
         </div>
       </div>
       <div class="ds-legend">
-        <span><b class="chip warn">ناقص</b> مناقشة قادمة ينقصها شي لتصميم الإعلان (مثل العنوان أو اللجنة)</span>
-        <span><b class="chip conf">تعارض</b> مناقشة قادمة بنفس الوقت والقاعة أو الرابط أو نفس الدكتور مع سطر ثاني</span>
-        <span class="hint">اضغط على العلامة لمعرفة التفاصيل. المناقشات المنتهية ما عليها تنبيهات إلا إذا فعّلت «⚠️ تنبيهات المنتهية». 👁 يعرض السطر في التصميم.</span>
+        <span><b class="chip warn">ناقص</b> مناقشة ينقصها شي لتصميم الإعلان (مثل العنوان أو اللجنة)</span>
+        <span><b class="chip conf">تعارض</b> مناقشة بنفس الوقت (فرق أقل من ساعة) والقاعة أو الرابط أو نفس الدكتور مع سطر ثاني</span>
+        <span class="hint">اضغط على العلامة لمعرفة التفاصيل. لإخفاء التنبيهات عن المناقشات المنتهية شيل الصح من «⚠️ تنبيهات المنتهية». 👁 يعرض السطر في التصميم.</span>
       </div>
       <div class="gridbox">
         <div class="gridwrap"><table class="sheet" id="sheet"></table></div>
@@ -480,13 +480,13 @@
   <div class="toast" id="toast"></div>
   <div class="export-root"><div id="exportPoster"></div></div>
 
-  <script src="assets/vendor/xlsx.full.min.js?v=202610161153"></script>
-  <script src="assets/vendor/jszip.min.js?v=202610161153"></script>
-  <script src="assets/vendor/jspdf.umd.min.js?v=202610161153"></script>
-  <script src="assets/vendor/qrcode.js?v=202610161153"></script>
-  <script src="assets/vendor/html-to-image.js?v=202610161153"></script>
-  <script src="assets/js/auth.js?v=202610161153"></script>
-  <script src="assets/js/poster.js?v=202610161153"></script>
-  <script src="assets/js/app.js?v=202610161153"></script>
+  <script src="assets/vendor/xlsx.full.min.js?v=202610161159"></script>
+  <script src="assets/vendor/jszip.min.js?v=202610161159"></script>
+  <script src="assets/vendor/jspdf.umd.min.js?v=202610161159"></script>
+  <script src="assets/vendor/qrcode.js?v=202610161159"></script>
+  <script src="assets/vendor/html-to-image.js?v=202610161159"></script>
+  <script src="assets/js/auth.js?v=202610161159"></script>
+  <script src="assets/js/poster.js?v=202610161159"></script>
+  <script src="assets/js/app.js?v=202610161159"></script>
 </body>
 </html>

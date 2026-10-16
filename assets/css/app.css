@@ -246,7 +246,7 @@ a.btn { text-decoration: none; }
 .sheet th { position: sticky; top: 0; z-index: 2; background: var(--brand-l); color: var(--brand-d); font-weight: 600; padding: 7px 8px; white-space: nowrap; border-bottom: 1px solid #c5dbda; border-left: 1px solid #c5dbda; }
 .sheet th.mem { background: #e6efe0; }
 .sheet td { border-bottom: 1px solid var(--line); border-left: 1px solid var(--line); padding: 0; background: #fff; }
-.sheet td.n, .sheet th.n { position: sticky; right: 0; z-index: 1; background: #f3f7f7; text-align: center; width: 70px; min-width: 70px; max-width: 70px; box-sizing: border-box; color: var(--muted); }
+.sheet td.n, .sheet th.n { position: sticky; right: 0; z-index: 1; background: #f3f7f7; text-align: center; min-width: 70px; color: var(--muted); }
 .sheet th.n { z-index: 3; background: var(--brand-l); }
 .sheet td.n label { display: flex; align-items: center; justify-content: center; gap: 4px; padding: 0 6px; cursor: pointer; }
 .sheet input[type=text] { border: 0; padding: 7px 8px; width: 150px; background: transparent; outline: none; }
@@ -316,7 +316,7 @@ a.btn { text-decoration: none; }
 .chip { display: inline-block; border: 0; border-radius: 999px; padding: 1px 7px; font: inherit; font-size: 11px; font-weight: 700; line-height: 1.6; cursor: pointer; white-space: nowrap; }
 .chip.warn { background: #fff1c2; color: #7a5a00; }
 .chip.conf { background: #fde2e1; color: #b3261e; }
-.sheet td.n .chip { display: block; margin: 2px auto 0; width: max-content; max-width: none; }
+.sheet td.n .chip { display: block; margin: 2px auto 0; }
 .ds-legend { display: flex; flex-wrap: wrap; gap: 4px 16px; align-items: center; font-size: 12.5px; color: var(--muted); margin: 0 0 8px; }
 .ds-legend .chip { cursor: default; margin-inline-end: 4px; }
 .sheet tr.past td input[type=text] { color: #6f8584; }
@@ -324,7 +324,7 @@ a.btn { text-decoration: none; }
 /* الجوال: عمود الأزرار ما يتثبت عشان يتحرك الجدول، وأزرار أصغر */
 @media (max-width: 760px) {
   .sheet td.act, .sheet th.act { position: static; }
-  .sheet td.n, .sheet th.n { width: 56px; min-width: 56px; max-width: 56px; }
+  .sheet td.n, .sheet th.n { min-width: 46px; }
   .sheet td.n label { padding: 0 3px; }
   .sheet td.act button { padding: 3px 4px; font-size: 14px; }
   .gridwrap { max-height: 70vh; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; }

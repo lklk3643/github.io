@@ -2,7 +2,7 @@
 (function () {
   'use strict';
   // تحديث تلقائي: إذا نُشرت نسخة أحدث من المفتوحة يُعاد تحميل الصفحة (يتجاوز ذاكرة المتصفح المؤقتة)
-  const APP_V = '?v=202610161153'.slice(3);
+  const APP_V = '?v=202610161159'.slice(3);
   let lastVCheck = 0;
   function checkVersion() {
     if (location.protocol === 'file:' || Date.now() - lastVCheck < 60000) return;
@@ -769,7 +769,7 @@
     return !!m && TODAY_H > 0 && +m[1] * 10000 + +m[2] * 100 + +m[3] < TODAY_H;
   }
   // خيار «تنبيهات المنتهية»: إذا كان مفعّلاً تظهر «ناقص» و«تعارض» على المناقشات المنتهية أيضاً
-  const showPast = () => { try { return localStorage.getItem(userKey('pastwarn')) === '1'; } catch (e) { return false; } };
+  const showPast = () => { try { return localStorage.getItem(userKey('pastwarn2')) !== '0'; } catch (e) { return true; } }; // مفعّل افتراضياً
   const quiet = r => isPast(r) && !showPast();
   function missingOf(r) { return isEmptyRow(r) || quiet(r) ? [] : REQUIRED.filter(c => !String(r[GCOLS.indexOf(c)] || '').trim()); }
   function warnHtml(r) { const m = missingOf(r); return m.length ? ` <button class="chip warn" data-why="${esc('ناقص لتصميم الإعلان: ' + m.join('، '))}">ناقص</button>` : ''; }
@@ -808,7 +808,8 @@
   }
   function clash(a, b) {
     if (!a || !b || a.date !== b.date) return null;
-    const near = (a.t != null && b.t != null) ? Math.abs(a.t - b.t) < 120 : (a.timeRaw && a.timeRaw === b.timeRaw);
+    // تعارض فقط إذا كان الفرق أقل من ساعة (9 و10 مثلاً ما يتعارضان)
+    const near = (a.t != null && b.t != null) ? Math.abs(a.t - b.t) < 60 : (a.timeRaw && a.timeRaw === b.timeRaw);
     if (!near) return null;
     const exact = (a.t != null && b.t != null) ? a.t === b.t : true;
     const out = [];
@@ -1063,7 +1064,7 @@
     new IntersectionObserver(es => es.forEach(x => $('.grid-jump').classList.toggle('on', x.isIntersecting))).observe($('.gridwrap'));
   else $('.grid-jump').classList.add('on');
   { const pw = $('#gPastWarn'); pw.checked = showPast();
-    pw.onchange = () => { try { localStorage.setItem(userKey('pastwarn'), pw.checked ? '1' : '0'); } catch (e) { /* اختياري */ } renderGrid();
+    pw.onchange = () => { try { localStorage.setItem(userKey('pastwarn2'), pw.checked ? '1' : '0'); } catch (e) { /* اختياري */ } renderGrid();
       const w = $$('#sheet .chip.warn').length, c = conflicts.size;
       toast(pw.checked ? `تظهر التنبيهات على كل المناقشات: ${w} ناقص، ${c} تعارض` : 'التنبيهات على المناقشات الجاية بس'); }; }
   $('#gSort').onclick = () => {
@@ -1074,7 +1075,7 @@
   // بيانات الكلية المشتركة (جدول حجز القاعة): تُضاف للجدول مرة لكل إصدار بدون تكرار ثم يُرتّب
   (async function loadShared() {
     try {
-      const res = await fetch('assets/data/defenses.json?v=202610161153', { cache: 'no-cache' }); if (!res.ok) return;
+      const res = await fetch('assets/data/defenses.json?v=202610161159', { cache: 'no-cache' }); if (!res.ok) return;
       const data = await res.json(), seenKey = userKey('sharedv');
       if (!data || !data.v || localStorage.getItem(seenKey) === data.v) return;
       const demo = new Set(SAMPLES.map(x => JSON.stringify(dataToGrid(x)))); // الأمثلة غير المعدّلة تُستبدل بالبيانات الحقيقية
@@ -1424,7 +1425,7 @@
   if (savedSheet) { $('#sheetUrl').value = savedSheet; $('#refreshSheet').hidden = false; }
 
   // نموذج التعبئة الجاهز (منسّق، بقوائم اختيار وورقة شرح)
-  const TEMPLATE_URL = 'assets/templates/template.xlsx?v=202610161153';
+  const TEMPLATE_URL = 'assets/templates/template.xlsx?v=202610161159';
   // نموذج Google Sheets: يفتح نسخة جديدة منه في حسابك (أنشئ نسختك ثم عبّئها)
   const GSHEET_TEMPLATE = 'https://docs.google.com/spreadsheets/d/1UeSeDlmeC8X-bhU-4uUWxqbu2aTQFDURwSryk6Z49to/copy';
   $('#gsCopy').href = GSHEET_TEMPLATE;
