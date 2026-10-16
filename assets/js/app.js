@@ -21,6 +21,7 @@
     out.assets = { ...d.assets, ...(s.assets || {}) };
     out.committee = Array.isArray(s.committee) ? s.committee : d.committee;
     if (!out.link) out.link = d.link;
+    if (/الإعلام والا?إ?تصال المؤسسي/.test(out.dept || '')) out.dept = d.dept; // الافتراضي الجديد: كلية الشريعة
     if (out.v !== 2) { out.opt.qr = false; out.v = 2; } // رمز QR يظهر فقط عند تفعيل المربع
     return out;
   }
@@ -573,14 +574,17 @@
   }
 
   // ---------- جدول البيانات (صف = إعلان) ----------
-  const GCOLS = ['الكلية', 'نص الإعلان', 'الدرجة', 'الجنس', 'الطالب', 'العنوان', 'اليوم', 'التاريخ', 'الوقت', 'المكان', 'ملاحظة المكان', 'رابط البث'];
-  const GFIELD = { 'الكلية': 'college', 'نص الإعلان': 'intro', 'الدرجة': 'degree', 'الجنس': 'gender', 'الطالب': 'student', 'العنوان': 'title',
+  // الكلية ونص الإعلان ثابتان في التصميم، فلا يحتاجان أعمدة
+  const GCOLS = ['الدرجة', 'الجنس', 'الطالب', 'العنوان', 'اليوم', 'التاريخ', 'الوقت', 'المكان', 'ملاحظة المكان', 'رابط البث'];
+  const GFIELD = { 'الدرجة': 'degree', 'الجنس': 'gender', 'الطالب': 'student', 'العنوان': 'title',
     'اليوم': 'day', 'التاريخ': 'date', 'الوقت': 'time', 'المكان': 'place', 'ملاحظة المكان': 'placeNote', 'رابط البث': 'link' };
   const GMEM = 5;
   for (let i = 1; i <= GMEM; i++) GCOLS.push(`عضو${i} الاسم`, `عضو${i} الصفة`, `عضو${i} الدور`);
   const emptyRow = () => GCOLS.map(() => '');
   let grid = [];
   try { grid = JSON.parse(localStorage.getItem(userKey('grid'))) || []; } catch (e) { grid = []; }
+  // ترحيل جداول محفوظة بالشكل القديم (كان أول عمودين: الكلية، نص الإعلان)
+  if (grid.length && grid[0].length === GCOLS.length + 2) grid = grid.map(r => r.slice(2));
   const gridSel = new Set();
   const isEmptyRow = r => r.every(v => !String(v || '').trim());
   const gridToObj = r => Object.fromEntries(GCOLS.map((c, i) => [c, r[i] || '']));
@@ -792,7 +796,7 @@
   // نموذج التعبئة الجاهز (منسّق، بقوائم اختيار وورقة شرح)
   const TEMPLATE_URL = 'assets/templates/template.xlsx';
   // نموذج Google Sheets: يفتح نسخة جديدة منه في حسابك (أنشئ نسختك ثم عبّئها)
-  const GSHEET_TEMPLATE = 'https://docs.google.com/spreadsheets/d/1QolKhZXdip6kYCdmmUPUBEWNGz24eT29RKgqJGqtR6A/copy';
+  const GSHEET_TEMPLATE = 'https://docs.google.com/spreadsheets/d/1Xkwe3rF0iIVspBlWcr0tGOJA1KpJKWjERlh-gfOPqUQ/copy';
   $('#gsCopy').href = GSHEET_TEMPLATE;
   $('#gsTemplate').onclick = () => openModal('#mGs');
   $('#gsDlXlsx').onclick = () => $('#dlTemplate').click();

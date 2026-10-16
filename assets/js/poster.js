@@ -27,7 +27,7 @@
     link: 'https://www.youtube.com/@src.sds1',
     handle: '@QassimUniv',
     website: 'www.qu.edu.sa',
-    dept: 'الإعلام والاتصال المؤسسي',
+    dept: 'كلية الشريعة',
     uniAr: 'جامعة القصيم',
     uniEn: 'Qassim University',
     calligraphy: 'دعوة',
@@ -139,6 +139,7 @@
     date: { rx: 872, y: 1206.5, w: 160, s: 22, wt: 500, c: '#0b2c5e', dy: -0.5 },
     time: { rx: 545, y: 1190, w: 110, s: 22.4, wt: 400, c: '#0b2c5e', dy: 1 },
     place: { rx: 272, y: 1180, w: 170, s: 21.5, wt: 400, c: '#0b2c5e', dy: -0.5 },
+    dept: { rx: 948, y: 1470.5, w: 300, s: 18.4, wt: 400, c: '#f1f7f7', dy: -4.5 },
     placeNote: { rx: 275, y: 1211.5, w: 175, s: 18.4, wt: 400, c: '#0b2c5e', dy: -1.5 }
   };
   const EXACT_ROWS = { top: 929, bottom: 1115, h: 57, gap: 7,
@@ -184,7 +185,7 @@
           <div class="ex" data-ex="cell" style="position:static;width:100%;height:100%;padding:0 ${right ? E.cell.padR : 8}px 0 8px;justify-content:${right ? 'flex-start' : 'center'};font-size:${fs}px;font-weight:${E.cell.wt};color:${E.cell.c};transform:translateY(${E.cell.dy}px)">${esc(m[col.k])}</div></div>`;
       });
     });
-    ['day', 'date', 'time', 'place', 'placeNote'].forEach(k => { html += exItem(E[k], state[k], k); });
+    ['day', 'date', 'time', 'place', 'placeNote', 'dept'].forEach(k => { html += exItem(E[k], state[k], k); });
     const qr = qrSvg(state);
     if (qr) html += `<div class="ex-qr">${qr}<span>شاهد البث المباشر</span></div>`;
     el.innerHTML = html;
