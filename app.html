@@ -8,9 +8,9 @@
     // حماية الصفحة: يجب تسجيل الدخول أولاً
     if (!(sessionStorage.getItem('qu_session') || localStorage.getItem('qu_session'))) location.replace('index.html');
   </script>
-  <link rel="stylesheet" href="assets/fonts/fonts.css?v=202610160058">
-  <link rel="stylesheet" href="assets/css/app.css?v=202610160058">
-  <link rel="stylesheet" href="assets/css/poster.css?v=202610160058">
+  <link rel="stylesheet" href="assets/fonts/fonts.css?v=202610160107">
+  <link rel="stylesheet" href="assets/css/app.css?v=202610160107">
+  <link rel="stylesheet" href="assets/css/poster.css?v=202610160107">
 </head>
 <body>
   <div class="topbar">
@@ -80,6 +80,7 @@
                 <button class="btn sm" id="linkDefault" title="إرجاع رابط قناة اليوتيوب">↺ اليوتيوب</button>
               </div>
               <div class="hint" style="margin-top:4px">تقدر تحط أي رابط: يوتيوب، بلاك بورد، زوم، تيمز أو أي منصة.</div>
+              <div class="hint" id="linkWarn" style="margin-top:4px;color:#b06a00" hidden>⚠️ الرابط طويل فيصير الرمز كثيف. يفضّل رابط مختصر (مثل رابط القناة أو رابط مختصر من المنصة) عشان يسهل مسحه بالجوال.</div>
             </div>
           </div>
 
@@ -376,13 +377,13 @@
   <div class="toast" id="toast"></div>
   <div class="export-root"><div id="exportPoster"></div></div>
 
-  <script src="assets/vendor/xlsx.full.min.js?v=202610160058"></script>
-  <script src="assets/vendor/jszip.min.js?v=202610160058"></script>
-  <script src="assets/vendor/jspdf.umd.min.js?v=202610160058"></script>
-  <script src="assets/vendor/qrcode.js?v=202610160058"></script>
-  <script src="assets/vendor/html-to-image.js?v=202610160058"></script>
-  <script src="assets/js/auth.js?v=202610160058"></script>
-  <script src="assets/js/poster.js?v=202610160058"></script>
-  <script src="assets/js/app.js?v=202610160058"></script>
+  <script src="assets/vendor/xlsx.full.min.js?v=202610160107"></script>
+  <script src="assets/vendor/jszip.min.js?v=202610160107"></script>
+  <script src="assets/vendor/jspdf.umd.min.js?v=202610160107"></script>
+  <script src="assets/vendor/qrcode.js?v=202610160107"></script>
+  <script src="assets/vendor/html-to-image.js?v=202610160107"></script>
+  <script src="assets/js/auth.js?v=202610160107"></script>
+  <script src="assets/js/poster.js?v=202610160107"></script>
+  <script src="assets/js/app.js?v=202610160107"></script>
 </body>
 </html>

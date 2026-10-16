@@ -78,12 +78,14 @@
     });
     $('#titleSizeVal').textContent = state.opt.titleSize + 'px';
     $('#linkRow').hidden = !state.opt.qr;
+    updLinkWarn();
     $$('[data-c]').forEach(el => { el.value = state.theme[el.dataset.c]; });
     $$('[data-gender]').forEach(b => b.classList.toggle('active', (b.dataset.gender === 'f') === /طالبة/.test(state.by)));
     renderMembers();
     renderUploads();
   }
-  $$('[data-k]').forEach(el => el.addEventListener('input', () => { state[el.dataset.k] = el.value; changed(); }));
+  function updLinkWarn() { const w = $('#linkWarn'); if (w) w.hidden = !(state.opt.qr && QPoster.qrModules(state.link) > 45); }
+  $$('[data-k]').forEach(el => el.addEventListener('input', () => { state[el.dataset.k] = el.value; if (el.dataset.k === 'link') updLinkWarn(); changed(); }));
   $$('[data-o]').forEach(el => el.addEventListener('input', () => {
     state.opt[el.dataset.o] = el.type === 'checkbox' ? el.checked : +el.value;
     if (el.dataset.o === 'qr') {
@@ -838,7 +840,7 @@
   if (savedSheet) { $('#sheetUrl').value = savedSheet; $('#refreshSheet').hidden = false; }
 
   // نموذج التعبئة الجاهز (منسّق، بقوائم اختيار وورقة شرح)
-  const TEMPLATE_URL = 'assets/templates/template.xlsx?v=202610160058';
+  const TEMPLATE_URL = 'assets/templates/template.xlsx?v=202610160107';
   // نموذج Google Sheets: يفتح نسخة جديدة منه في حسابك (أنشئ نسختك ثم عبّئها)
   const GSHEET_TEMPLATE = 'https://docs.google.com/spreadsheets/d/1Xkwe3rF0iIVspBlWcr0tGOJA1KpJKWjERlh-gfOPqUQ/copy';
   $('#gsCopy').href = GSHEET_TEMPLATE;
