@@ -143,8 +143,21 @@ a { color: var(--brand); }
 .howto { background: color-mix(in srgb, var(--brand-l) 40%, #fff); border: 1px solid var(--brand-l); border-radius: 12px; padding: 12px 14px; margin-bottom: 12px; font-size: 13px; line-height: 1.7; }
 .howto ol { margin: 6px 0; padding-inline-start: 20px; }
 /* جدول البيانات */
-.gridbox { width: min(1400px, 100%) !important; height: 92vh; max-height: 92vh !important; display: flex; flex-direction: column; }
-.gridwrap { flex: 1; overflow: auto; border: 1px solid var(--line); border-radius: 10px; }
+.ds-outer { padding: 0 16px 24px; }
+.datasheet { padding: 14px; min-width: 0; scroll-margin-top: 70px; }
+.ds-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; margin-bottom: 10px; }
+.ds-head h3 { margin: 0; font-size: 16px; color: var(--brand-d); }
+.ds-tools { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.ds-group { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 10px; background: #fbfdfd; }
+.ds-label { font-size: 12px; font-weight: 700; color: var(--brand-d); margin-left: 2px; }
+.ds-url { width: 220px; max-width: 100%; padding: 5px 8px; border: 1px solid var(--line); border-radius: 8px; font-size: 13px; }
+.gridwrap { overflow: auto; max-height: 65vh; border: 1px solid var(--line); border-radius: 10px; }
+.sheet td.act { position: sticky; right: 58px; z-index: 1; background: #f3f7f7; padding: 0 4px; }
+.sheet th.act { position: sticky; right: 58px; z-index: 3; }
+.sheet td.act button { border: 0; background: none; cursor: pointer; font-size: 16px; padding: 4px 6px; border-radius: 6px; }
+.sheet td.act button:hover { background: var(--brand-l); }
+.sheet tr.active td { background: #eaf6ef; }
+.sheet tr.active td.n, .sheet tr.active td.act { background: #cfe9da; }
 .sheet { border-collapse: separate; border-spacing: 0; font-size: 13px; }
 .sheet th { position: sticky; top: 0; z-index: 2; background: var(--brand-l); color: var(--brand-d); font-weight: 600; padding: 7px 8px; white-space: nowrap; border-bottom: 1px solid #c5dbda; border-left: 1px solid #c5dbda; }
 .sheet th.mem { background: #e6efe0; }

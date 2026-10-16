@@ -17,6 +17,7 @@
     <div class="brand" id="brandLogo"><span>مصمم إعلانات المناقشات العلمية</span></div>
     <div class="spacer"></div>
     <span class="who" id="who"></span>
+    <button class="btn sm" id="btnSheet">📋 جدول البيانات</button>
     <button class="btn sm" id="btnHistory">🕘 سجل التصاميم</button>
     <button class="btn sm" id="btnDesigns">📁 قوالبي</button>
     <button class="btn sm" id="btnUsers" hidden>👥 الموظفون</button>
@@ -32,7 +33,6 @@
         <button data-tab="content" class="active">المحتوى</button>
         <button data-tab="committee">اللجنة</button>
         <button data-tab="design">المظهر</button>
-        <button data-tab="data">إكسل / شيت</button>
       </div>
       <div class="tab-body">
         <!-- المحتوى -->
@@ -135,42 +135,6 @@
           <button class="btn danger" id="resetAll">↺ استرجاع النموذج الافتراضي</button>
         </div>
 
-        <!-- البيانات -->
-        <div class="tab-pane" data-pane="data">
-          <div class="howto">
-            <b>كيف تسوي إعلانات كثيرة دفعة وحدة؟</b>
-            <ol>
-              <li>افتح <b>جدول البيانات</b> (تحت). كل سطر = إعلان.</li>
-              <li>اكتب فيه مباشرة، أو انسخ الخلايا من Excel أو Google Sheets (Ctrl+C) واضغط على أول خانة ثم الصق (Ctrl+V).</li>
-              <li>إذا نسخت سطر العناوين مع البيانات، الأعمدة تترتب تلقائياً حتى لو ترتيبها مختلف.</li>
-              <li>ارجع هنا، حدد الإعلانات اللي تبيها، واضغط <b>«تحميل صفوف الإكسل المحددة»</b> تحت المعاينة.</li>
-            </ol>
-            <span class="hint">الأعمدة الفاضية تأخذ قيمتها من التصميم الحالي. في العنوان استخدم | لسطر جديد. للمناقشين: عضو1، عضو2... (الاسم/الصفة/الدور).</span>
-          </div>
-          <button class="btn primary" id="openGrid" style="width:100%;justify-content:center;padding:11px">📋 فتح جدول البيانات (الصق من Excel)</button>
-
-          <div class="group-title">أو استورد ملف</div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap">
-            <label class="btn">📄 ملف Excel / CSV<input type="file" id="xlsFile" accept=".xlsx,.xls,.csv,.ods" hidden></label>
-            <button class="btn" id="dlTemplate">⬇️ ملف إكسل نموذجي</button>
-          </div>
-
-          <div class="group-title">أو اربط Google Sheets</div>
-          <p class="hint" style="margin-top:0">في الشيت: زر «مشاركة» ← «أي شخص لديه الرابط» (عارض) ← انسخ الرابط والصقه هنا. اضغط «تحديث» كل ما عدّلت الشيت.</p>
-          <div class="field"><input type="url" id="sheetUrl" dir="ltr" placeholder="https://docs.google.com/spreadsheets/d/..."></div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap">
-            <button class="btn" id="loadSheet">🔗 ربط وتحميل</button>
-            <button class="btn" id="refreshSheet" hidden>🔄 تحديث</button>
-          </div>
-
-          <div class="group-title">الصفوف <span id="rowCount"></span></div>
-          <div style="display:flex;gap:6px;margin-bottom:8px">
-            <button class="btn sm" id="selAll">تحديد الكل</button>
-            <button class="btn sm" id="selNone">إلغاء التحديد</button>
-            <button class="btn sm danger" id="clearRows">مسح</button>
-          </div>
-          <div class="rows" id="rows"><div class="hint" style="padding:12px">لا توجد بيانات بعد.</div></div>
-        </div>
       </div>
     </aside>
 
@@ -212,30 +176,51 @@
             <option value="2" selected>دقة مضاعفة ×2 (للطباعة)</option>
           </select>
           <button class="btn primary" id="exCurrent">⬇️ تحميل التصميم الحالي</button>
-          <button class="btn" id="exRows">📦 تحميل صفوف الإكسل المحددة (ZIP)</button>
+          <button class="btn" id="exRows">📦 تحميل المحدد من الجدول</button>
           <button class="btn" id="printBtn">🖨️ طباعة</button>
         </div>
         <p class="hint" style="margin:10px 0 0">يمكنك تحديد أكثر من مقاس ليتم تحميلها دفعة واحدة. عند اختيار PDF مع عدة صفوف ستحصل على ملف PDF لكل إعلان إضافةً إلى ملف PDF مجمّع.</p>
       </div>
     </main>
   </div>
-
-  <!-- نافذة جدول البيانات -->
-  <div class="modal" id="mGrid"><div class="box gridbox">
-    <h2>جدول البيانات <span class="hint" id="gridCount"></span> <button class="btn sm" data-close>✕</button></h2>
-    <div class="hbar">
-      <button class="btn sm" id="gAdd">➕ صف</button>
-      <button class="btn sm" id="gAdd5">➕ 5 صفوف</button>
-      <button class="btn sm" id="gFromDesign">➕ التصميم الحالي كصف</button>
-      <button class="btn sm danger" id="gDel">🗑️ حذف المحدد</button>
-      <button class="btn sm danger" id="gClear">🧹 مسح الكل</button>
-      <span style="flex:1"></span>
-      <button class="btn sm" id="gExport">⬇️ حفظ كملف Excel</button>
-      <button class="btn sm primary" data-close>✓ تم</button>
-    </div>
-    <p class="hint" style="margin:0 0 8px">📋 انسخ من Excel أو Google Sheets والصق في أي خانة (Ctrl+V). Enter ينزلك للسطر التالي. كل شي ينحفظ تلقائياً.</p>
-    <div class="gridwrap"><table class="sheet" id="sheet"></table></div>
-  </div></div>
+  <div class="ds-outer">
+    <!-- جدول بيانات الإعلانات (داخل الصفحة) -->
+    <section class="panel datasheet" id="dataSheet">
+      <div class="ds-head">
+        <h3>📋 جدول بيانات الإعلانات <span class="hint" id="gridCount"></span></h3>
+        <span class="hint">كل سطر = إعلان. اكتب مباشرة، أو انسخ من Excel / Google Sheets والصق في أي خانة (Ctrl+V). كل شي ينحفظ تلقائياً.</span>
+      </div>
+      <div class="ds-tools">
+        <div class="ds-group"><span class="ds-label">الصفوف</span>
+          <button class="btn sm" id="gAdd">➕ صف</button>
+          <button class="btn sm" id="gAdd5">➕ 5 صفوف</button>
+          <button class="btn sm" id="gFromDesign">➕ التصميم الحالي</button>
+          <button class="btn sm danger" id="gDel">🗑️ حذف المحدد</button>
+          <button class="btn sm danger" id="gClear">🧹 مسح الكل</button>
+        </div>
+        <div class="ds-group"><span class="ds-label">استيراد</span>
+          <label class="btn sm">📄 من ملف Excel / CSV<input type="file" id="xlsFile" accept=".xlsx,.xls,.csv,.ods" hidden></label>
+          <input type="url" id="sheetUrl" dir="ltr" placeholder="رابط Google Sheets" class="ds-url">
+          <button class="btn sm" id="loadSheet">🔗 من Google Sheets</button>
+          <button class="btn sm" id="refreshSheet" hidden>🔄 تحديث</button>
+        </div>
+        <div class="ds-group"><span class="ds-label">تصدير</span>
+          <button class="btn sm" id="gExport">⬇️ Excel</button>
+          <button class="btn sm" id="gExportCsv">⬇️ CSV</button>
+          <button class="btn sm" id="dlTemplate">📄 ملف نموذجي</button>
+        </div>
+        <div class="ds-group"><span class="ds-label">الإعلانات</span>
+          <button class="btn sm" id="gSelAll">☑️ تحديد الكل</button>
+          <button class="btn sm" id="gSelNone">إلغاء التحديد</button>
+          <button class="btn sm primary" id="gDl">📦 تحميل المحدد</button>
+          <button class="btn sm" id="gPrint">🖨️ طباعة المحدد</button>
+          <span class="hint" id="gSelCount"></span>
+        </div>
+      </div>
+      <p class="hint" style="margin:0 0 8px">👁 لعرض أي سطر في التصميم فوق. Google Sheets: «مشاركة» ← «أي شخص لديه الرابط» (عارض). الخانات الفاضية تاخذ قيمتها من التصميم الحالي، وفي العنوان استخدم | لسطر جديد.</p>
+      <div class="gridwrap"><table class="sheet" id="sheet"></table></div>
+    </section>
+  </div>
 
   <!-- نافذة سجل التصاميم -->
   <div class="modal" id="mHistory"><div class="box" style="width:min(1100px,100%)">
