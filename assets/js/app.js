@@ -664,7 +664,7 @@
     computeConflicts();
     const cls = c => /العنوان/.test(c) ? 'w-title' : /رابط/.test(c) ? 'w-link' : /الجنس|اليوم|الوقت|الدور/.test(c) ? 'w-sm' : '';
     $('#sheet').innerHTML = `<thead><tr><th class="n">#</th><th class="act">عرض / نسخ</th>${GCOLS.map(c => `<th class="${/^عضو/.test(c) ? 'mem' : ''}">${c}</th>`).join('')}</tr></thead>
-      <tbody>${grid.map((r, i) => `<tr data-r="${i}" class="${gridSel.has(i) ? 'sel' : ''} ${i === activeRow ? 'active' : ''} ${missingOf(r).length ? 'incomplete' : ''} ${conflicts.has(i) ? 'conflict' : ''}"><td class="n"><label><input type="checkbox" data-gsel ${gridSel.has(i) ? 'checked' : ''}>${i + 1}</label>${warnHtml(r)}${conflictHtml(i)}</td><td class="act"><button data-view title="عرض في التصميم">👁</button><button data-dup title="تكرار السطر (نفس اللجنة لطالب آخر)">⧉</button><button data-msg="invite" class="msg-b" title="نسخ رسالة الدعوة">دعوة</button><button data-msg="record" class="msg-b ${r[GCOLS.indexOf('رابط التسجيل')] ? 'has' : ''}" title="نسخ رسالة التسجيل">تسجيل</button></td>${
+      <tbody>${grid.map((r, i) => `<tr data-r="${i}" class="${gridSel.has(i) ? 'sel' : ''} ${i === activeRow ? 'active' : ''} ${missingOf(r).length ? 'incomplete' : ''} ${conflicts.has(i) ? 'conflict' : ''}"><td class="n"><label><input type="checkbox" data-gsel ${gridSel.has(i) ? 'checked' : ''}>${i + 1}</label>${warnHtml(r)}${conflictHtml(i)}</td><td class="act"><button data-view title="عرض في التصميم">👁</button><button data-dup title="تكرار السطر (نفس اللجنة لطالب آخر)">⧉</button><button data-msg="invite" class="msg-b" title="نسخ رسالة الدعوة">دعوة</button><button data-msg="record" class="msg-b ${r[GCOLS.indexOf('رابط التسجيل')] ? 'has' : ''}" title="نسخ رسالة التسجيل">تسجيل</button><button data-wa class="wa-row" title="إرسال بالواتساب: الصورة + الرسالة">واتساب</button></td>${
         GCOLS.map((c, j) => `<td><input type="text" class="${cls(c)}" data-c="${j}" value="${esc(r[j] || '')}"${c === 'رابط البث' ? ' dir="ltr" placeholder="يوتيوب (افتراضي)"' : c === 'رابط اللجنة' ? ' dir="ltr" placeholder="زوم (اختياري)"' : c === 'رابط التسجيل' ? ' dir="ltr" placeholder="بعد المناقشة"' : ''}></td>`).join('')}</tr>`).join('')}</tbody>`;
     updateGridInfo();
     const b = $('#gConflicts'); if (b) { b.hidden = !conflicts.size; b.textContent = `🔴 ${conflicts.size} سطر فيه تعارض`; }
@@ -1106,7 +1106,7 @@
   if (savedSheet) { $('#sheetUrl').value = savedSheet; $('#refreshSheet').hidden = false; }
 
   // نموذج التعبئة الجاهز (منسّق، بقوائم اختيار وورقة شرح)
-  const TEMPLATE_URL = 'assets/templates/template.xlsx?v=202610160127';
+  const TEMPLATE_URL = 'assets/templates/template.xlsx?v=202610160130';
   // نموذج Google Sheets: يفتح نسخة جديدة منه في حسابك (أنشئ نسختك ثم عبّئها)
   const GSHEET_TEMPLATE = 'https://docs.google.com/spreadsheets/d/1UeSeDlmeC8X-bhU-4uUWxqbu2aTQFDURwSryk6Z49to/copy';
   $('#gsCopy').href = GSHEET_TEMPLATE;
@@ -1587,6 +1587,78 @@
     $('#mTpl').classList.remove('open'); toast('تم حفظ نص الرسائل ✓');
   };
   $('#tplReset').onclick = () => { $('#tplInvite').value = DEFAULT_TPL.invite; $('#tplRecord').value = DEFAULT_TPL.record; updTplPreview(); };
+
+
+  // ---------- إرسال بالواتساب: الصورة الأصلية الكاملة + نص الرسالة ----------
+  const SEND = { s: null, kind: 'invite', blob: null, file: null };
+  const canShareFiles = () => { try { return !!(navigator.canShare && navigator.canShare({ files: [new File([new Blob(['x'])], 'x.jpg', { type: 'image/jpeg' })] })); } catch (e) { return false; } };
+  function sendSetKind(kind) {
+    SEND.kind = kind;
+    $$('[data-send]').forEach(b => b.classList.toggle('active', b.dataset.send === kind));
+    const missing = kind === 'record' && !String(SEND.s.recordingLink || '').trim();
+    $('#sendWarn').hidden = !missing;
+    $('#sendWarn').textContent = missing ? '⚠️ ما فيه رابط تسجيل. أضفه في خانة «رابط التسجيل» (أو في عمود السطر بالجدول) ثم ارجع هنا.' : '';
+    $('#sendText').value = missing ? '' : buildMsg(kind, SEND.s);
+  }
+  async function openSend(s, kind) {
+    SEND.s = s; SEND.blob = null; SEND.file = null;
+    sendSetKind(kind || (String(s.recordingLink || '').trim() ? 'record' : 'invite'));
+    const img = $('#sendImg'); img.removeAttribute('src'); $('#sendImgNote').textContent = 'جارٍ تجهيز الصورة...';
+    const mobile = canShareFiles();
+    $('#sendShare').hidden = !mobile; $('#sendWeb').hidden = mobile;
+    $('#sendHint').textContent = mobile
+      ? 'اضغط «إرسال للواتساب» واختر واتساب ثم المحادثة. إذا ما ظهر النص مع الصورة، الصقه (منسوخ تلقائياً).'
+      : 'في الكمبيوتر: يفتح واتساب ويب بالرسالة، والصورة تنسخ تلقائياً — الصقها في المحادثة (Ctrl+V).';
+    openModal('#mSend');
+    try {
+      const c = await capture(s, FORMATS[0], 2); // الصورة الأصلية الكاملة (مطابق للأصل)
+      SEND.blob = await new Promise(r => c.toBlob(r, 'image/jpeg', 0.93));
+      SEND.file = new File([SEND.blob], `${safeName(s.student || 'اعلان')}.jpg`, { type: 'image/jpeg' });
+      if (img._url) URL.revokeObjectURL(img._url);
+      img._url = URL.createObjectURL(SEND.blob); img.src = img._url;
+      $('#sendImgNote').textContent = 'الصورة الأصلية الكاملة — جاهزة ✓';
+    } catch (e) { $('#sendImgNote').textContent = 'تعذّر تجهيز الصورة'; }
+  }
+  $$('[data-send]').forEach(b => b.onclick = () => sendSetKind(b.dataset.send));
+  const sendReady = () => {
+    if (!$('#sendText').value.trim()) { toast(SEND.kind === 'record' ? 'أضف رابط التسجيل أولاً' : 'الرسالة فاضية', true); return false; }
+    if (!SEND.file) { toast('لحظة... الصورة تتجهز', true); return false; }
+    return true;
+  };
+  $('#sendShare').onclick = async () => {
+    if (!sendReady()) return;
+    const text = $('#sendText').value;
+    copyText(text); // احتياط: بعض نسخ واتساب تتجاهل النص المرفق مع الصورة
+    try {
+      await navigator.share({ files: [SEND.file], text });
+      saveToHistory({ quiet: true });
+      $('#mSend').classList.remove('open');
+    } catch (e) { if (e.name !== 'AbortError') toast('تعذّر فتح المشاركة — جرّب مرة ثانية أو حمّل الصورة', true); }
+  };
+  $('#sendWeb').onclick = async () => {
+    if (!sendReady()) return;
+    const text = $('#sendText').value;
+    const w = window.open('about:blank', '_blank'); // نفتح النافذة فوراً حتى لا يمنعها المتصفح
+    let copied = false;
+    try { await navigator.clipboard.write([new ClipboardItem({ [SEND.blob.type]: SEND.blob })]); copied = true; }
+    catch (e) {
+      try { const png = await new Promise(r => { const im = new Image(); im.onload = () => { const c = document.createElement('canvas'); c.width = im.naturalWidth; c.height = im.naturalHeight; c.getContext('2d').drawImage(im, 0, 0); c.toBlob(r, 'image/png'); }; im.src = $('#sendImg').src; });
+        await navigator.clipboard.write([new ClipboardItem({ 'image/png': png })]); copied = true; } catch (er) { copied = false; }
+    }
+    const url = `https://web.whatsapp.com/send?text=${encodeURIComponent(text)}`;
+    if (w) w.location.href = url; else location.href = url;
+    toast(copied ? '✓ الصورة منسوخة — اختر المحادثة والصقها (Ctrl+V) ثم أرسل' : 'افتح المحادثة وأرفق الصورة من «تحميل الصورة»', !copied);
+    saveToHistory({ quiet: true });
+  };
+  $('#sendCopy').onclick = async () => { if (await copyText($('#sendText').value)) toast('✓ تم نسخ الرسالة'); };
+  $('#sendDl').onclick = () => { if (SEND.blob) saveBlob(SEND.blob, SEND.file.name); };
+  $('#waSend').onclick = () => openSend(state);
+  $('#sheet').addEventListener('click', e => {
+    const b = e.target.closest('[data-wa]'); if (!b) return;
+    const r = +b.closest('tr').dataset.r;
+    if (isEmptyRow(grid[r])) return toast('هذا السطر فاضي', true);
+    openSend(applyRow(state, parseRow(gridToObj(grid[r]))));
+  });
 
   // ---------- مزامنة: تعديل سطر الجدول المفتوح من النموذج + تحديث تصميم السجل تلقائياً ----------
   // ينقل للسطر فقط الحقول التي غيّرها المستخدم في النموذج منذ فتح السطر
