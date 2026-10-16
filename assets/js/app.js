@@ -641,7 +641,7 @@
     const cls = c => /العنوان/.test(c) ? 'w-title' : /رابط/.test(c) ? 'w-link' : /الجنس|اليوم|الوقت|الدور/.test(c) ? 'w-sm' : '';
     $('#sheet').innerHTML = `<thead><tr><th class="n">#</th><th class="act">عرض</th>${GCOLS.map(c => `<th class="${/^عضو/.test(c) ? 'mem' : ''}">${c}</th>`).join('')}</tr></thead>
       <tbody>${grid.map((r, i) => `<tr data-r="${i}" class="${gridSel.has(i) ? 'sel' : ''} ${i === activeRow ? 'active' : ''} ${missingOf(r).length ? 'incomplete' : ''}"><td class="n"><label><input type="checkbox" data-gsel ${gridSel.has(i) ? 'checked' : ''}>${i + 1}</label>${warnHtml(r)}</td><td class="act"><button data-view title="عرض في التصميم">👁</button><button data-dup title="تكرار السطر (نفس اللجنة لطالب آخر)">⧉</button></td>${
-        GCOLS.map((c, j) => `<td><input type="text" class="${cls(c)}" data-c="${j}" value="${esc(r[j] || '')}"${/رابط/.test(c) ? ' dir="ltr"' : ''}></td>`).join('')}</tr>`).join('')}</tbody>`;
+        GCOLS.map((c, j) => `<td><input type="text" class="${cls(c)}" data-c="${j}" value="${esc(r[j] || '')}"${/رابط/.test(c) ? ' dir="ltr" placeholder="يوتيوب (افتراضي)"' : ''}></td>`).join('')}</tr>`).join('')}</tbody>`;
     updateGridInfo();
   }
   let activeRow = -1;
@@ -829,7 +829,7 @@
   if (savedSheet) { $('#sheetUrl').value = savedSheet; $('#refreshSheet').hidden = false; }
 
   // نموذج التعبئة الجاهز (منسّق، بقوائم اختيار وورقة شرح)
-  const TEMPLATE_URL = 'assets/templates/template.xlsx?v=202610160052';
+  const TEMPLATE_URL = 'assets/templates/template.xlsx?v=202610160055';
   // نموذج Google Sheets: يفتح نسخة جديدة منه في حسابك (أنشئ نسختك ثم عبّئها)
   const GSHEET_TEMPLATE = 'https://docs.google.com/spreadsheets/d/1Xkwe3rF0iIVspBlWcr0tGOJA1KpJKWjERlh-gfOPqUQ/copy';
   $('#gsCopy').href = GSHEET_TEMPLATE;
@@ -982,12 +982,15 @@
       mTitle: ['الأستاذ في قسم الفقه', 'الأستاذ المشارك في قسم الفقه', 'الأستاذ المساعد في قسم الفقه',
         'الأستاذ في قسم أصول الفقه', 'الأستاذ المشارك في قسم أصول الفقه', 'الأستاذ المساعد في قسم أصول الفقه'],
       mRole: ['مشرفاً ومقرراً', 'مشرفاً', 'مشرفاً مشاركاً', 'مناقشاً', 'مناقشاً خارجياً', 'مشرفةً ومقررةً', 'مناقِشةً'],
-      mName: []
+      mName: [],
+      link: [DEFAULTS.link]
     };
-    const FORM_KEYS = { degree: 'degree', day: 'day', time: 'time', place: 'place', placeNote: 'placeNote' };
+    const FORM_KEYS = { degree: 'degree', day: 'day', time: 'time', place: 'place', placeNote: 'placeNote', link: 'link' };
+    const platform = v => /youtu/i.test(v) ? '▶️ يوتيوب' + (v === DEFAULTS.link ? ' (الافتراضي)' : '') : /zoom/i.test(v) ? '🎥 زوم'
+      : /blackboard|bbcollab/i.test(v) ? '🎓 بلاك بورد' : /teams/i.test(v) ? '👥 تيمز' : /meet\.google/i.test(v) ? '📹 Google Meet' : '🔗 رابط';
     const M_KEYS = { name: 'mName', title: 'mTitle', role: 'mRole' };
     const COL_KEY = c => /الاسم$/.test(c) ? 'mName' : /الصفة$/.test(c) ? 'mTitle' : /الدور$/.test(c) ? 'mRole'
-      : { 'الدرجة': 'degree', 'اليوم': 'day', 'الوقت': 'time', 'الجنس': 'gender', 'المكان': 'place', 'ملاحظة المكان': 'placeNote' }[c] || null;
+      : { 'الدرجة': 'degree', 'اليوم': 'day', 'الوقت': 'time', 'الجنس': 'gender', 'المكان': 'place', 'ملاحظة المكان': 'placeNote', 'رابط البث': 'link' }[c] || null;
     const norm = v => String(v || '').replace(/[ً-ٰٟـ]/g, '').replace(/[إأآٱ]/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه').replace(/\s+/g, ' ').trim().toLowerCase();
     let histStates = [];
     let dirty = true, counts = {}, nameTitle = {};
@@ -1009,6 +1012,7 @@
     function rebuild() {
       counts = {}; nameTitle = {};
       Object.entries(SEEDS).forEach(([k, arr]) => arr.forEach(v => add(k, v, 0.5)));
+      add('link', DEFAULTS.link, 1000); // رابط القناة دائماً أول اقتراح
       grid.forEach(r => { if (!isEmptyRow(r)) addState(applyRow({ committee: [] }, parseRow(gridToObj(r)))); });
       histStates.forEach(addState);
       try { getDesigns().forEach(d => addState(d.state)); } catch (e) { /* لا قوالب */ }
@@ -1062,9 +1066,11 @@
       if (!items.length) return hide();
       target = el; idx = -1;
       const q = norm(el.value);
-      box.innerHTML = `<div class="sugg-h">${key === 'mName' ? 'أسماء سابقة' : 'اقتراحات'}</div>` + items.map((v, i) => {
-        const t = key === 'mName' && nameTitle[v] ? [...nameTitle[v].entries()].sort((a, b) => b[1] - a[1])[0][0] : '';
-        return `<div class="sugg-i" data-i="${i}"><span>${esc(v)}</span>${t ? `<small>${esc(t)}</small>` : ''}</div>`;
+      box.innerHTML = `<div class="sugg-h">${key === 'mName' ? 'أسماء سابقة' : key === 'link' ? 'روابط البث' : 'اقتراحات'}</div>` + items.map((v, i) => {
+        const t = key === 'mName' && nameTitle[v] ? [...nameTitle[v].entries()].sort((a, b) => b[1] - a[1])[0][0] : key === 'link' ? platform(v) : '';
+        return key === 'link'
+          ? `<div class="sugg-i" data-i="${i}"><span>${esc(t)}</span><small dir="ltr">${esc(v)}</small></div>`
+          : `<div class="sugg-i" data-i="${i}"><span>${esc(v)}</span>${t ? `<small>${esc(t)}</small>` : ''}</div>`;
       }).join('');
       const r = el.getBoundingClientRect();
       const w = Math.max(r.width, 240);
