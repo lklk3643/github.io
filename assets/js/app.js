@@ -584,7 +584,9 @@
     'المكان': 'place', 'القاعة': 'place', 'place': 'place', 'ملاحظة المكان': 'placeNote', 'ملاحظة': 'placeNote', 'note': 'placeNote',
     'رابط البث': 'link', 'الرابط': 'link', 'link': 'link',
     'رابط اللجنة': 'committeeLink', 'رابط الزوم': 'committeeLink', 'رابط المناقش الخارجي': 'committeeLink', 'رابط خاص باللجنة': 'committeeLink',
-    'رابط التسجيل': 'recordingLink', 'التسجيل': 'recordingLink'
+    'رابط التسجيل': 'recordingLink', 'التسجيل': 'recordingLink',
+    'الملاحظات': 'notes', 'ملاحظات': 'notes', 'notes': 'notes',
+    'منسق الحجز': 'coordinator', 'اسم منسق الحجز': 'coordinator', 'المنسق': 'coordinator', 'coordinator': 'coordinator'
   };
   const normKey = k => String(k).replace(/[_\-]+/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase().replace(/[إأآ]/g, 'ا');
   const NMAP = Object.fromEntries(Object.entries(FIELD_MAP).map(([k, v]) => [normKey(k), v]));
@@ -623,13 +625,13 @@
 
   // ---------- جدول البيانات (صف = إعلان) ----------
   // الكلية ونص الإعلان ثابتان في التصميم، فلا يحتاجان أعمدة
-  const GCOLS = ['الدرجة', 'الجنس', 'الطالب', 'العنوان', 'اليوم', 'التاريخ', 'الوقت', 'المكان', 'ملاحظة المكان', 'رابط البث', 'رابط اللجنة', 'رابط التسجيل'];
+  const GCOLS = ['الدرجة', 'الجنس', 'الطالب', 'العنوان', 'اليوم', 'التاريخ', 'الوقت', 'المكان', 'ملاحظة المكان', 'رابط البث', 'رابط اللجنة', 'رابط التسجيل', 'الملاحظات', 'منسق الحجز'];
   const GFIELD = { 'الدرجة': 'degree', 'الجنس': 'gender', 'الطالب': 'student', 'العنوان': 'title',
     'اليوم': 'day', 'التاريخ': 'date', 'الوقت': 'time', 'المكان': 'place', 'ملاحظة المكان': 'placeNote', 'رابط البث': 'link',
-    'رابط اللجنة': 'committeeLink', 'رابط التسجيل': 'recordingLink' };
+    'رابط اللجنة': 'committeeLink', 'رابط التسجيل': 'recordingLink', 'الملاحظات': 'notes', 'منسق الحجز': 'coordinator' };
   const GMEM = 5;
   const PICK_COL = { 'اليوم': 'day', 'التاريخ': 'date', 'الوقت': 'time', 'الجنس': 'list:gender', 'الدرجة': 'list:degree',
-    'المكان': 'list:place', 'ملاحظة المكان': 'list:placeNote' };
+    'المكان': 'list:place', 'ملاحظة المكان': 'list:placeNote', 'الملاحظات': 'list:notes', 'منسق الحجز': 'list:coord' };
   const pickOf = c => PICK_COL[c] || (/الصفة$/.test(c) ? 'list:mTitle' : /الدور$/.test(c) ? 'list:mRole' : '');
   for (let i = 1; i <= GMEM; i++) GCOLS.push(`عضو${i} الاسم`, `عضو${i} الصفة`, `عضو${i} الدور`);
   const emptyRow = () => GCOLS.map(() => '');
@@ -641,7 +643,9 @@
     if (grid[0].length === 27) grid = grid.map(r => r.slice(2)); // كان فيه الكلية ونص الإعلان
     if (grid[0] && grid[0].length === 25) grid = grid.map(r => [...r.slice(0, 10), '', '', ...r.slice(10)]); // إضافة رابط اللجنة ورابط التسجيل
   }
-  try { localStorage.setItem(userKey('gridv'), '3'); } catch (e) { /* اختياري */ }
+  if (grid.length && +(localStorage.getItem(userKey('gridv')) || 0) < 4) // إضافة عمودي الملاحظات ومنسق الحجز
+    grid = grid.map(r => r.length === 27 ? [...r.slice(0, 12), '', '', ...r.slice(12)] : r);
+  try { localStorage.setItem(userKey('gridv'), '4'); } catch (e) { /* اختياري */ }
   const gridSel = new Set();
   const isEmptyRow = r => r.every(v => !String(v || '').trim());
   const gridToObj = r => Object.fromEntries(GCOLS.map((c, i) => [c, r[i] || '']));
@@ -674,7 +678,7 @@
     $('#gSelCount').textContent = sel ? `محدد: ${sel}` : '';
   }
   function setRows(list) {
-    grid = list.map(o => dataToGrid(parseRow(o))).filter(r => !isEmptyRow(r));
+    grid = list.map(o => parseRow(o)).filter(d => !isWeekendRow(d)).map(d => dataToGrid(d)).filter(r => !isEmptyRow(r));
     gridSel.clear();
     grid.forEach((_, i) => gridSel.add(i));
     try { localStorage.setItem(userKey('grid'), JSON.stringify(grid)); } catch (e) { /* مساحة */ }
@@ -683,12 +687,49 @@
     toast(grid.length ? `تم استيراد ${grid.length} إعلان إلى الجدول ✓` : 'لم يتم العثور على أعمدة مطابقة – استخدم الملف النموذجي', !grid.length);
   }
 
+  // ---------- فواصل الأسابيع (إجازة أسبوعية: الجمعة والسبت) ----------
+  const WK_DAYS = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+  const wkCache = new Map();
+  const weeksOn = () => { try { return localStorage.getItem(userKey('weeks')) !== '0'; } catch (e) { return true; } };
+  function weekOf(r) { // رقم الأسبوع (يبدأ الأحد) من التاريخ الهجري
+    const d = String(r[CI('التاريخ')] || '').trim(); if (!d) return null;
+    if (!wkCache.has(d)) {
+      const g = hijriToGreg(d); let w = null;
+      if (g) { const [y, m, dd] = g.split('/').map(Number); w = Math.floor((Date.UTC(y, m - 1, dd) / 864e5 - 3) / 7); }
+      wkCache.set(d, w);
+    }
+    return wkCache.get(d);
+  }
+  function hijriOfDay(n) { // n = أيام منذ 1970/1/1
+    const parts = new Intl.DateTimeFormat('en-u-ca-islamic-umalqura', { day: 'numeric', month: 'numeric', year: 'numeric', timeZone: 'UTC' }).formatToParts(new Date(n * 864e5 + 432e5));
+    const g = t => parseInt((parts.find(p => p.type === t) || {}).value, 10);
+    return `${g('year')}/${g('month')}/${g('day')} هـ`;
+  }
+  // الفاصل المطلوب قبل السطر i (أو null)
+  function weekBreak(i) {
+    if (!weeksOn() || !i) return null;
+    const w = weekOf(grid[i]); if (w == null) return null;
+    let j = i - 1; while (j >= 0 && weekOf(grid[j]) == null) j--;
+    if (j < 0) return null;
+    const pw = weekOf(grid[j]); if (pw == null || w <= pw) return null;
+    const fri = pw * 7 + 3 + 5, sat = fri + 1;
+    return { fri: hijriOfDay(fri), sat: hijriOfDay(sat), gap: w - pw - 1 };
+  }
+  const weekRows = b => [['الجمعة', b.fri], ['السبت', b.sat]].map(([d, h]) => { const r = emptyRow(); r[CI('اليوم')] = d; r[CI('التاريخ')] = h; r[CI('الملاحظات')] = 'إجازة أسبوعية'; return r; });
+  const isWeekendRow = o => /[اأإ]جاز/.test(o.notes || '') && !o.student && !o.title && !o.degree;
+  // تصدير الجدول: مع أسطر «إجازة أسبوعية» إذا كانت الفواصل مفعّلة
+  function exportAoa() {
+    const out = [GCOLS];
+    grid.forEach((r, i) => { if (isEmptyRow(r)) return; const b = weekBreak(i); if (b) out.push(...weekRows(b)); out.push(r); });
+    return out;
+  }
+
   function renderGrid() {
     if (!grid.length) grid = Array.from({ length: 5 }, emptyRow);
     computeConflicts();
     const cls = c => /العنوان/.test(c) ? 'w-title' : /رابط/.test(c) ? 'w-link' : /الجنس|اليوم|الوقت|الدور/.test(c) ? 'w-sm' : '';
     $('#sheet').innerHTML = `<thead><tr><th class="n">#</th><th class="act">عرض / نسخ</th>${GCOLS.map(c => `<th class="${/^عضو/.test(c) ? 'mem' : ''}">${c}</th>`).join('')}</tr></thead>
-      <tbody>${grid.map((r, i) => `<tr data-r="${i}" class="${gridSel.has(i) ? 'sel' : ''} ${i === activeRow ? 'active' : ''} ${missingOf(r).length ? 'incomplete' : ''} ${conflicts.has(i) ? 'conflict' : ''}"><td class="n"><label><input type="checkbox" data-gsel ${gridSel.has(i) ? 'checked' : ''}>${i + 1}</label>${warnHtml(r)}${conflictHtml(i)}</td><td class="act"><button data-view title="عرض في التصميم">👁</button><button data-dup title="تكرار السطر (نفس اللجنة لطالب آخر)">⧉</button><button data-msg="invite" class="msg-b" title="نسخ رسالة الدعوة">دعوة</button><button data-wa="invite" class="wa-i" title="إرسال الدعوة بالواتساب">💬</button><button data-msg="record" class="msg-b ${r[GCOLS.indexOf('رابط التسجيل')] ? 'has' : ''}" title="نسخ رسالة التسجيل">تسجيل</button><button data-wa="record" class="wa-i" title="إرسال التسجيل بالواتساب">💬</button></td>${
+      <tbody>${grid.map((r, i) => `${(b => b ? `<tr class="wk-sep"><td colspan="${GCOLS.length + 2}"><span>🌙 إجازة أسبوعية</span> الجمعة ${b.fri} · السبت ${b.sat}${b.gap ? ` <small>(بعدها ${b.gap === 1 ? 'أسبوع' : b.gap + ' أسابيع'} بدون مناقشات)</small>` : ''}</td></tr>` : '')(weekBreak(i))}<tr data-r="${i}" class="${gridSel.has(i) ? 'sel' : ''} ${i === activeRow ? 'active' : ''} ${missingOf(r).length ? 'incomplete' : ''} ${conflicts.has(i) ? 'conflict' : ''}"><td class="n"><label><input type="checkbox" data-gsel ${gridSel.has(i) ? 'checked' : ''}>${i + 1}</label>${warnHtml(r)}${conflictHtml(i)}</td><td class="act"><button data-view title="عرض في التصميم">👁</button><button data-dup title="تكرار السطر (نفس اللجنة لطالب آخر)">⧉</button><button data-msg="invite" class="msg-b" title="نسخ رسالة الدعوة">دعوة</button><button data-wa="invite" class="wa-i" title="إرسال الدعوة بالواتساب">💬</button><button data-msg="record" class="msg-b ${r[GCOLS.indexOf('رابط التسجيل')] ? 'has' : ''}" title="نسخ رسالة التسجيل">تسجيل</button><button data-wa="record" class="wa-i" title="إرسال التسجيل بالواتساب">💬</button></td>${
         GCOLS.map((c, j) => `<td><input type="text" class="${cls(c)}" data-c="${j}" value="${esc(r[j] || '')}"${pickOf(c) ? ` inputmode="none" data-pick="${pickOf(c)}"` : ''}${c === 'رابط البث' ? ' dir="ltr" placeholder="يوتيوب (افتراضي)"' : c === 'رابط اللجنة' ? ' dir="ltr" placeholder="زوم (اختياري)"' : c === 'رابط التسجيل' ? ' dir="ltr" placeholder="بعد المناقشة"' : ''}></td>`).join('')}</tr>`).join('')}</tbody>`;
     updateGridInfo();
     const b = $('#gConflicts'); if (b) { b.hidden = !conflicts.size; b.textContent = `🔴 ${conflicts.size} سطر فيه تعارض`; }
@@ -872,6 +913,8 @@
     const inp = e.target; if (!inp.dataset || +inp.dataset.c !== GCOLS.indexOf('الطالب') || !inp.value.trim()) return;
     const g = inp.closest('tr').querySelector(`input[data-c="${GCOLS.indexOf('الجنس')}"]`);
     if (g && !g.value.trim()) { g.value = guessGender(inp.value); g.dispatchEvent(new Event('input', { bubbles: true })); }
+    const co = inp.closest('tr').querySelector(`input[data-c="${GCOLS.indexOf('منسق الحجز')}"]`), me = QSuggest.last('coord');
+    if (co && !co.value.trim() && me) { co.value = me; co.dispatchEvent(new Event('input', { bubbles: true })); }
   });
   $('#sheet').addEventListener('change', e => {
     if (!e.target.matches('[data-gsel]')) return;
@@ -930,6 +973,9 @@
     return (m ? +m[1] * 10000 + +m[2] * 100 + +m[3] : 99999999) * 10000 + (t == null ? 9999 : t);
   }
   const sortRows = rows => rows.filter(r => !isEmptyRow(r)).map((r, i) => [gridDateKey(r), i, r]).sort((a, b) => a[0] - b[0] || a[1] - b[1]).map(x => x[2]);
+  { const wk = $('#gWeeks'); wk.checked = weeksOn();
+    wk.onchange = () => { try { localStorage.setItem(userKey('weeks'), wk.checked ? '1' : '0'); } catch (e) { /* اختياري */ } renderGrid();
+      toast(wk.checked ? '🌙 تظهر الإجازة الأسبوعية بين الأسابيع (وفي الملف المصدَّر)' : 'أُخفيت فواصل الأسابيع — الصفوف ورا بعض'); }; }
   $('#gSort').onclick = () => {
     grid = sortRows(grid); gridSel.clear(); activeRow = -1; renderGrid(); gridChanged();
     toast('تم ترتيب الجدول تصاعدياً حسب التاريخ والوقت ✓');
@@ -937,18 +983,23 @@
   // بيانات الكلية المشتركة (جدول حجز القاعة): تُضاف للجدول مرة لكل إصدار بدون تكرار ثم يُرتّب
   (async function loadShared() {
     try {
-      const res = await fetch('assets/data/defenses.json?v=202610160227', { cache: 'no-cache' }); if (!res.ok) return;
+      const res = await fetch('assets/data/defenses.json?v=202610160235', { cache: 'no-cache' }); if (!res.ok) return;
       const data = await res.json(), seenKey = userKey('sharedv');
       if (!data || !data.v || localStorage.getItem(seenKey) === data.v) return;
       const demo = new Set(SAMPLES.map(x => JSON.stringify(dataToGrid(x)))); // الأمثلة غير المعدّلة تُستبدل بالبيانات الحقيقية
       grid = grid.filter(r => !demo.has(JSON.stringify(r)));
       const key = r => nrm(r[CI('الطالب')]) + '|' + toLatin(r[CI('التاريخ')] || '').replace(/\D+/g, '-');
-      const have = new Set(grid.filter(r => !isEmptyRow(r)).map(key));
-      const add = data.rows.map(o => GCOLS.map(c => o[c] || '')).filter(r => !have.has(key(r)));
+      const have = new Map(); grid.forEach(r => { if (!isEmptyRow(r)) have.set(key(r), r); });
+      const add = [], fresh = data.rows.map(o => GCOLS.map(c => o[c] || ''));
+      let filled = 0;
+      fresh.forEach(r => { // سطر موجود: تُعبّأ خاناته الفاضية فقط (مثل الملاحظات ومنسق الحجز) بدون المساس بتعديلات الموظف
+        const old = have.get(key(r)); if (!old) { add.push(r); return; }
+        let f = false; r.forEach((v, j) => { if (v && !String(old[j] || '').trim()) { old[j] = v; f = true; } }); if (f) filled++;
+      });
       localStorage.setItem(seenKey, data.v);
-      if (!add.length) { renderGrid(); gridChanged(); return; }
+      if (!add.length && !filled) { renderGrid(); gridChanged(); return; }
       grid = sortRows([...grid, ...add]); gridSel.clear(); activeRow = -1; renderGrid(); gridChanged();
-      toast(`📅 أُضيفت ${add.length} مناقشة من جدول حجز القاعة — مرتبة تصاعدياً بالتاريخ`);
+      toast(add.length ? `📅 أُضيفت ${add.length} مناقشة من جدول حجز القاعة — مرتبة تصاعدياً بالتاريخ` : `📅 حُدّثت ${filled} مناقشة من جدول حجز القاعة (الملاحظات ومنسق الحجز)`);
     } catch (e) { /* بدون اتصال أو نسخة الملف الواحد */ }
   })();
   $('#gDel').onclick = () => {
@@ -961,7 +1012,7 @@
     grid = []; gridSel.clear(); activeRow = -1; renderGrid(); gridChanged();
   };
   $('#gExport').onclick = () => {
-    const ws = XLSX.utils.aoa_to_sheet([GCOLS, ...grid.filter(r => !isEmptyRow(r))]);
+    const ws = XLSX.utils.aoa_to_sheet(exportAoa());
     ws['!cols'] = GCOLS.map(h => ({ wch: /العنوان/.test(h) ? 60 : 22 })); ws['!views'] = [{ RTL: true }];
     const wb = XLSX.utils.book_new(); wb.Workbook = { Views: [{ RTL: true }] };
     XLSX.utils.book_append_sheet(wb, ws, 'المناقشات');
@@ -983,7 +1034,7 @@
     printStates(items.map(x => x.state));
   };
   $('#gExportCsv').onclick = () => {
-    const ws = XLSX.utils.aoa_to_sheet([GCOLS, ...grid.filter(r => !isEmptyRow(r))]);
+    const ws = XLSX.utils.aoa_to_sheet(exportAoa());
     saveBlob(new Blob(['\ufeff' + XLSX.utils.sheet_to_csv(ws)], { type: 'text/csv;charset=utf-8' }), 'بيانات-المناقشات.csv');
   };
 
@@ -1045,7 +1096,7 @@
       const hours = row.map((v, i) => { const m = v.match(/^س\s*(\d{1,2})$/); return m ? [i, +m[1]] : null; }).filter(Boolean);
       const dayCol = row.findIndex(v => v === 'يوم' || v === 'اليوم');
       const hijriCol = row.findIndex(v => /هجري/.test(v));
-      if (hours.length >= 2 && hijriCol >= 0) return { headerRow: r, hours, dayCol, hijriCol, noteCol: row.findIndex(v => /ملاحظ/.test(v)) };
+      if (hours.length >= 2 && hijriCol >= 0) return { headerRow: r, hours, dayCol, hijriCol, noteCol: row.findIndex(v => /ملاحظ/.test(v)), coordCol: row.findIndex(v => /منسق/.test(v)) };
     }
     return null;
   }
@@ -1057,10 +1108,11 @@
       if (!hj) continue;
       const [y, m, d] = [+hj[1], +hj[2], +hj[3]];
       const note = info.noteCol >= 0 ? String(row[info.noteCol] || '').trim() : '';
+      const coord = info.coordCol >= 0 ? String(row[info.coordCol] || '').trim() : '';
       info.hours.forEach(([col, h]) => {
         const data = parseBookingCell(row[col], h);
         if (!data) return;
-        out.push({ ...data, day: info.dayCol >= 0 ? String(row[info.dayCol] || '').trim() : '', date: `${y}/${m}/${d} هـ`,
+        out.push({ ...data, notes: note, coordinator: coord, day: info.dayCol >= 0 ? String(row[info.dayCol] || '').trim() : '', date: `${y}/${m}/${d} هـ`,
           _y: y, _m: m, _d: d, _note: note, _postponed: /تأجيل|التأجيل/.test(note) && !/انتهت/.test(note) });
       });
     }
@@ -1164,7 +1216,7 @@
   if (savedSheet) { $('#sheetUrl').value = savedSheet; $('#refreshSheet').hidden = false; }
 
   // نموذج التعبئة الجاهز (منسّق، بقوائم اختيار وورقة شرح)
-  const TEMPLATE_URL = 'assets/templates/template.xlsx?v=202610160227';
+  const TEMPLATE_URL = 'assets/templates/template.xlsx?v=202610160235';
   // نموذج Google Sheets: يفتح نسخة جديدة منه في حسابك (أنشئ نسختك ثم عبّئها)
   const GSHEET_TEMPLATE = 'https://docs.google.com/spreadsheets/d/1UeSeDlmeC8X-bhU-4uUWxqbu2aTQFDURwSryk6Z49to/copy';
   $('#gsCopy').href = GSHEET_TEMPLATE;
@@ -1323,6 +1375,7 @@
       mRole: ['مشرفاً ومقرراً', 'مشرفاً', 'مشرفاً مشاركاً', 'مناقشاً', 'مناقشاً خارجياً', 'مشرفةً ومقررةً', 'مناقِشةً'],
       mName: [],
       link: [DEFAULTS.link],
+      notes: ['انتهت المناقشة', 'تم التأجيل'], coord: [],
       // أجزاء تُركّب منها الدرجة والصفة؛ أي قسم/تخصص جديد يُكتب مرة يصير متاحاً في القوائم
       level: ['الماجستير', 'الدكتوراه'],
       spec: ['الفقه', 'الفقه المقارن', 'أصول الفقه', 'العقيدة', 'السنة وعلومها', 'القرآن وعلومه'],
@@ -1330,12 +1383,12 @@
       dept: ['الفقه', 'أصول الفقه', 'العقيدة والمذاهب المعاصرة', 'السنة وعلومها', 'القرآن وعلومه'],
       where: []
     };
-    const FORM_KEYS = { degree: 'degree', day: 'day', time: 'time', place: 'place', placeNote: 'placeNote', link: 'link' };
+    const FORM_KEYS = { degree: 'degree', day: 'day', time: 'time', place: 'place', placeNote: 'placeNote', link: 'link', notes: 'notes', coordinator: 'coord' };
     const EMO = { youtube: '▶️', zoom: '🎥', teams: '👥', webex: '🌐', blackboard: '🎓', meet: '📹', link: '🔗' };
     const platform = v => { const p = QPoster.platformOf(v); return `${EMO[p.id]} ${p.name}${v === DEFAULTS.link ? ' (الافتراضي)' : ''}`; };
     const M_KEYS = { name: 'mName', title: 'mTitle', role: 'mRole' };
     const COL_KEY = c => /الاسم$/.test(c) ? 'mName' : /الصفة$/.test(c) ? 'mTitle' : /الدور$/.test(c) ? 'mRole'
-      : { 'الدرجة': 'degree', 'اليوم': 'day', 'الوقت': 'time', 'الجنس': 'gender', 'المكان': 'place', 'ملاحظة المكان': 'placeNote', 'رابط البث': 'link' }[c] || null;
+      : { 'الدرجة': 'degree', 'اليوم': 'day', 'الوقت': 'time', 'الجنس': 'gender', 'المكان': 'place', 'ملاحظة المكان': 'placeNote', 'رابط البث': 'link', 'الملاحظات': 'notes', 'منسق الحجز': 'coord' }[c] || null;
     const norm = v => String(v || '').replace(/[ً-ٰٟـ]/g, '').replace(/[إأآٱ]/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه').replace(/\s+/g, ' ').trim().toLowerCase();
     let histStates = [];
     let dirty = true, counts = {}, nameTitle = {};
@@ -1494,7 +1547,9 @@
       if (hiddenOf().has(key + '|' + v)) hide(key, v, false);
       learn(key, v);
     }
-    return { refreshHistory, markDirty: () => { dirty = true; }, top, hide, learn: learnPick, split, titlesOf };
+    // آخر قيمة اختارها هذا الموظف (مثل اسم منسق الحجز) لتعبئتها تلقائياً
+    const last = key => { const h = hiddenOf(); return (readLearn()[key] || []).find(v => !h.has(key + '|' + v)) || ''; };
+    return { refreshHistory, markDirty: () => { dirty = true; }, top, hide, learn: learnPick, split, titlesOf, last };
   })();
 
   // ---------- تراجع / إعادة ----------
@@ -1874,7 +1929,7 @@
     pkTarget = el; const kind = el.dataset.pick, cur = el.value.trim();
     if (kind && kind.startsWith('list:')) {
       const key = kind.slice(5);
-      const LABEL = { gender: 'الجنس', degree: 'الدرجة', place: 'المكان', placeNote: 'ملاحظة المكان', mTitle: 'الصفة', mRole: 'الدور' };
+      const LABEL = { gender: 'الجنس', degree: 'الدرجة', place: 'المكان', placeNote: 'ملاحظة المكان', mTitle: 'الصفة', mRole: 'الدور', notes: 'الملاحظة', coord: 'منسق الحجز' };
       let items = key === 'gender' ? ['ذكر', 'أنثى'] : QSuggest.top(key), mine = [], tip = 'الأكثر استخداماً أولاً';
       if (key === 'gender') {
         const st = pkRel(el, 'الطالب'); const g = st && st.value.trim() ? guessGender(st.value) : '';

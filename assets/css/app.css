@@ -307,3 +307,8 @@ a.btn { text-decoration: none; }
 .picker .pk-bnew { flex: 1 1 100%; padding: 7px 9px; border: 1px dashed var(--line); border-radius: 9px; font: inherit; font-size: 16px; }
 .picker .pk-apply { width: 100%; justify-content: center; margin-bottom: 8px; }
 .toast .toast-act { margin-inline-start: 10px; background: #fff; color: var(--brand-d); border: 0; border-radius: 8px; padding: 3px 10px; font: inherit; font-weight: 700; cursor: pointer; }
+/* فواصل الأسابيع في الجدول */
+#sheet tr.wk-sep td { background: #f4efe4; color: #6b5a3a; font-size: 12.5px; padding: 5px 12px; text-align: right; border-top: 2px solid #e2d6bd; border-bottom: 2px solid #e2d6bd; position: static; }
+#sheet tr.wk-sep td span { font-weight: 700; margin-inline-end: 8px; }
+#sheet tr.wk-sep td small { color: #9a8a6a; }
+.wk-chk { background: #f4efe4; border: 1px solid #e2d6bd; border-radius: 8px; padding: 4px 9px; font-size: 13px; white-space: nowrap; }
