@@ -218,7 +218,7 @@
   function changed(noSave) {
     clearTimeout(renderTimer);
     renderTimer = setTimeout(drawPreview, 60);
-    if (!noSave) { saveDraft(); if (window.QUndo) QUndo.record(); }
+    if (!noSave) { saveDraft(); if (window.QUndo) QUndo.record(); clearTimeout(changed._s); changed._s = setTimeout(() => { try { autoSync(); } catch (e) { /* قبل التهيئة */ } }, 400); }
     clearTimeout(changed._c); changed._c = setTimeout(() => { try { formConflictCheck(); } catch (e) { /* قبل التهيئة */ } }, 300);
   }
   async function drawPreview() {
@@ -525,10 +525,10 @@
     if (!it) return;
     const act = b.dataset.act;
     if (act === 'edit') {
-      state = normalize(it.state); setEditing(id, it.title); fillForm(); changed();
+      state = normalize(it.state); setEditing(id, it.title); activeRow = -1; $$('#sheet tbody tr.active').forEach(t => t.classList.remove('active')); fillForm(); changed();
       $('#mHistory').classList.remove('open'); toast('فُتح التصميم للتعديل — التعديلات تُحفظ على نفس النسخة');
     } else if (act === 'copy') {
-      state = normalize(it.state); setEditing(null); fillForm(); changed();
+      state = normalize(it.state); setEditing(null); activeRow = -1; $$('#sheet tbody tr.active').forEach(t => t.classList.remove('active')); fillForm(); changed();
       await saveToHistory({ asNew: true, quiet: true });
       $('#mHistory').classList.remove('open'); toast('تم إنشاء نسخة جديدة — عدّل عليها كما تريد والأصل محفوظ');
     } else if (act === 'print') {
@@ -547,7 +547,7 @@
   $('#btnSaveCopy').onclick = () => saveToHistory({ asNew: true });
   $('#btnNew').onclick = () => {
     if (!confirm('بدء تصميم جديد من النموذج الافتراضي؟ (التصاميم المحفوظة في السجل لا تتأثر)')) return;
-    state = normalize(); setEditing(null); fillForm(); changed();
+    state = normalize(); setEditing(null); activeRow = -1; $$('#sheet tbody tr.active').forEach(t => t.classList.remove('active')); fillForm(); changed();
   };
 
   // ---------- الإكسل وجوجل شيت ----------
@@ -561,7 +561,9 @@
     'الجنس': 'gender', 'gender': 'gender',
     'اليوم': 'day', 'day': 'day', 'التاريخ': 'date', 'date': 'date', 'الوقت': 'time', 'time': 'time',
     'المكان': 'place', 'القاعة': 'place', 'place': 'place', 'ملاحظة المكان': 'placeNote', 'ملاحظة': 'placeNote', 'note': 'placeNote',
-    'رابط البث': 'link', 'الرابط': 'link', 'link': 'link'
+    'رابط البث': 'link', 'الرابط': 'link', 'link': 'link',
+    'رابط اللجنة': 'committeeLink', 'رابط الزوم': 'committeeLink', 'رابط المناقش الخارجي': 'committeeLink', 'رابط خاص باللجنة': 'committeeLink',
+    'رابط التسجيل': 'recordingLink', 'التسجيل': 'recordingLink'
   };
   const normKey = k => String(k).replace(/[_\-]+/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase().replace(/[إأآ]/g, 'ا');
   const NMAP = Object.fromEntries(Object.entries(FIELD_MAP).map(([k, v]) => [normKey(k), v]));
@@ -600,16 +602,22 @@
 
   // ---------- جدول البيانات (صف = إعلان) ----------
   // الكلية ونص الإعلان ثابتان في التصميم، فلا يحتاجان أعمدة
-  const GCOLS = ['الدرجة', 'الجنس', 'الطالب', 'العنوان', 'اليوم', 'التاريخ', 'الوقت', 'المكان', 'ملاحظة المكان', 'رابط البث'];
+  const GCOLS = ['الدرجة', 'الجنس', 'الطالب', 'العنوان', 'اليوم', 'التاريخ', 'الوقت', 'المكان', 'ملاحظة المكان', 'رابط البث', 'رابط اللجنة', 'رابط التسجيل'];
   const GFIELD = { 'الدرجة': 'degree', 'الجنس': 'gender', 'الطالب': 'student', 'العنوان': 'title',
-    'اليوم': 'day', 'التاريخ': 'date', 'الوقت': 'time', 'المكان': 'place', 'ملاحظة المكان': 'placeNote', 'رابط البث': 'link' };
+    'اليوم': 'day', 'التاريخ': 'date', 'الوقت': 'time', 'المكان': 'place', 'ملاحظة المكان': 'placeNote', 'رابط البث': 'link',
+    'رابط اللجنة': 'committeeLink', 'رابط التسجيل': 'recordingLink' };
   const GMEM = 5;
   for (let i = 1; i <= GMEM; i++) GCOLS.push(`عضو${i} الاسم`, `عضو${i} الصفة`, `عضو${i} الدور`);
   const emptyRow = () => GCOLS.map(() => '');
   let grid = [];
   try { grid = JSON.parse(localStorage.getItem(userKey('grid'))) || []; } catch (e) { grid = []; }
   // ترحيل جداول محفوظة بالشكل القديم (كان أول عمودين: الكلية، نص الإعلان)
-  if (grid.length && grid[0].length === GCOLS.length + 2) grid = grid.map(r => r.slice(2));
+  // ترحيل الجداول المحفوظة بإصدارات سابقة
+  if (grid.length && +(localStorage.getItem(userKey('gridv')) || 0) < 3) {
+    if (grid[0].length === 27) grid = grid.map(r => r.slice(2)); // كان فيه الكلية ونص الإعلان
+    if (grid[0] && grid[0].length === 25) grid = grid.map(r => [...r.slice(0, 10), '', '', ...r.slice(10)]); // إضافة رابط اللجنة ورابط التسجيل
+  }
+  try { localStorage.setItem(userKey('gridv'), '3'); } catch (e) { /* اختياري */ }
   const gridSel = new Set();
   const isEmptyRow = r => r.every(v => !String(v || '').trim());
   const gridToObj = r => Object.fromEntries(GCOLS.map((c, i) => [c, r[i] || '']));
@@ -655,14 +663,15 @@
     if (!grid.length) grid = Array.from({ length: 5 }, emptyRow);
     computeConflicts();
     const cls = c => /العنوان/.test(c) ? 'w-title' : /رابط/.test(c) ? 'w-link' : /الجنس|اليوم|الوقت|الدور/.test(c) ? 'w-sm' : '';
-    $('#sheet').innerHTML = `<thead><tr><th class="n">#</th><th class="act">عرض</th>${GCOLS.map(c => `<th class="${/^عضو/.test(c) ? 'mem' : ''}">${c}</th>`).join('')}</tr></thead>
-      <tbody>${grid.map((r, i) => `<tr data-r="${i}" class="${gridSel.has(i) ? 'sel' : ''} ${i === activeRow ? 'active' : ''} ${missingOf(r).length ? 'incomplete' : ''} ${conflicts.has(i) ? 'conflict' : ''}"><td class="n"><label><input type="checkbox" data-gsel ${gridSel.has(i) ? 'checked' : ''}>${i + 1}</label>${warnHtml(r)}${conflictHtml(i)}</td><td class="act"><button data-view title="عرض في التصميم">👁</button><button data-dup title="تكرار السطر (نفس اللجنة لطالب آخر)">⧉</button></td>${
-        GCOLS.map((c, j) => `<td><input type="text" class="${cls(c)}" data-c="${j}" value="${esc(r[j] || '')}"${/رابط/.test(c) ? ' dir="ltr" placeholder="يوتيوب (افتراضي)"' : ''}></td>`).join('')}</tr>`).join('')}</tbody>`;
+    $('#sheet').innerHTML = `<thead><tr><th class="n">#</th><th class="act">عرض / نسخ</th>${GCOLS.map(c => `<th class="${/^عضو/.test(c) ? 'mem' : ''}">${c}</th>`).join('')}</tr></thead>
+      <tbody>${grid.map((r, i) => `<tr data-r="${i}" class="${gridSel.has(i) ? 'sel' : ''} ${i === activeRow ? 'active' : ''} ${missingOf(r).length ? 'incomplete' : ''} ${conflicts.has(i) ? 'conflict' : ''}"><td class="n"><label><input type="checkbox" data-gsel ${gridSel.has(i) ? 'checked' : ''}>${i + 1}</label>${warnHtml(r)}${conflictHtml(i)}</td><td class="act"><button data-view title="عرض في التصميم">👁</button><button data-dup title="تكرار السطر (نفس اللجنة لطالب آخر)">⧉</button><button data-msg="invite" class="msg-b" title="نسخ رسالة الدعوة">دعوة</button><button data-msg="record" class="msg-b ${r[GCOLS.indexOf('رابط التسجيل')] ? 'has' : ''}" title="نسخ رسالة التسجيل">تسجيل</button></td>${
+        GCOLS.map((c, j) => `<td><input type="text" class="${cls(c)}" data-c="${j}" value="${esc(r[j] || '')}"${c === 'رابط البث' ? ' dir="ltr" placeholder="يوتيوب (افتراضي)"' : c === 'رابط اللجنة' ? ' dir="ltr" placeholder="زوم (اختياري)"' : c === 'رابط التسجيل' ? ' dir="ltr" placeholder="بعد المناقشة"' : ''}></td>`).join('')}</tr>`).join('')}</tbody>`;
     updateGridInfo();
     const b = $('#gConflicts'); if (b) { b.hidden = !conflicts.size; b.textContent = `🔴 ${conflicts.size} سطر فيه تعارض`; }
     formConflictCheck();
   }
-  let activeRow = -1;
+  let activeRow = -1, rowSnap = null;
+  const gridOfState = () => dataToGrid({ ...state, gender: /طالبة/.test(state.by || '') ? 'أنثى' : 'ذكر' });
   // الحقول الأساسية لكل إعلان؛ السطر الناقص يظهر عليه ⚠️
   const REQUIRED = ['الطالب', 'الدرجة', 'العنوان', 'التاريخ', 'الوقت', 'المكان', 'عضو1 الاسم'];
   function missingOf(r) { return isEmptyRow(r) ? [] : REQUIRED.filter(c => !String(r[GCOLS.indexOf(c)] || '').trim()); }
@@ -696,7 +705,8 @@
     for (let k = 1; k <= GMEM; k++) { const n = nrm(r[CI(`عضو${k} الاسم`)]); if (n) members.push([n, r[CI(`عضو${k} الاسم`)]]); }
     const link = String(r[CI('رابط البث')] || '').trim() || DEFAULTS.link; // الفاضي = قناة اليوتيوب الافتراضية
     return { date, t: timeMin(timeRaw), timeRaw: nrm(timeRaw), place: REMOTE(place) ? '' : nrm(place), placeRaw: place, student: r[CI('الطالب')], members,
-      linkKey: link.toLowerCase().replace(/^https?:\/\/(www\.)?/, '').replace(/[/?#]+$/, ''), platform: QPoster.platformOf(link).name };
+      linkKey: link.toLowerCase().replace(/^https?:\/\/(www\.)?/, '').replace(/[/?#]+$/, ''), platform: QPoster.platformOf(link).name,
+      zoomKey: String(r[CI('رابط اللجنة')] || '').trim().toLowerCase().replace(/^https?:\/\/(www\.)?/, '').replace(/[/?#]+$/, '') };
   }
   function clash(a, b) {
     if (!a || !b || a.date !== b.date) return null;
@@ -707,6 +717,7 @@
     if (a.place && a.place === b.place) out.push({ kind: 'hall', exact });
     // البث: يتعارض فقط إذا كان نفس الرابط (مثل قناة اليوتيوب نفسها). منصتان مختلفتان = لا تعارض
     if (a.linkKey && a.linkKey === b.linkKey) out.push({ kind: 'stream', exact, platform: a.platform });
+    if (a.zoomKey && a.zoomKey === b.zoomKey) out.push({ kind: 'zoom', exact });
     const bm = new Map(b.members);
     a.members.forEach(([n, raw]) => { if (bm.has(n)) out.push({ kind: 'member', exact, name: raw }); });
     return out.length ? out : null;
@@ -729,6 +740,7 @@
       const o = grid[x.other] || [], who = o[CI('الطالب')] || 'بدون اسم';
       const when = x.exact ? 'نفس اليوم والوقت' : 'نفس اليوم بوقت متقارب';
       if (x.kind === 'hall') return `تعارض مع السطر ${x.other + 1} «${who}»: ${when} في ${o[CI('المكان')] || 'نفس القاعة'} (${o[CI('الوقت')] || ''})`;
+      if (x.kind === 'zoom') return `رابط اللجنة مشغول: السطر ${x.other + 1} «${who}» يستخدم نفس رابط الزوم — ${when}`;
       if (x.kind === 'stream') return `رابط البث مشغول: السطر ${x.other + 1} «${who}» يبث على نفس رابط ${x.platform} — ${when} (${o[CI('الوقت')] || ''})`;
       return `${x.name} في لجنتين: السطر ${x.other + 1} «${who}» — ${when}`;
     });
@@ -773,6 +785,7 @@
       if (nrm(who) === nrm(state.student)) return; // نفس الإعلان
       c.forEach(x => hits.push(x.kind === 'hall' ? `السطر ${i + 1} «${who}» في نفس ${x.exact ? 'اليوم والوقت' : 'اليوم بوقت متقارب'} بـ${r[CI('المكان')]}`
         : x.kind === 'stream' ? `السطر ${i + 1} «${who}» يبث على نفس رابط ${x.platform} بنفس الوقت`
+        : x.kind === 'zoom' ? `السطر ${i + 1} «${who}» يستخدم نفس رابط اللجنة بنفس الوقت`
         : `${x.name} مسجّل في لجنة السطر ${i + 1} «${who}» بنفس الوقت`));
     });
     box.hidden = !hits.length;
@@ -816,6 +829,7 @@
     if (isEmptyRow(grid[r])) return toast('هذا السطر فاضي', true);
     const data = parseRow(gridToObj(grid[r]));
     state = applyRow(state, data); activeRow = r;
+    rowSnap = gridOfState();
     $$('#sheet tbody tr').forEach(tr => tr.classList.toggle('active', +tr.dataset.r === r));
     fillForm(); changed();
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1092,9 +1106,9 @@
   if (savedSheet) { $('#sheetUrl').value = savedSheet; $('#refreshSheet').hidden = false; }
 
   // نموذج التعبئة الجاهز (منسّق، بقوائم اختيار وورقة شرح)
-  const TEMPLATE_URL = 'assets/templates/template.xlsx?v=202610160119';
+  const TEMPLATE_URL = 'assets/templates/template.xlsx?v=202610160127';
   // نموذج Google Sheets: يفتح نسخة جديدة منه في حسابك (أنشئ نسختك ثم عبّئها)
-  const GSHEET_TEMPLATE = 'https://docs.google.com/spreadsheets/d/1Xkwe3rF0iIVspBlWcr0tGOJA1KpJKWjERlh-gfOPqUQ/copy';
+  const GSHEET_TEMPLATE = 'https://docs.google.com/spreadsheets/d/1UeSeDlmeC8X-bhU-4uUWxqbu2aTQFDURwSryk6Z49to/copy';
   $('#gsCopy').href = GSHEET_TEMPLATE;
   $('#gsTemplate').onclick = () => openModal('#mGs');
   $('#gsDlXlsx').onclick = () => $('#dlTemplate').click();
@@ -1498,6 +1512,105 @@
     try { localStorage.setItem(userKey('helpSeen'), '1'); } catch (e) { /* اختياري */ }
   }
 
+
+  // ---------- رسائل واتساب: الدعوة والتسجيل ----------
+  const DEFAULT_TPL = {
+    invite: 'مناقشة {نوع_الرسالة}، {للباحث}: {الطالب}، بعنوان: {العنوان}، يوم {اليوم} {التاريخ} الموافق {الميلادي}.\nالساعة {الوقت}\nمكان المناقشة: {المكان}\nرابط المناقشة:\n{رابط_البث}\n[[\nرابط خاص باللجنة\n{رابط_اللجنة}\n]]\n#الدراسات_العليا\n#جامعة_القصيم\n#مناقشة_علمية',
+    record: 'السلام عليكم ورحمة الله\nمرفق لكم تسجيل مناقشة {نوع_الرسالة}، {للباحث}: {الطالب}، بعنوان: {العنوان}، يوم {اليوم} {التاريخ}\n\n{رابط_التسجيل}\n\nولكم خالص الشكر'
+  };
+  const getTpl = () => { try { return { ...DEFAULT_TPL, ...(JSON.parse(localStorage.getItem(userKey('msgTpl'))) || {}) }; } catch (e) { return { ...DEFAULT_TPL }; } };
+  function hijriToGreg(date) {
+    const m = toLatin(date).match(/(\d{4})\D+(\d{1,2})\D+(\d{1,2})/); if (!m) return '';
+    const [y, mo, d] = [+m[1], +m[2], +m[3]];
+    try {
+      const fmt = new Intl.DateTimeFormat('en-u-ca-islamic-umalqura', { day: 'numeric', month: 'numeric', year: 'numeric' });
+      const key = x => { const p = fmt.formatToParts(x); const g = t => parseInt(p.find(q => q.type === t).value, 10); return [g('year'), g('month'), g('day')]; };
+      const approx = Date.UTC(622, 6, 16, 12) + ((y - 1) * 354.36707 + (mo - 1) * 29.530589 + (d - 1)) * 864e5;
+      for (let i = 0; i <= 60; i++) for (const sg of [1, -1]) {
+        const t = new Date(approx + sg * i * 864e5); const [a, b, c] = key(t);
+        if (a === y && b === mo && c === d) return `${t.getUTCFullYear()}/${t.getUTCMonth() + 1}/${t.getUTCDate()}`;
+      }
+    } catch (e) { /* المتصفح لا يدعم */ }
+    return '';
+  }
+  function hijriText(date) { const m = toLatin(date).match(/(\d{4})\D+(\d{1,2})\D+(\d{1,2})/); return m ? `${+m[3]}_ ${+m[2]}_ ${m[1]}هـ` : String(date || '').trim(); }
+  function msgVars(s) {
+    const female = /طالبة/.test(s.by || '') || /أنثى|انثى/.test(s.gender || '');
+    const deg = String(s.degree || '').trim().replace(/^ال(ماجستير|دكتوراه)/, '$1');
+    return {
+      'نوع_الرسالة': deg ? `رسالة ${deg}` : 'رسالة علمية', 'للباحث': female ? 'للباحثة' : 'للباحث', 'الطالب': String(s.student || '').trim(),
+      'العنوان': String(s.title || '').replace(/\s*\n\s*/g, ' – ').trim(), 'اليوم': String(s.day || '').trim(), 'التاريخ': hijriText(s.date),
+      'الميلادي': hijriToGreg(s.date), 'الوقت': String(s.time || '').trim(), 'المكان': String(s.place || '').trim(),
+      'رابط_البث': String(s.link || '').trim() || DEFAULTS.link, 'رابط_اللجنة': String(s.committeeLink || '').trim(), 'رابط_التسجيل': String(s.recordingLink || '').trim()
+    };
+  }
+  function fillTpl(tpl, v) {
+    // [[ ... ]] جزء اختياري: يُحذف إذا كان فيه متغير فاضي
+    let out = tpl.replace(/\[\[([\s\S]*?)\]\]/g, (m, inner) => (inner.match(/\{([^}]+)\}/g) || []).every(k => v[k.slice(1, -1)]) ? inner : '');
+    out = out.replace(/\{([^}]+)\}/g, (m, k) => v[k] != null ? v[k] : m);
+    out = out.replace(/الموافق\s*\./g, '.').replace(/[ \t]+\n/g, '\n').replace(/\n{4,}/g, '\n\n\n');
+    return out.trim();
+  }
+  const buildMsg = (kind, s) => fillTpl(getTpl()[kind], msgVars(s));
+  async function copyText(text) {
+    try { await navigator.clipboard.writeText(text); return true; }
+    catch (e) {
+      const ta = document.createElement('textarea'); ta.value = text; ta.style.cssText = 'position:fixed;top:-9999px'; document.body.appendChild(ta);
+      ta.select(); let ok = false; try { ok = document.execCommand('copy'); } catch (er) { ok = false; } ta.remove(); return ok;
+    }
+  }
+  async function copyMsg(kind, s, onMissing) {
+    if (kind === 'record' && !String(s.recordingLink || '').trim()) { toast('أضف «رابط التسجيل» أولاً (بعد انتهاء المناقشة)', true); if (onMissing) onMissing(); return; }
+    const text = buildMsg(kind, s);
+    if (await copyText(text)) toast(kind === 'invite' ? '✓ تم نسخ رسالة الدعوة — الصقها في واتساب' : '✓ تم نسخ رسالة التسجيل — الصقها في واتساب');
+    else { $('#msgPreview').value = text; openModal('#mMsg'); toast('انسخ الرسالة من النافذة', true); }
+  }
+  $('#copyInvite').onclick = () => copyMsg('invite', state);
+  $('#copyRecord').onclick = () => copyMsg('record', state, () => $('[data-k=recordingLink]').focus());
+  $('#sheet').addEventListener('click', e => {
+    const b = e.target.closest('[data-msg]'); if (!b) return;
+    const r = +b.closest('tr').dataset.r;
+    if (isEmptyRow(grid[r])) return toast('هذا السطر فاضي', true);
+    const st = applyRow(state, parseRow(gridToObj(grid[r])));
+    copyMsg(b.dataset.msg, st, () => { const c = cellAt(r, GCOLS.indexOf('رابط التسجيل')); if (c) c.focus(); });
+  });
+  // تعديل نص الرسائل
+  $('#editMsgTpl').onclick = () => { const t = getTpl(); $('#tplInvite').value = t.invite; $('#tplRecord').value = t.record; updTplPreview(); openModal('#mTpl'); };
+  function updTplPreview() {
+    const v = msgVars(state);
+    $('#tplPrevInvite').textContent = fillTpl($('#tplInvite').value, v);
+    $('#tplPrevRecord').textContent = fillTpl($('#tplRecord').value, { ...v, 'رابط_التسجيل': v['رابط_التسجيل'] || 'https://youtube.com/live/...' });
+  }
+  ['#tplInvite', '#tplRecord'].forEach(x => $(x).addEventListener('input', updTplPreview));
+  $('#tplSave').onclick = () => {
+    try { localStorage.setItem(userKey('msgTpl'), JSON.stringify({ invite: $('#tplInvite').value, record: $('#tplRecord').value })); } catch (e) { /* مساحة */ }
+    $('#mTpl').classList.remove('open'); toast('تم حفظ نص الرسائل ✓');
+  };
+  $('#tplReset').onclick = () => { $('#tplInvite').value = DEFAULT_TPL.invite; $('#tplRecord').value = DEFAULT_TPL.record; updTplPreview(); };
+
+  // ---------- مزامنة: تعديل سطر الجدول المفتوح من النموذج + تحديث تصميم السجل تلقائياً ----------
+  // ينقل للسطر فقط الحقول التي غيّرها المستخدم في النموذج منذ فتح السطر
+  function syncActiveRow() {
+    if (activeRow < 0 || !grid[activeRow] || !rowSnap) return;
+    const fresh = gridOfState();
+    const row = grid[activeRow]; let changedAny = false;
+    GCOLS.forEach((c, j) => {
+      if ((fresh[j] || '') === (rowSnap[j] || '')) return; // لم يتغيّر في النموذج
+      if ((row[j] || '') !== (fresh[j] || '')) {
+        row[j] = fresh[j]; changedAny = true;
+        const inp = cellAt(activeRow, j); if (inp && document.activeElement !== inp) inp.value = fresh[j];
+      }
+    });
+    rowSnap = fresh;
+    if (changedAny) { updRowWarn(activeRow); refreshConflictsSoon(activeRow); gridChanged(); }
+  }
+  let histAutoT;
+  function autoSync() {
+    syncActiveRow();
+    if (editingId) { clearTimeout(histAutoT); histAutoT = setTimeout(() => saveToHistory({ quiet: true }), 2500); }
+    const f = $('#syncFlag');
+    if (f) f.textContent = activeRow >= 0 ? `🔗 مرتبط بالسطر ${activeRow + 1} في الجدول — التعديل ينحفظ فيه تلقائياً` : '';
+  }
   // ---------- البدء ----------
   fillForm();
   drawPreview();

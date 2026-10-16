@@ -8,9 +8,9 @@
     // حماية الصفحة: يجب تسجيل الدخول أولاً
     if (!(sessionStorage.getItem('qu_session') || localStorage.getItem('qu_session'))) location.replace('index.html');
   </script>
-  <link rel="stylesheet" href="assets/fonts/fonts.css?v=202610160119">
-  <link rel="stylesheet" href="assets/css/app.css?v=202610160119">
-  <link rel="stylesheet" href="assets/css/poster.css?v=202610160119">
+  <link rel="stylesheet" href="assets/fonts/fonts.css?v=202610160127">
+  <link rel="stylesheet" href="assets/css/app.css?v=202610160127">
+  <link rel="stylesheet" href="assets/css/poster.css?v=202610160127">
 </head>
 <body>
   <div class="topbar">
@@ -85,6 +85,17 @@
             </div>
           </div>
 
+          <div class="group-title">رسائل واتساب (الدعوة والتسجيل)</div>
+          <div class="field"><label>رابط خاص باللجنة (زوم) — اختياري، غالباً للدكتوراه مع مناقش خارجي</label>
+            <input type="url" data-k="committeeLink" dir="ltr" placeholder="https://us06web.zoom.us/j/..."></div>
+          <div class="field"><label>رابط التسجيل — يُضاف بعد انتهاء المناقشة</label>
+            <input type="url" data-k="recordingLink" dir="ltr" placeholder="https://youtube.com/live/..."></div>
+          <div class="msg-actions">
+            <button class="btn primary" id="copyInvite">📋 نسخ رسالة الدعوة</button>
+            <button class="btn" id="copyRecord">📋 نسخ رسالة التسجيل</button>
+          </div>
+          <button class="btn sm" id="editMsgTpl" style="margin-top:6px">✏️ تعديل نص الرسائل</button>
+
           <div class="group-title">التذييل</div>
           <div class="field"><label>الجهة</label><input type="text" data-k="dept"></div>
           <div class="row2">
@@ -147,7 +158,7 @@
     <main class="main">
       <div class="panel toolbar">
         <div class="editing-bar">
-          <span class="hint"><span id="editingLabel"></span> <span id="savedFlag" class="saved-flag"></span></span>
+          <span class="hint"><span id="editingLabel"></span> <span id="savedFlag" class="saved-flag"></span><br><span id="syncFlag" class="sync-flag"></span></span>
           <span style="display:flex;gap:6px;flex-wrap:wrap">
             <button class="btn sm" id="btnUndo" title="تراجع (Ctrl+Z)" disabled>↶</button>
             <button class="btn sm" id="btnRedo" title="إعادة (Ctrl+Y)" disabled>↷</button>
@@ -324,6 +335,24 @@
     <button class="btn primary" id="bkGo" style="width:100%;justify-content:center;padding:11px"></button>
   </div></div>
 
+  <!-- نسخ الرسالة (احتياطي إذا منع المتصفح النسخ) -->
+  <div class="modal" id="mMsg"><div class="box" style="width:min(560px,100%)">
+    <h2>الرسالة <button class="btn sm" data-close>✕</button></h2>
+    <textarea id="msgPreview" style="width:100%;min-height:280px;padding:10px;border:1px solid var(--line);border-radius:10px;line-height:1.8;font:inherit"></textarea>
+  </div></div>
+
+  <!-- تعديل نص رسائل واتساب -->
+  <div class="modal" id="mTpl"><div class="box" style="width:min(900px,100%)">
+    <h2>نص رسائل واتساب <button class="btn sm" data-close>✕</button></h2>
+    <p class="hint" style="margin-top:0">المتغيرات: {نوع_الرسالة} {للباحث} {الطالب} {العنوان} {اليوم} {التاريخ} {الميلادي} {الوقت} {المكان} {رابط_البث} {رابط_اللجنة} {رابط_التسجيل}<br>
+      الجزء بين [[ و ]] يظهر فقط إذا كان فيه رابط (مثل رابط اللجنة).</p>
+    <div class="tpl-grid">
+      <div><b>رسالة الدعوة</b><textarea id="tplInvite"></textarea><div class="hint">المعاينة:</div><pre id="tplPrevInvite" class="tpl-prev"></pre></div>
+      <div><b>رسالة التسجيل</b><textarea id="tplRecord"></textarea><div class="hint">المعاينة:</div><pre id="tplPrevRecord" class="tpl-prev"></pre></div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:10px"><button class="btn primary" id="tplSave">💾 حفظ</button><button class="btn" id="tplReset">↺ النص الأصلي</button></div>
+  </div></div>
+
   <!-- نافذة سجل التصاميم -->
   <div class="modal" id="mHistory"><div class="box" style="width:min(1100px,100%)">
     <h2>سجل التصاميم <span id="histCount" class="hint"></span> <button class="btn sm" data-close>✕</button></h2>
@@ -396,13 +425,13 @@
   <div class="toast" id="toast"></div>
   <div class="export-root"><div id="exportPoster"></div></div>
 
-  <script src="assets/vendor/xlsx.full.min.js?v=202610160119"></script>
-  <script src="assets/vendor/jszip.min.js?v=202610160119"></script>
-  <script src="assets/vendor/jspdf.umd.min.js?v=202610160119"></script>
-  <script src="assets/vendor/qrcode.js?v=202610160119"></script>
-  <script src="assets/vendor/html-to-image.js?v=202610160119"></script>
-  <script src="assets/js/auth.js?v=202610160119"></script>
-  <script src="assets/js/poster.js?v=202610160119"></script>
-  <script src="assets/js/app.js?v=202610160119"></script>
+  <script src="assets/vendor/xlsx.full.min.js?v=202610160127"></script>
+  <script src="assets/vendor/jszip.min.js?v=202610160127"></script>
+  <script src="assets/vendor/jspdf.umd.min.js?v=202610160127"></script>
+  <script src="assets/vendor/qrcode.js?v=202610160127"></script>
+  <script src="assets/vendor/html-to-image.js?v=202610160127"></script>
+  <script src="assets/js/auth.js?v=202610160127"></script>
+  <script src="assets/js/poster.js?v=202610160127"></script>
+  <script src="assets/js/app.js?v=202610160127"></script>
 </body>
 </html>

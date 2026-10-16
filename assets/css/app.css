@@ -137,6 +137,17 @@ a.btn { text-decoration: none; }
 .sheet td.n .warn { color: #c77700; cursor: help; font-size: 13px; }
 .sheet tr.incomplete td.n { background: #fff7e6; }
 
+/* رسائل واتساب */
+.msg-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.msg-actions .btn { flex: 1 1 auto; justify-content: center; }
+.sync-flag { color: var(--brand); font-weight: 600; }
+.sheet td.act .msg-b { font-size: 11.5px; font-weight: 600; color: var(--brand-d); border: 1px solid var(--line); background: #fff; margin-inline-start: 2px; padding: 3px 6px; }
+.sheet td.act .msg-b.has { border-color: var(--ok); color: var(--ok); }
+.tpl-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.tpl-grid textarea { width: 100%; min-height: 200px; padding: 8px; border: 1px solid var(--line); border-radius: 10px; font: inherit; line-height: 1.7; margin-top: 4px; }
+.tpl-prev { white-space: pre-wrap; background: #f6faf9; border: 1px solid var(--line); border-radius: 10px; padding: 8px; font: inherit; font-size: 13px; line-height: 1.7; margin: 4px 0 0; max-height: 220px; overflow: auto; }
+@media (max-width: 760px) { .tpl-grid { grid-template-columns: 1fr; } }
+
 /* التعارضات */
 .sheet td.n .conf { cursor: help; font-size: 12px; }
 .sheet tr.conflict td.n { background: #fde8e8 !important; }
