@@ -2,7 +2,7 @@
 (function () {
   'use strict';
   // تحديث تلقائي: إذا نُشرت نسخة أحدث من المفتوحة يُعاد تحميل الصفحة (يتجاوز ذاكرة المتصفح المؤقتة)
-  const APP_V = '?v=202610160835'.slice(3);
+  const APP_V = '?v=202610160844'.slice(3);
   let lastVCheck = 0;
   function checkVersion() {
     if (location.protocol === 'file:' || Date.now() - lastVCheck < 60000) return;
@@ -698,6 +698,7 @@
     $('#gSelCount').textContent = sel ? `محدد: ${sel}` : '';
   }
   function setRows(list) {
+    gridSnap('استيراد ملف'); toTrash(grid, 'استبدال بالاستيراد');
     grid = list.map(o => parseRow(o)).filter(d => !isWeekendRow(d)).map(d => dataToGrid(d)).filter(r => !isEmptyRow(r));
     grid.forEach(r => { if (!r[WCOL]) stamp(r); });
     gridSel.clear();
@@ -909,7 +910,7 @@
     if (dup) {
       const r = +dup.closest('tr').dataset.r;
       if (isEmptyRow(grid[r])) return toast('هذا السطر فاضي', true);
-      const copy = grid[r].slice();
+      gridSnap('تكرار سطر'); const copy = grid[r].slice();
       ['الطالب', 'العنوان', 'الجنس'].forEach(c => { copy[GCOLS.indexOf(c)] = ''; }); stamp(copy);
       grid.splice(r + 1, 0, copy);
       const shifted = [...gridSel].map(i => i > r ? i + 1 : i); gridSel.clear(); shifted.forEach(i => gridSel.add(i));
@@ -962,6 +963,7 @@
     const text = (e.clipboardData || window.clipboardData).getData('text');
     if (!/[\t\n]/.test(text.trim())) return; // لصق قيمة واحدة: يتصرف طبيعياً
     e.preventDefault();
+    gridSnap('لصق'); cellSnapPending = false;
     let data = parseTSV(text);
     const r0 = +inp.closest('tr').dataset.r;
     let map = null; // إذا كان أول سطر عناوين، نرتّب الأعمدة حسب أسمائها
@@ -996,6 +998,7 @@
   $('#gAdd').onclick = () => { grid.push(emptyRow()); renderGrid(); gridChanged(); };
   $('#gAdd5').onclick = () => { for (let i = 0; i < 5; i++) grid.push(emptyRow()); renderGrid(); gridChanged(); };
   $('#gFromDesign').onclick = () => {
+    gridSnap('إضافة التصميم الحالي');
     const firstEmpty = grid.findIndex(isEmptyRow);
     const row = dataToGrid({ ...state, gender: /طالبة/.test(state.by) ? 'أنثى' : 'ذكر' }); stamp(row);
     if (firstEmpty >= 0) grid[firstEmpty] = row; else grid.push(row);
@@ -1012,13 +1015,14 @@
     wk.onchange = () => { try { localStorage.setItem(userKey('weeks'), wk.checked ? '1' : '0'); } catch (e) { /* اختياري */ } renderGrid();
       toast(wk.checked ? '🌙 تظهر الإجازة الأسبوعية بين الأسابيع (وفي الملف المصدَّر)' : 'أُخفيت فواصل الأسابيع — الصفوف ورا بعض'); }; }
   $('#gSort').onclick = () => {
+    gridSnap('ترتيب بالتاريخ');
     grid = sortRows(grid); gridSel.clear(); activeRow = -1; renderGrid(); gridChanged();
     toast('تم ترتيب الجدول تصاعدياً حسب التاريخ والوقت ✓');
   };
   // بيانات الكلية المشتركة (جدول حجز القاعة): تُضاف للجدول مرة لكل إصدار بدون تكرار ثم يُرتّب
   (async function loadShared() {
     try {
-      const res = await fetch('assets/data/defenses.json?v=202610160835', { cache: 'no-cache' }); if (!res.ok) return;
+      const res = await fetch('assets/data/defenses.json?v=202610160844', { cache: 'no-cache' }); if (!res.ok) return;
       const data = await res.json(), seenKey = userKey('sharedv');
       if (!data || !data.v || localStorage.getItem(seenKey) === data.v) return;
       const demo = new Set(SAMPLES.map(x => JSON.stringify(dataToGrid(x)))); // الأمثلة غير المعدّلة تُستبدل بالبيانات الحقيقية
@@ -1050,14 +1054,93 @@
       toast(add.length ? `📅 أُضيفت ${add.length} مناقشة من جدول حجز القاعة${filled ? ` وحُدّثت ${filled}` : ''} — مرتبة تصاعدياً بالتاريخ` : `📅 حُدّثت ${filled} مناقشة من جدول حجز القاعة`);
     } catch (e) { /* بدون اتصال أو نسخة الملف الواحد */ }
   })();
+  // ---------- تراجع / إعادة للجدول + سلة المحذوفات ----------
+  const gUndoS = [], gRedoS = [];
+  let cellSnapPending = false, lastArea = '';
+  function updGridUndo() {
+    $('#gUndo').disabled = !gUndoS.length; $('#gRedo').disabled = !gRedoS.length;
+    $('#gUndo').title = gUndoS.length ? `تراجع: ${gUndoS[gUndoS.length - 1].label} (Ctrl+Z)` : 'تراجع عن آخر تغيير في الجدول (Ctrl+Z)';
+  }
+  function gridSnap(label) { // يُستدعى قبل أي تغيير في الجدول
+    gUndoS.push({ g: JSON.stringify(grid), label }); if (gUndoS.length > 40) gUndoS.shift();
+    gRedoS.length = 0; updGridUndo();
+  }
+  function gridRestore(from, to, verb) {
+    if (!from.length) return;
+    const it = from.pop(); to.push({ g: JSON.stringify(grid), label: it.label });
+    grid = JSON.parse(it.g); gridSel.clear(); activeRow = -1; renderGrid(); gridChanged(); updGridUndo();
+    toast(`${verb}: ${it.label}`);
+  }
+  const gridUndo = () => gridRestore(gUndoS, gRedoS, '↶ تم التراجع'), gridRedo = () => gridRestore(gRedoS, gUndoS, '↷ تمت الإعادة');
+  $('#gUndo').onclick = gridUndo; $('#gRedo').onclick = gridRedo;
+  $('#sheet').addEventListener('focusin', e => { if (e.target.dataset && e.target.dataset.c != null) cellSnapPending = true; });
+  $('#sheet').addEventListener('input', e => { if (cellSnapPending && e.target.dataset && e.target.dataset.c != null) { cellSnapPending = false; gridSnap('تعديل خانة'); } }, true);
+  document.addEventListener('pointerdown', e => { lastArea = e.target.closest && e.target.closest('#dataSheet') ? 'grid' : 'other'; }, true);
+  document.addEventListener('keydown', e => { // Ctrl+Z داخل الجدول = تراجع الجدول (وخارجه يبقى تراجع التصميم)
+    if (!(e.ctrlKey || e.metaKey) || lastArea !== 'grid') return;
+    if (/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement && document.activeElement.tagName)) return;
+    const k = e.key.toLowerCase();
+    if (k === 'z' && !e.shiftKey) { e.preventDefault(); e.stopImmediatePropagation(); gridUndo(); }
+    else if (k === 'y' || (k === 'z' && e.shiftKey)) { e.preventDefault(); e.stopImmediatePropagation(); gridRedo(); }
+  }, true);
+
+  // سلة المحذوفات: محفوظة على الجهاز (تبقى بعد إغلاق الصفحة)، آخر 3000 سطر ولمدة 90 يوماً
+  const TRASH_KEY = userKey('trash');
+  function readTrash() { try { return JSON.parse(localStorage.getItem(TRASH_KEY)) || []; } catch (e) { return []; } }
+  function writeTrash(t) {
+    t = t.filter(x => Date.now() - x.at < 90 * 864e5).slice(-3000);
+    for (;;) { try { localStorage.setItem(TRASH_KEY, JSON.stringify(t)); break; } catch (e) { if (t.length < 50) break; t = t.slice(Math.floor(t.length / 4)); } }
+    $('#gTrashN').textContent = t.length ? `(${t.length})` : '';
+  }
+  function toTrash(rows, why) {
+    rows = rows.filter(r => !isEmptyRow(r)); if (!rows.length) return 0;
+    const at = Date.now(); writeTrash([...readTrash(), ...rows.map(r => ({ r: r.slice(), at, why, by: session.u }))]); return rows.length;
+  }
+  writeTrash(readTrash());
+  const ago = t => { const m = Math.round((Date.now() - t) / 6e4); return m < 1 ? 'الآن' : m < 60 ? `قبل ${m} دقيقة` : m < 1440 ? `قبل ${Math.round(m / 60)} ساعة` : new Date(t).toLocaleDateString('ar-SA-u-ca-islamic-umalqura'); };
+  function renderTrash() {
+    const t = readTrash(), q = nrm($('#trashSearch').value);
+    const list = t.map((x, i) => ({ x, i })).reverse().filter(({ x }) => !q || nrm(x.r.join(' ')).includes(q));
+    $('#trashCount').textContent = `(${t.length})`;
+    $('#trashList').innerHTML = list.length ? list.map(({ x, i }) => `<label class="trash-it"><input type="checkbox" data-t="${i}">
+      <span><b>${esc(x.r[CI('الطالب')] || 'بدون اسم')}</b> — ${esc(x.r[CI('الدرجة')] || '')}<br><small>${esc(x.r[CI('التاريخ')] || '')} ${esc(x.r[CI('الوقت')] || '')}</small></span>
+      <small class="hint">${esc(x.why)} · ${ago(x.at)}</small></label>`).join('') : '<p class="hint">ما فيه أسطر محذوفة.</p>';
+  }
+  const trashSel = () => $$('#trashList input:checked').map(i => +i.dataset.t);
+  $('#gTrash').onclick = () => { $('#trashSearch').value = ''; renderTrash(); openModal('#mTrash'); };
+  $('#trashSearch').addEventListener('input', renderTrash);
+  $('#trashAll').onclick = () => { const all = $$('#trashList input'); const on = all.some(i => !i.checked); all.forEach(i => { i.checked = on; }); };
+  $('#trashRestore').onclick = () => {
+    const sel = new Set(trashSel()); if (!sel.size) return toast('حدد الأسطر اللي تبي ترجعها', true);
+    const t = readTrash(), back = t.filter((_, i) => sel.has(i)).map(x => x.r);
+    gridSnap(`استرجاع ${back.length} سطر`);
+    const have = new Set(grid.map(r => JSON.stringify(r))); // بدون تكرار: لا مع الجدول ولا بين الأسطر المسترجعة
+    const add = back.filter(r => { const k = JSON.stringify(r); if (have.has(k)) return false; have.add(k); return true; });
+    grid = sortRows([...grid, ...add]);
+    writeTrash(t.filter((_, i) => !sel.has(i)));
+    gridSel.clear(); activeRow = -1; renderGrid(); gridChanged(); renderTrash();
+    toast(`↩️ رجع ${add.length} سطر للجدول بمكانه بالترتيب${back.length > add.length ? ` (${back.length - add.length} مكررة ما انضافت)` : ''}`);
+  };
+  $('#trashPurge').onclick = () => {
+    const sel = new Set(trashSel()); if (!sel.size) return toast('حدد الأسطر أولاً', true);
+    if (!confirm(`حذف ${sel.size} سطر نهائياً؟ ما يمكن ترجيعها بعدها.`)) return;
+    writeTrash(readTrash().filter((_, i) => !sel.has(i))); renderTrash();
+  };
+
   $('#gDel').onclick = () => {
     if (!gridSel.size) return toast('حدد الصفوف من المربعات بجانب الأرقام', true);
-    if (!confirm(`حذف ${gridSel.size} سطر؟`)) return;
+    if (!confirm(`حذف ${gridSel.size} سطر؟ (تقدر ترجعها من «المحذوفات» أو «تراجع»)`)) return;
+    gridSnap(`حذف ${gridSel.size} سطر`);
+    const n = toTrash(grid.filter((_, i) => gridSel.has(i)), 'حذف');
     grid = grid.filter((_, i) => !gridSel.has(i)); gridSel.clear(); activeRow = -1; renderGrid(); gridChanged();
+    toast(`🗑️ حُذف ${n} سطر — محفوظة في «المحذوفات»`, false, { label: '↶ تراجع', fn: gridUndo });
   };
   $('#gClear').onclick = () => {
-    if (!confirm('مسح كل بيانات الجدول؟')) return;
+    if (!confirm('مسح كل بيانات الجدول؟ (تقدر ترجعها من «المحذوفات» أو «تراجع»)')) return;
+    gridSnap('مسح الكل');
+    const n = toTrash(grid, 'مسح الكل');
     grid = []; gridSel.clear(); activeRow = -1; renderGrid(); gridChanged();
+    toast(`🧹 انمسح الجدول (${n} سطر محفوظة في «المحذوفات»)`, false, { label: '↶ تراجع', fn: gridUndo });
   };
   $('#gExport').onclick = () => {
     const ws = XLSX.utils.aoa_to_sheet(exportAoa());
@@ -1235,7 +1318,8 @@
     const sel = bkSelected().sort((a, b) => (a._y * 10000 + a._m * 100 + a._d) - (b._y * 10000 + b._m * 100 + b._d));
     if (!sel.length) return toast('اختر شهراً واحداً على الأقل', true);
     const rowsNew = sel.map(it => dataToGrid(it)); rowsNew.forEach(stamp);
-    if ($('#bkMode').value === 'replace') { grid = []; gridSel.clear(); activeRow = -1; }
+    gridSnap(`استيراد ${sel.length} مناقشة`);
+    if ($('#bkMode').value === 'replace') { toTrash(grid, 'استبدال بالاستيراد'); grid = []; gridSel.clear(); activeRow = -1; }
     grid = grid.filter(r => !isEmptyRow(r));
     const start = grid.length; grid.push(...rowsNew); rowsNew.forEach((_, k) => gridSel.add(start + k));
     renderGrid(); gridChanged();
@@ -1288,7 +1372,7 @@
   if (savedSheet) { $('#sheetUrl').value = savedSheet; $('#refreshSheet').hidden = false; }
 
   // نموذج التعبئة الجاهز (منسّق، بقوائم اختيار وورقة شرح)
-  const TEMPLATE_URL = 'assets/templates/template.xlsx?v=202610160835';
+  const TEMPLATE_URL = 'assets/templates/template.xlsx?v=202610160844';
   // نموذج Google Sheets: يفتح نسخة جديدة منه في حسابك (أنشئ نسختك ثم عبّئها)
   const GSHEET_TEMPLATE = 'https://docs.google.com/spreadsheets/d/1UeSeDlmeC8X-bhU-4uUWxqbu2aTQFDURwSryk6Z49to/copy';
   $('#gsCopy').href = GSHEET_TEMPLATE;
