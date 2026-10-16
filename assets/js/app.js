@@ -219,6 +219,7 @@
     clearTimeout(renderTimer);
     renderTimer = setTimeout(drawPreview, 60);
     if (!noSave) { saveDraft(); if (window.QUndo) QUndo.record(); }
+    clearTimeout(changed._c); changed._c = setTimeout(() => { try { formConflictCheck(); } catch (e) { /* قبل التهيئة */ } }, 300);
   }
   async function drawPreview() {
     const f = currentFmt;
@@ -357,6 +358,9 @@
   $('#exRows').onclick = () => {
     const items = selectedGridStates();
     if (!items.length) { $('#dataSheet').scrollIntoView({ behavior: 'smooth' }); return toast('حدد الأسطر من جدول البيانات (المربعات بجانب الأرقام)', true); }
+    computeConflicts();
+    const clashing = gridItems(true).filter(r => conflicts.has(r.i));
+    if (clashing.length && !confirm(`🔴 فيه ${clashing.length} إعلان عليه تعارض، مثل السطر ${clashing[0].n}:\n${conflictText(clashing[0].i, conflicts.get(clashing[0].i))[0]}\n\nتكمل التحميل؟`)) return;
     const bad = gridItems(true).filter(r => missingOf(grid[r.i]).length);
     if (bad.length && !confirm(`فيه ${bad.length} إعلان ناقص (عليه ⚠️) مثل السطر ${bad[0].n}: ${missingOf(grid[bad[0].i]).join('، ')}.\nالخانات الناقصة تاخذ قيمتها من التصميم الحالي. تكمل التحميل؟`)) return;
     runExport(items, 'اعلانات-المناقشات.zip');
@@ -649,11 +653,14 @@
 
   function renderGrid() {
     if (!grid.length) grid = Array.from({ length: 5 }, emptyRow);
+    computeConflicts();
     const cls = c => /العنوان/.test(c) ? 'w-title' : /رابط/.test(c) ? 'w-link' : /الجنس|اليوم|الوقت|الدور/.test(c) ? 'w-sm' : '';
     $('#sheet').innerHTML = `<thead><tr><th class="n">#</th><th class="act">عرض</th>${GCOLS.map(c => `<th class="${/^عضو/.test(c) ? 'mem' : ''}">${c}</th>`).join('')}</tr></thead>
-      <tbody>${grid.map((r, i) => `<tr data-r="${i}" class="${gridSel.has(i) ? 'sel' : ''} ${i === activeRow ? 'active' : ''} ${missingOf(r).length ? 'incomplete' : ''}"><td class="n"><label><input type="checkbox" data-gsel ${gridSel.has(i) ? 'checked' : ''}>${i + 1}</label>${warnHtml(r)}</td><td class="act"><button data-view title="عرض في التصميم">👁</button><button data-dup title="تكرار السطر (نفس اللجنة لطالب آخر)">⧉</button></td>${
+      <tbody>${grid.map((r, i) => `<tr data-r="${i}" class="${gridSel.has(i) ? 'sel' : ''} ${i === activeRow ? 'active' : ''} ${missingOf(r).length ? 'incomplete' : ''} ${conflicts.has(i) ? 'conflict' : ''}"><td class="n"><label><input type="checkbox" data-gsel ${gridSel.has(i) ? 'checked' : ''}>${i + 1}</label>${warnHtml(r)}${conflictHtml(i)}</td><td class="act"><button data-view title="عرض في التصميم">👁</button><button data-dup title="تكرار السطر (نفس اللجنة لطالب آخر)">⧉</button></td>${
         GCOLS.map((c, j) => `<td><input type="text" class="${cls(c)}" data-c="${j}" value="${esc(r[j] || '')}"${/رابط/.test(c) ? ' dir="ltr" placeholder="يوتيوب (افتراضي)"' : ''}></td>`).join('')}</tr>`).join('')}</tbody>`;
     updateGridInfo();
+    const b = $('#gConflicts'); if (b) { b.hidden = !conflicts.size; b.textContent = `🔴 ${conflicts.size} سطر فيه تعارض`; }
+    formConflictCheck();
   }
   let activeRow = -1;
   // الحقول الأساسية لكل إعلان؛ السطر الناقص يظهر عليه ⚠️
@@ -665,6 +672,105 @@
     const td = tr.querySelector('td.n'); const w = td.querySelector('.warn'); if (w) w.remove();
     td.insertAdjacentHTML('beforeend', warnHtml(grid[i]));
     tr.classList.toggle('incomplete', missingOf(grid[i]).length > 0);
+  }
+
+  // ---------- كشف التعارضات (نفس اليوم والوقت والقاعة، أو نفس العضو) ----------
+  const toLatin = v => String(v || '').replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d));
+  const nrm = v => toLatin(v).replace(/[ً-ٰٟـ]/g, '').replace(/[إأآٱ]/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه').replace(/\s+/g, ' ').trim().toLowerCase();
+  function dateKey(v) { const m = toLatin(v).match(/(\d{3,4})\D+(\d{1,2})\D+(\d{1,2})/); return m ? `${+m[1]}-${+m[2]}-${+m[3]}` : nrm(v); }
+  function timeMin(v) {
+    const t = toLatin(v); const m = t.match(/(\d{1,2})(?::(\d{2}))?/); if (!m) return null;
+    let h = +m[1]; const mi = +(m[2] || 0);
+    if (/مساء|(^|\s)م($|\s)/.test(t) && h < 12) h += 12;
+    else if (/ظهر/.test(t) && h >= 1 && h <= 5) h += 12;
+    else if (!/صباح|(^|\s)ص($|\s)/.test(t) && h >= 1 && h <= 5) h += 12; // بدون تحديد: 1-5 بعد الظهر
+    return h * 60 + mi;
+  }
+  const REMOTE = v => /عن\s*بعد|اونلاين|أونلاين|zoom|زوم|تيمز/i.test(v || '');
+  const CI = name => GCOLS.indexOf(name);
+  function slotOf(r) {
+    if (!r || isEmptyRow(r)) return null;
+    const date = dateKey(r[CI('التاريخ')]); if (!date) return null;
+    const timeRaw = r[CI('الوقت')], place = r[CI('المكان')];
+    const members = [];
+    for (let k = 1; k <= GMEM; k++) { const n = nrm(r[CI(`عضو${k} الاسم`)]); if (n) members.push([n, r[CI(`عضو${k} الاسم`)]]); }
+    return { date, t: timeMin(timeRaw), timeRaw: nrm(timeRaw), place: REMOTE(place) ? '' : nrm(place), placeRaw: place, student: r[CI('الطالب')], members };
+  }
+  function clash(a, b) {
+    if (!a || !b || a.date !== b.date) return null;
+    const near = (a.t != null && b.t != null) ? Math.abs(a.t - b.t) < 120 : (a.timeRaw && a.timeRaw === b.timeRaw);
+    if (!near) return null;
+    const exact = (a.t != null && b.t != null) ? a.t === b.t : true;
+    const out = [];
+    if (a.place && a.place === b.place) out.push({ kind: 'hall', exact });
+    const bm = new Map(b.members);
+    a.members.forEach(([n, raw]) => { if (bm.has(n)) out.push({ kind: 'member', exact, name: raw }); });
+    return out.length ? out : null;
+  }
+  let conflicts = new Map(); // رقم السطر → [{other, kind, exact, name}]
+  function computeConflicts() {
+    conflicts = new Map();
+    const slots = grid.map(slotOf);
+    for (let i = 0; i < slots.length; i++) for (let j = i + 1; j < slots.length; j++) {
+      const c = clash(slots[i], slots[j]); if (!c) continue;
+      c.forEach(x => {
+        (conflicts.get(i) || conflicts.set(i, []).get(i)).push({ ...x, other: j });
+        (conflicts.get(j) || conflicts.set(j, []).get(j)).push({ ...x, other: i });
+      });
+    }
+    return conflicts;
+  }
+  function conflictText(i, list) {
+    return list.map(x => {
+      const o = grid[x.other] || [], who = o[CI('الطالب')] || 'بدون اسم';
+      const when = x.exact ? 'نفس اليوم والوقت' : 'نفس اليوم بوقت متقارب';
+      return x.kind === 'hall'
+        ? `تعارض مع السطر ${x.other + 1} «${who}»: ${when} في ${o[CI('المكان')] || 'نفس القاعة'} (${o[CI('الوقت')] || ''})`
+        : `${x.name} في لجنتين: السطر ${x.other + 1} «${who}» — ${when}`;
+    });
+  }
+  function conflictHtml(i) {
+    const list = conflicts.get(i); if (!list) return '';
+    return ` <span class="conf" title="${esc(conflictText(i, list).join('\n'))}">🔴</span>`;
+  }
+  function refreshConflicts() {
+    computeConflicts();
+    $$('#sheet tbody tr').forEach(tr => {
+      const i = +tr.dataset.r, td = tr.querySelector('td.n'); if (!td) return;
+      const old = td.querySelector('.conf'); if (old) old.remove();
+      td.insertAdjacentHTML('beforeend', conflictHtml(i));
+      tr.classList.toggle('conflict', conflicts.has(i));
+    });
+    const rowsWith = conflicts.size;
+    const b = $('#gConflicts');
+    if (b) { b.hidden = !rowsWith; b.textContent = `🔴 ${rowsWith} سطر فيه تعارض`; }
+    formConflictCheck();
+  }
+  let confT;
+  function refreshConflictsSoon(editedRow) {
+    clearTimeout(confT);
+    confT = setTimeout(() => {
+      const before = new Set((conflicts.get(editedRow) || []).map(x => x.other + x.kind));
+      refreshConflicts();
+      const now = conflicts.get(editedRow) || [];
+      const fresh = now.filter(x => !before.has(x.other + x.kind));
+      if (editedRow != null && fresh.length) toast('⚠️ ' + conflictText(editedRow, fresh)[0], true);
+    }, 350);
+  }
+  // فحص التصميم الحالي (النموذج) مقابل الجدول
+  function formConflictCheck() {
+    const box = $('#formConflict'); if (!box) return;
+    const me = slotOf(dataToGrid({ ...state, gender: '' }));
+    const hits = [];
+    grid.forEach((r, i) => {
+      if (i === activeRow) return;
+      const c = clash(me, slotOf(r)); if (!c) return;
+      const who = r[CI('الطالب')] || 'بدون اسم';
+      if (nrm(who) === nrm(state.student)) return; // نفس الإعلان
+      c.forEach(x => hits.push(x.kind === 'hall' ? `السطر ${i + 1} «${who}» في نفس ${x.exact ? 'اليوم والوقت' : 'اليوم بوقت متقارب'} بـ${r[CI('المكان')]}` : `${x.name} مسجّل في لجنة السطر ${i + 1} «${who}» بنفس الوقت`));
+    });
+    box.hidden = !hits.length;
+    box.innerHTML = hits.length ? '⚠️ <b>تعارض في جدول البيانات:</b><br>' + hits.slice(0, 4).map(esc).join('<br>') : '';
   }
   const cellAt = (r, c) => $(`#sheet tr[data-r="${r}"] input[data-c="${c}"]`);
 
@@ -714,6 +820,7 @@
     const r = +inp.closest('tr').dataset.r;
     grid[r][+inp.dataset.c] = inp.value;
     updRowWarn(r);
+    refreshConflictsSoon(r);
     gridChanged();
   });
   $('#sheet').addEventListener('change', e => {
@@ -783,6 +890,11 @@
     XLSX.writeFile(wb, 'بيانات-المناقشات.xlsx');
   };
 
+  $('#gConflicts').onclick = () => {
+    const first = [...conflicts.keys()].sort((a, b) => a - b)[0]; if (first == null) return;
+    const tr = $(`#sheet tr[data-r="${first}"]`); if (tr) { tr.scrollIntoView({ behavior: 'smooth', block: 'center' }); tr.classList.add('flash'); setTimeout(() => tr.classList.remove('flash'), 1600); }
+    toast('🔴 ' + conflictText(first, conflicts.get(first))[0], true);
+  };
   $('#gSelAll').onclick = () => { grid.forEach((r, i) => { if (!isEmptyRow(r)) gridSel.add(i); }); renderGrid(); };
   $('#gSelNone').onclick = () => { gridSel.clear(); renderGrid(); };
   const selectedGridStates = () => gridItems(true).map(r => ({ label: r.data.student || `سطر ${r.n}`, state: applyRow(state, r.data) }));
@@ -974,7 +1086,7 @@
   if (savedSheet) { $('#sheetUrl').value = savedSheet; $('#refreshSheet').hidden = false; }
 
   // نموذج التعبئة الجاهز (منسّق، بقوائم اختيار وورقة شرح)
-  const TEMPLATE_URL = 'assets/templates/template.xlsx?v=202610160114';
+  const TEMPLATE_URL = 'assets/templates/template.xlsx?v=202610160116';
   // نموذج Google Sheets: يفتح نسخة جديدة منه في حسابك (أنشئ نسختك ثم عبّئها)
   const GSHEET_TEMPLATE = 'https://docs.google.com/spreadsheets/d/1Xkwe3rF0iIVspBlWcr0tGOJA1KpJKWjERlh-gfOPqUQ/copy';
   $('#gsCopy').href = GSHEET_TEMPLATE;

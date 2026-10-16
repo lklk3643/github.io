@@ -8,9 +8,9 @@
     // حماية الصفحة: يجب تسجيل الدخول أولاً
     if (!(sessionStorage.getItem('qu_session') || localStorage.getItem('qu_session'))) location.replace('index.html');
   </script>
-  <link rel="stylesheet" href="assets/fonts/fonts.css?v=202610160114">
-  <link rel="stylesheet" href="assets/css/app.css?v=202610160114">
-  <link rel="stylesheet" href="assets/css/poster.css?v=202610160114">
+  <link rel="stylesheet" href="assets/fonts/fonts.css?v=202610160116">
+  <link rel="stylesheet" href="assets/css/app.css?v=202610160116">
+  <link rel="stylesheet" href="assets/css/poster.css?v=202610160116">
 </head>
 <body>
   <div class="topbar">
@@ -71,6 +71,7 @@
             <div class="field"><label>المكان</label><input type="text" data-k="place"></div>
           </div>
           <div class="field"><label>ملاحظة المكان</label><input type="text" data-k="placeNote"></div>
+          <div class="conf-note" id="formConflict" hidden></div>
           <div class="qrbox">
             <div style="font-weight:700;font-size:13px;color:var(--brand-d)">رابط البث</div>
             <label class="check" style="margin:0"><input type="checkbox" data-o="qr"> إضافة رابط البث للإعلان (يظهر كرمز QR)</label>
@@ -200,6 +201,7 @@
     <section class="panel datasheet" id="dataSheet">
       <div class="ds-head">
         <h3>📋 جدول بيانات الإعلانات <span class="hint" id="gridCount"></span></h3>
+        <button class="btn sm conf-btn" id="gConflicts" hidden></button>
         <span class="hint">كل سطر = إعلان. اكتب مباشرة، أو انسخ من Excel / Google Sheets والصق في أي خانة (Ctrl+V). كل شي ينحفظ تلقائياً.</span>
       </div>
       <div class="ds-tools">
@@ -394,13 +396,13 @@
   <div class="toast" id="toast"></div>
   <div class="export-root"><div id="exportPoster"></div></div>
 
-  <script src="assets/vendor/xlsx.full.min.js?v=202610160114"></script>
-  <script src="assets/vendor/jszip.min.js?v=202610160114"></script>
-  <script src="assets/vendor/jspdf.umd.min.js?v=202610160114"></script>
-  <script src="assets/vendor/qrcode.js?v=202610160114"></script>
-  <script src="assets/vendor/html-to-image.js?v=202610160114"></script>
-  <script src="assets/js/auth.js?v=202610160114"></script>
-  <script src="assets/js/poster.js?v=202610160114"></script>
-  <script src="assets/js/app.js?v=202610160114"></script>
+  <script src="assets/vendor/xlsx.full.min.js?v=202610160116"></script>
+  <script src="assets/vendor/jszip.min.js?v=202610160116"></script>
+  <script src="assets/vendor/jspdf.umd.min.js?v=202610160116"></script>
+  <script src="assets/vendor/qrcode.js?v=202610160116"></script>
+  <script src="assets/vendor/html-to-image.js?v=202610160116"></script>
+  <script src="assets/js/auth.js?v=202610160116"></script>
+  <script src="assets/js/poster.js?v=202610160116"></script>
+  <script src="assets/js/app.js?v=202610160116"></script>
 </body>
 </html>
