@@ -2,7 +2,7 @@
 (function () {
   'use strict';
   // تحديث تلقائي: إذا نُشرت نسخة أحدث من المفتوحة يُعاد تحميل الصفحة (يتجاوز ذاكرة المتصفح المؤقتة)
-  const APP_V = '?v=202610160826'.slice(3);
+  const APP_V = '?v=202610160835'.slice(3);
   let lastVCheck = 0;
   function checkVersion() {
     if (location.protocol === 'file:' || Date.now() - lastVCheck < 60000) return;
@@ -1018,7 +1018,7 @@
   // بيانات الكلية المشتركة (جدول حجز القاعة): تُضاف للجدول مرة لكل إصدار بدون تكرار ثم يُرتّب
   (async function loadShared() {
     try {
-      const res = await fetch('assets/data/defenses.json?v=202610160826', { cache: 'no-cache' }); if (!res.ok) return;
+      const res = await fetch('assets/data/defenses.json?v=202610160835', { cache: 'no-cache' }); if (!res.ok) return;
       const data = await res.json(), seenKey = userKey('sharedv');
       if (!data || !data.v || localStorage.getItem(seenKey) === data.v) return;
       const demo = new Set(SAMPLES.map(x => JSON.stringify(dataToGrid(x)))); // الأمثلة غير المعدّلة تُستبدل بالبيانات الحقيقية
@@ -1149,21 +1149,25 @@
     return { degree, student, gender: student ? guessGender(student) : '', time,
       place: remote ? 'عن بعد' : 'قاعة ابن عثيمين', placeNote: remote ? '(عبر الإنترنت)' : '(والبث عبر الإنترنت)' };
   }
+  // سطر عناوين جدول الحجز (يوم / تاريخ هجري / س8..س2 ...) — قد يتكرر داخل الورقة بأعمدة مختلفة
+  function bookingHeader(rowRaw, r) {
+    const row = (rowRaw || []).map(v => String(v || '').trim());
+    const hours = row.map((v, i) => { const m = v.match(/^س\s*(\d{1,2})$/); return m ? [i, +m[1]]
+      : /^المناقش[ةه]\s*\(?\d|^عن\s*بعد$|^مسائي$/.test(v) ? [i, null, !/مسائي/.test(v)] : null; }).filter(Boolean); // أعمدة إضافية: عن بعد / مسائي
+    const dayCol = row.findIndex(v => v === 'يوم' || v === 'اليوم');
+    const hijriCol = row.findIndex(v => /هجري/.test(v));
+    if (hours.filter(h => h[1]).length >= 2 && hijriCol >= 0) return { headerRow: r, hours, dayCol, hijriCol, noteCol: row.findIndex(v => /ملاحظ/.test(v)), coordCol: row.findIndex(v => /منسق/.test(v)) };
+    return null;
+  }
   function findBooking(aoa) {
-    for (let r = 0; r < Math.min(aoa.length, 15); r++) {
-      const row = aoa[r].map(v => String(v || '').trim());
-      const hours = row.map((v, i) => { const m = v.match(/^س\s*(\d{1,2})$/); return m ? [i, +m[1]]
-        : /^المناقش[ةه]\s*\(?\d|^عن\s*بعد$|^مسائي$/.test(v) ? [i, null, !/مسائي/.test(v)] : null; }).filter(Boolean); // أعمدة إضافية: عن بعد / مسائي
-      const dayCol = row.findIndex(v => v === 'يوم' || v === 'اليوم');
-      const hijriCol = row.findIndex(v => /هجري/.test(v));
-      if (hours.filter(h => h[1]).length >= 2 && hijriCol >= 0) return { headerRow: r, hours, dayCol, hijriCol, noteCol: row.findIndex(v => /ملاحظ/.test(v)), coordCol: row.findIndex(v => /منسق/.test(v)) };
-    }
+    for (let r = 0; r < Math.min(aoa.length, 15); r++) { const h = bookingHeader(aoa[r], r); if (h) return h; }
     return null;
   }
   function parseBooking(aoa, info) {
     const out = [], usesHall = aoa.some(r => (r || []).some(v => /حضور/.test(String(v || ''))));
     for (let r = info.headerRow + 1; r < aoa.length; r++) {
       const row = aoa[r] || [];
+      const again = bookingHeader(row, r); if (again) { info = again; continue; } // عناوين جديدة في منتصف الورقة
       const hj = String(row[info.hijriCol] || '').trim().match(/(\d{4})\D+(\d{1,2})\D+(\d{1,2})/);
       if (!hj) continue;
       const [y, m, d] = [+hj[1], +hj[2], +hj[3]];
@@ -1284,7 +1288,7 @@
   if (savedSheet) { $('#sheetUrl').value = savedSheet; $('#refreshSheet').hidden = false; }
 
   // نموذج التعبئة الجاهز (منسّق، بقوائم اختيار وورقة شرح)
-  const TEMPLATE_URL = 'assets/templates/template.xlsx?v=202610160826';
+  const TEMPLATE_URL = 'assets/templates/template.xlsx?v=202610160835';
   // نموذج Google Sheets: يفتح نسخة جديدة منه في حسابك (أنشئ نسختك ثم عبّئها)
   const GSHEET_TEMPLATE = 'https://docs.google.com/spreadsheets/d/1UeSeDlmeC8X-bhU-4uUWxqbu2aTQFDURwSryk6Z49to/copy';
   $('#gsCopy').href = GSHEET_TEMPLATE;
@@ -1765,8 +1769,13 @@
       'نوع_الرسالة': deg ? `رسالة ${deg}` : 'رسالة علمية', 'للباحث': female ? 'للباحثة' : 'للباحث', 'الطالب': String(s.student || '').trim(),
       'العنوان': String(s.title || '').replace(/\s*\n\s*/g, ' – ').trim(), 'اليوم': String(s.day || '').trim(), 'التاريخ': hijriText(s.date),
       'الميلادي': hijriToGreg(s.date), 'الوقت': String(s.time || '').trim(), 'المكان': String(s.place || '').trim(),
-      'رابط_البث': String(s.link || '').trim() || DEFAULTS.link, 'رابط_اللجنة': String(s.committeeLink || '').trim(), 'رابط_التسجيل': String(s.recordingLink || '').trim()
+      'رابط_البث': String(s.link || '').trim() || DEFAULTS.link, 'رابط_اللجنة': String(s.committeeLink || '').trim(), 'رابط_التسجيل': recLinks(s.recordingLink)
     };
+  }
+  // تسجيل من عدة أجزاء (روابط مفصولة بـ | ) → «الجزء 1: ...» كل جزء في سطر
+  function recLinks(v) {
+    const urls = String(v || '').split(/\s*\|\s*|\s+(?=https?:)/).map(x => x.trim()).filter(Boolean);
+    return urls.length > 1 ? urls.map((u, i) => `الجزء ${i + 1}:\n${u}`).join('\n\n') : (urls[0] || '');
   }
   function fillTpl(tpl, v) {
     // [[ ... ]] جزء اختياري: يُحذف إذا كان فيه متغير فاضي
