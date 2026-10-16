@@ -13,6 +13,7 @@ a { color: var(--brand); }
 
 .btn { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: #fff; padding: 8px 14px;
   border-radius: 10px; cursor: pointer; white-space: nowrap; transition: .15s; }
+a.btn { text-decoration: none; }
 .btn:hover { border-color: var(--brand); color: var(--brand); }
 .btn.primary { background: var(--brand); border-color: var(--brand); color: #fff; }
 .btn.primary:hover { background: var(--brand-d); color: #fff; }

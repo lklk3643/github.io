@@ -793,7 +793,9 @@
   const TEMPLATE_URL = 'assets/templates/template.xlsx';
   // نموذج Google Sheets: يفتح نسخة جديدة منه في حسابك (أنشئ نسختك ثم عبّئها)
   const GSHEET_TEMPLATE = 'https://docs.google.com/spreadsheets/d/1QolKhZXdip6kYCdmmUPUBEWNGz24eT29RKgqJGqtR6A/copy';
-  $('#gsTemplate').href = GSHEET_TEMPLATE; $('#gsTemplate').hidden = false;
+  $('#gsCopy').href = GSHEET_TEMPLATE;
+  $('#gsTemplate').onclick = () => openModal('#mGs');
+  $('#gsDlXlsx').onclick = () => $('#dlTemplate').click();
   $('#dlTemplate').onclick = () => {
     const a = document.createElement('a');
     a.href = TEMPLATE_URL; a.download = 'نموذج-تعبئة-اعلانات-المناقشات.xlsx';

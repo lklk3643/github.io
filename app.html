@@ -200,7 +200,7 @@
         </div>
         <div class="ds-group"><span class="ds-label">نموذج التعبئة</span>
           <button class="btn sm primary" id="dlTemplate">📥 تنزيل نموذج Excel</button>
-          <a class="btn sm" id="gsTemplate" target="_blank" rel="noopener" hidden>📗 نسخة Google Sheets</a>
+          <button class="btn sm" id="gsTemplate">📗 نموذج Google Sheets</button>
         </div>
         <div class="ds-group"><span class="ds-label">استيراد</span>
           <label class="btn sm">📄 من ملف Excel / CSV<input type="file" id="xlsFile" accept=".xlsx,.xls,.csv,.ods" hidden></label>
@@ -224,6 +224,35 @@
       <div class="gridwrap"><table class="sheet" id="sheet"></table></div>
     </section>
   </div>
+
+  <!-- نافذة نموذج Google Sheets -->
+  <div class="modal" id="mGs"><div class="box" style="width:min(620px,100%)">
+    <h2>نموذج Google Sheets <button class="btn sm" data-close>✕</button></h2>
+    <p class="hint" style="margin-top:0">يشتغل مع أي حساب Google (حساب الدكتور أو الموظف نفسه). اختر طريقة:</p>
+    <div class="howto">
+      <b>الطريقة الأولى: نسخة جاهزة بضغطة</b>
+      <ol>
+        <li>سجّل دخولك في Google بحسابك.</li>
+        <li>اضغط الزر تحت ثم «إنشاء نسخة» — تنحفظ النسخة في Google Drive حقك.</li>
+      </ol>
+      <a class="btn primary" id="gsCopy" target="_blank" rel="noopener">📗 إنشاء نسخة في حسابي</a>
+    </div>
+    <div class="howto">
+      <b>الطريقة الثانية: من نموذج Excel (تشتغل دائماً، وبنفس التنسيق)</b>
+      <ol>
+        <li><button class="btn sm" id="gsDlXlsx">📥 نزّل نموذج Excel</button></li>
+        <li><a class="btn sm" href="https://sheets.new" target="_blank" rel="noopener">➕ افتح شيت جديد</a> ثم من القائمة: «ملف» ← «استيراد» ← «تحميل» واختر الملف ← «استبدال جدول البيانات».</li>
+      </ol>
+    </div>
+    <div class="howto">
+      <b>بعد التعبئة: ربط الشيت بالموقع</b>
+      <ol>
+        <li>في الشيت: زر «مشاركة» ← «الوصول العام» ← «أي شخص لديه الرابط» (عارض).</li>
+        <li>انسخ الرابط والصقه في خانة «رابط Google Sheets» بالجدول، واضغط «🔗 من Google Sheets».</li>
+        <li>كل ما عدّلت الشيت اضغط «🔄 تحديث».</li>
+      </ol>
+    </div>
+  </div></div>
 
   <!-- نافذة سجل التصاميم -->
   <div class="modal" id="mHistory"><div class="box" style="width:min(1100px,100%)">
