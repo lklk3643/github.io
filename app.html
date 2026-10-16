@@ -8,9 +8,9 @@
     // حماية الصفحة: يجب تسجيل الدخول أولاً
     if (!(sessionStorage.getItem('qu_session') || localStorage.getItem('qu_session'))) location.replace('index.html');
   </script>
-  <link rel="stylesheet" href="assets/fonts/fonts.css?v=202610160142">
-  <link rel="stylesheet" href="assets/css/app.css?v=202610160142">
-  <link rel="stylesheet" href="assets/css/poster.css?v=202610160142">
+  <link rel="stylesheet" href="assets/fonts/fonts.css?v=202610160145">
+  <link rel="stylesheet" href="assets/css/app.css?v=202610160145">
+  <link rel="stylesheet" href="assets/css/poster.css?v=202610160145">
 </head>
 <body>
   <div class="topbar">
@@ -43,7 +43,7 @@
           <div class="group-title">الترويسة</div>
           <div class="field"><label>سطر الافتتاح</label><input type="text" data-k="college"></div>
           <div class="field"><label>نص الإعلان</label><input type="text" data-k="intro"></div>
-          <div class="field"><label>الدرجة / التخصص (العنوان الكبير)</label><input type="text" data-k="degree"></div>
+          <div class="field"><label>الدرجة / التخصص (العنوان الكبير)</label><input type="text" data-k="degree" inputmode="none" data-pick="list:degree"></div>
           <div class="field"><label>المقدِّم</label>
             <div class="chips" style="margin-bottom:6px">
               <button class="chip" data-gender="m">طالب</button>
@@ -68,9 +68,9 @@
           </div>
           <div class="row2">
             <div class="field"><label>الوقت</label><input type="text" data-k="time" inputmode="none" data-pick="time"></div>
-            <div class="field"><label>المكان</label><input type="text" data-k="place"></div>
+            <div class="field"><label>المكان</label><input type="text" data-k="place" inputmode="none" data-pick="list:place"></div>
           </div>
-          <div class="field"><label>ملاحظة المكان</label><input type="text" data-k="placeNote"></div>
+          <div class="field"><label>ملاحظة المكان</label><input type="text" data-k="placeNote" inputmode="none" data-pick="list:placeNote"></div>
           <div class="conf-note" id="formConflict" hidden></div>
           <div class="qrbox">
             <div style="font-weight:700;font-size:13px;color:var(--brand-d)">رابط البث</div>
@@ -453,13 +453,13 @@
   <div class="toast" id="toast"></div>
   <div class="export-root"><div id="exportPoster"></div></div>
 
-  <script src="assets/vendor/xlsx.full.min.js?v=202610160142"></script>
-  <script src="assets/vendor/jszip.min.js?v=202610160142"></script>
-  <script src="assets/vendor/jspdf.umd.min.js?v=202610160142"></script>
-  <script src="assets/vendor/qrcode.js?v=202610160142"></script>
-  <script src="assets/vendor/html-to-image.js?v=202610160142"></script>
-  <script src="assets/js/auth.js?v=202610160142"></script>
-  <script src="assets/js/poster.js?v=202610160142"></script>
-  <script src="assets/js/app.js?v=202610160142"></script>
+  <script src="assets/vendor/xlsx.full.min.js?v=202610160145"></script>
+  <script src="assets/vendor/jszip.min.js?v=202610160145"></script>
+  <script src="assets/vendor/jspdf.umd.min.js?v=202610160145"></script>
+  <script src="assets/vendor/qrcode.js?v=202610160145"></script>
+  <script src="assets/vendor/html-to-image.js?v=202610160145"></script>
+  <script src="assets/js/auth.js?v=202610160145"></script>
+  <script src="assets/js/poster.js?v=202610160145"></script>
+  <script src="assets/js/app.js?v=202610160145"></script>
 </body>
 </html>

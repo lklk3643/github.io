@@ -132,8 +132,8 @@
             <button class="btn sm danger" data-act="del" title="حذف">✕</button>
           </span></div>
         <input type="text" data-m="name" placeholder="الاسم" value="${esc(m.name)}">
-        <input type="text" data-m="title" placeholder="الصفة" value="${esc(m.title)}">
-        <input type="text" data-m="role" placeholder="الدور" value="${esc(m.role)}">
+        <input type="text" data-m="title" placeholder="الصفة (اضغط للاختيار)" value="${esc(m.title)}" inputmode="none" data-pick="list:mTitle">
+        <input type="text" data-m="role" placeholder="الدور (اضغط للاختيار)" value="${esc(m.role)}" inputmode="none" data-pick="list:mRole">
       </div>`).join('');
   }
   $('#members').addEventListener('input', e => {
@@ -627,7 +627,9 @@
     'اليوم': 'day', 'التاريخ': 'date', 'الوقت': 'time', 'المكان': 'place', 'ملاحظة المكان': 'placeNote', 'رابط البث': 'link',
     'رابط اللجنة': 'committeeLink', 'رابط التسجيل': 'recordingLink' };
   const GMEM = 5;
-  const PICK_COL = { 'اليوم': 'day', 'التاريخ': 'date', 'الوقت': 'time' };
+  const PICK_COL = { 'اليوم': 'day', 'التاريخ': 'date', 'الوقت': 'time', 'الجنس': 'list:gender', 'الدرجة': 'list:degree',
+    'المكان': 'list:place', 'ملاحظة المكان': 'list:placeNote' };
+  const pickOf = c => PICK_COL[c] || (/الصفة$/.test(c) ? 'list:mTitle' : /الدور$/.test(c) ? 'list:mRole' : '');
   for (let i = 1; i <= GMEM; i++) GCOLS.push(`عضو${i} الاسم`, `عضو${i} الصفة`, `عضو${i} الدور`);
   const emptyRow = () => GCOLS.map(() => '');
   let grid = [];
@@ -686,7 +688,7 @@
     const cls = c => /العنوان/.test(c) ? 'w-title' : /رابط/.test(c) ? 'w-link' : /الجنس|اليوم|الوقت|الدور/.test(c) ? 'w-sm' : '';
     $('#sheet').innerHTML = `<thead><tr><th class="n">#</th><th class="act">عرض / نسخ</th>${GCOLS.map(c => `<th class="${/^عضو/.test(c) ? 'mem' : ''}">${c}</th>`).join('')}</tr></thead>
       <tbody>${grid.map((r, i) => `<tr data-r="${i}" class="${gridSel.has(i) ? 'sel' : ''} ${i === activeRow ? 'active' : ''} ${missingOf(r).length ? 'incomplete' : ''} ${conflicts.has(i) ? 'conflict' : ''}"><td class="n"><label><input type="checkbox" data-gsel ${gridSel.has(i) ? 'checked' : ''}>${i + 1}</label>${warnHtml(r)}${conflictHtml(i)}</td><td class="act"><button data-view title="عرض في التصميم">👁</button><button data-dup title="تكرار السطر (نفس اللجنة لطالب آخر)">⧉</button><button data-msg="invite" class="msg-b" title="نسخ رسالة الدعوة">دعوة</button><button data-wa="invite" class="wa-i" title="إرسال الدعوة بالواتساب">💬</button><button data-msg="record" class="msg-b ${r[GCOLS.indexOf('رابط التسجيل')] ? 'has' : ''}" title="نسخ رسالة التسجيل">تسجيل</button><button data-wa="record" class="wa-i" title="إرسال التسجيل بالواتساب">💬</button></td>${
-        GCOLS.map((c, j) => `<td><input type="text" class="${cls(c)}" data-c="${j}" value="${esc(r[j] || '')}"${PICK_COL[c] ? ` inputmode="none" data-pick="${PICK_COL[c]}"` : ''}${c === 'رابط البث' ? ' dir="ltr" placeholder="يوتيوب (افتراضي)"' : c === 'رابط اللجنة' ? ' dir="ltr" placeholder="زوم (اختياري)"' : c === 'رابط التسجيل' ? ' dir="ltr" placeholder="بعد المناقشة"' : ''}></td>`).join('')}</tr>`).join('')}</tbody>`;
+        GCOLS.map((c, j) => `<td><input type="text" class="${cls(c)}" data-c="${j}" value="${esc(r[j] || '')}"${pickOf(c) ? ` inputmode="none" data-pick="${pickOf(c)}"` : ''}${c === 'رابط البث' ? ' dir="ltr" placeholder="يوتيوب (افتراضي)"' : c === 'رابط اللجنة' ? ' dir="ltr" placeholder="زوم (اختياري)"' : c === 'رابط التسجيل' ? ' dir="ltr" placeholder="بعد المناقشة"' : ''}></td>`).join('')}</tr>`).join('')}</tbody>`;
     updateGridInfo();
     const b = $('#gConflicts'); if (b) { b.hidden = !conflicts.size; b.textContent = `🔴 ${conflicts.size} سطر فيه تعارض`; }
     formConflictCheck();
@@ -1127,7 +1129,7 @@
   if (savedSheet) { $('#sheetUrl').value = savedSheet; $('#refreshSheet').hidden = false; }
 
   // نموذج التعبئة الجاهز (منسّق، بقوائم اختيار وورقة شرح)
-  const TEMPLATE_URL = 'assets/templates/template.xlsx?v=202610160142';
+  const TEMPLATE_URL = 'assets/templates/template.xlsx?v=202610160145';
   // نموذج Google Sheets: يفتح نسخة جديدة منه في حسابك (أنشئ نسختك ثم عبّئها)
   const GSHEET_TEMPLATE = 'https://docs.google.com/spreadsheets/d/1UeSeDlmeC8X-bhU-4uUWxqbu2aTQFDURwSryk6Z49to/copy';
   $('#gsCopy').href = GSHEET_TEMPLATE;
@@ -1276,7 +1278,7 @@
       day: ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'],
       time: ['8 صباحاً', '9 صباحاً', '10 صباحاً', '11 صباحاً', '12 ظهراً', '1 ظهراً', '7 مساءً', '8 مساءً'],
       gender: ['ذكر', 'أنثى'],
-      place: ['قاعة ابن عثيمين'], placeNote: ['(والبث عبر الإنترنت)'],
+      place: ['قاعة ابن عثيمين', 'القاعة الكبرى بمبنى الطالبات', 'عن بعد'], placeNote: ['(والبث عبر الإنترنت)', '(عبر الإنترنت)'],
       mTitle: ['الأستاذ في قسم الفقه', 'الأستاذ المشارك في قسم الفقه', 'الأستاذ المساعد في قسم الفقه',
         'الأستاذ في قسم أصول الفقه', 'الأستاذ المشارك في قسم أصول الفقه', 'الأستاذ المساعد في قسم أصول الفقه'],
       mRole: ['مشرفاً ومقرراً', 'مشرفاً', 'مشرفاً مشاركاً', 'مناقشاً', 'مناقشاً خارجياً', 'مشرفةً ومقررةً', 'مناقِشةً'],
@@ -1415,7 +1417,12 @@
     window.addEventListener('scroll', () => { if (target) show(target); }, true);
     window.addEventListener('resize', hide);
     refreshHistory();
-    return { refreshHistory, markDirty: () => { dirty = true; } };
+    function top(key, n = 60) {
+      if (dirty) rebuild();
+      const m = counts[key]; if (!m) return [];
+      return [...m.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'ar')).slice(0, n).map(x => x[0]);
+    }
+    return { refreshHistory, markDirty: () => { dirty = true; }, top };
   })();
 
   // ---------- تراجع / إعادة ----------
@@ -1753,7 +1760,20 @@
   const pkFoot = '<div class="pk-foot"><button class="pk" data-pk-type>⌨️ كتابة</button><button class="pk" data-pk-clear>مسح</button><button class="pk" data-pk-close>إغلاق</button></div>';
   function pkOpen(el) {
     pkTarget = el; const kind = el.dataset.pick, cur = el.value.trim();
-    if (kind === 'day') {
+    if (kind && kind.startsWith('list:')) {
+      const key = kind.slice(5);
+      const LABEL = { gender: 'الجنس', degree: 'الدرجة', place: 'المكان', placeNote: 'ملاحظة المكان', mTitle: 'الصفة', mRole: 'الدور' };
+      const items = key === 'gender' ? ['ذكر', 'أنثى'] : QSuggest.top(key);
+      const btn = v => `<button class="pk-li ${v === cur ? 'on' : ''}" data-v="${esc(v)}">${esc(v)}</button>`;
+      pk.innerHTML = `<h4>اختر ${LABEL[key] || ''} <span class="hint">${key === 'gender' ? '' : 'الأكثر استخداماً أولاً'}</span></h4>
+        ${items.length > 8 ? '<input type="search" class="pk-search" placeholder="بحث...">' : ''}
+        <div class="pk-list ${key === 'gender' ? 'pk-two' : ''}">${items.map(btn).join('') || '<div class="hint">ما فيه قيم سابقة — اضغط «كتابة»</div>'}</div>${pkFoot}`;
+      const sr = pk.querySelector('.pk-search');
+      if (sr) sr.addEventListener('input', () => {
+        const q = nrm(sr.value);
+        pk.querySelectorAll('.pk-li').forEach(b => { b.hidden = q && !nrm(b.dataset.v).includes(q); });
+      });
+    } else if (kind === 'day') {
       pk.innerHTML = `<h4>اختر اليوم</h4><div class="pk-row">${DAYS.map(d => `<button class="pk ${d === cur ? 'on' : ''}" data-v="${d}">${d}</button>`).join('')}</div>${pkFoot}`;
     } else if (kind === 'time') {
       const m = toLatin(cur).match(/:(\d{2})/); const mins = m ? m[1] : '00';

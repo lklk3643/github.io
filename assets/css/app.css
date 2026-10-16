@@ -173,6 +173,12 @@ a.btn { text-decoration: none; }
 .picker button.pk:hover, .picker button.pk.on { background: var(--brand); color: #fff; border-color: var(--brand); }
 .picker input[type=date] { width: 100%; padding: 9px; border: 1px solid var(--line); border-radius: 9px; font: inherit; font-size: 16px; }
 .picker .pk-prev { font-size: 13px; color: var(--ok); margin: 6px 0; min-height: 18px; }
+.picker .pk-list { display: flex; flex-direction: column; gap: 4px; max-height: 280px; overflow-y: auto; margin-bottom: 8px; }
+.picker .pk-list.pk-two { flex-direction: row; }
+.picker .pk-list.pk-two .pk-li { flex: 1; text-align: center; font-size: 16px; padding: 12px; }
+.picker .pk-li { text-align: right; border: 1px solid var(--line); background: #fbfdfd; border-radius: 9px; padding: 9px 11px; font: inherit; font-size: 14px; cursor: pointer; }
+.picker .pk-li:hover, .picker .pk-li.on { background: var(--brand); color: #fff; border-color: var(--brand); }
+.picker .pk-search { width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 9px; font: inherit; font-size: 16px; margin-bottom: 6px; }
 .picker .pk-foot { display: flex; justify-content: space-between; gap: 6px; border-top: 1px dashed var(--line); padding-top: 8px; }
 
 /* التعارضات */
