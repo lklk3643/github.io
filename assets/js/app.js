@@ -983,7 +983,7 @@
   // بيانات الكلية المشتركة (جدول حجز القاعة): تُضاف للجدول مرة لكل إصدار بدون تكرار ثم يُرتّب
   (async function loadShared() {
     try {
-      const res = await fetch('assets/data/defenses.json?v=202610160235', { cache: 'no-cache' }); if (!res.ok) return;
+      const res = await fetch('assets/data/defenses.json?v=202610160243', { cache: 'no-cache' }); if (!res.ok) return;
       const data = await res.json(), seenKey = userKey('sharedv');
       if (!data || !data.v || localStorage.getItem(seenKey) === data.v) return;
       const demo = new Set(SAMPLES.map(x => JSON.stringify(dataToGrid(x)))); // الأمثلة غير المعدّلة تُستبدل بالبيانات الحقيقية
@@ -1216,7 +1216,7 @@
   if (savedSheet) { $('#sheetUrl').value = savedSheet; $('#refreshSheet').hidden = false; }
 
   // نموذج التعبئة الجاهز (منسّق، بقوائم اختيار وورقة شرح)
-  const TEMPLATE_URL = 'assets/templates/template.xlsx?v=202610160235';
+  const TEMPLATE_URL = 'assets/templates/template.xlsx?v=202610160243';
   // نموذج Google Sheets: يفتح نسخة جديدة منه في حسابك (أنشئ نسختك ثم عبّئها)
   const GSHEET_TEMPLATE = 'https://docs.google.com/spreadsheets/d/1UeSeDlmeC8X-bhU-4uUWxqbu2aTQFDURwSryk6Z49to/copy';
   $('#gsCopy').href = GSHEET_TEMPLATE;
@@ -1704,7 +1704,8 @@
     // [[ ... ]] جزء اختياري: يُحذف إذا كان فيه متغير فاضي
     let out = tpl.replace(/\[\[([\s\S]*?)\]\]/g, (m, inner) => (inner.match(/\{([^}]+)\}/g) || []).every(k => v[k.slice(1, -1)]) ? inner : '');
     out = out.replace(/\{([^}]+)\}/g, (m, k) => v[k] != null ? v[k] : m);
-    out = out.replace(/الموافق\s*\./g, '.').replace(/[ \t]+\n/g, '\n').replace(/\n{4,}/g, '\n\n\n');
+    out = out.replace(/،\s*بعنوان:\s*(?=،|\n|$)/g, '') // بدون عنوان: تُحذف «بعنوان:» الفاضية
+      .replace(/الموافق\s*\./g, '.').replace(/[ \t]+\n/g, '\n').replace(/\n{4,}/g, '\n\n\n');
     return out.trim();
   }
   const buildMsg = (kind, s) => fillTpl(getTpl()[kind], msgVars(s));
@@ -1723,11 +1724,14 @@
   }
   $('#copyInvite').onclick = () => copyMsg('invite', state);
   $('#copyRecord').onclick = () => copyMsg('record', state, () => $('[data-k=recordingLink]').focus());
+  // رسائل سطر من الجدول: بيانات السطر فقط (لا تُستعار العنوان أو اللجنة من التصميم المفتوح)
+  const rowMsgState = r => applyRow({ ...state, degree: '', student: '', title: '', day: '', date: '', time: '', place: DEFAULTS.place, placeNote: DEFAULTS.placeNote,
+    link: DEFAULTS.link, committee: [], committeeLink: '', recordingLink: '' }, parseRow(gridToObj(grid[r])));
   $('#sheet').addEventListener('click', e => {
     const b = e.target.closest('[data-msg]'); if (!b) return;
     const r = +b.closest('tr').dataset.r;
     if (isEmptyRow(grid[r])) return toast('هذا السطر فاضي', true);
-    const st = applyRow(state, parseRow(gridToObj(grid[r])));
+    const st = rowMsgState(r);
     copyMsg(b.dataset.msg, st, () => { const c = cellAt(r, GCOLS.indexOf('رابط التسجيل')); if (c) c.focus(); });
   });
   // تعديل نص الرسائل
@@ -1835,7 +1839,7 @@
     const b = e.target.closest('[data-wa]'); if (!b) return;
     const r = +b.closest('tr').dataset.r;
     if (isEmptyRow(grid[r])) return toast('هذا السطر فاضي', true);
-    sendDirect(applyRow(state, parseRow(gridToObj(grid[r]))), b.dataset.wa || 'invite', false);
+    sendDirect(rowMsgState(r), b.dataset.wa || 'invite', false);
   });
 
   // ---------- مزامنة: تعديل سطر الجدول المفتوح من النموذج + تحديث تصميم السجل تلقائياً ----------
