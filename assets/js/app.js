@@ -694,7 +694,9 @@
     const timeRaw = r[CI('الوقت')], place = r[CI('المكان')];
     const members = [];
     for (let k = 1; k <= GMEM; k++) { const n = nrm(r[CI(`عضو${k} الاسم`)]); if (n) members.push([n, r[CI(`عضو${k} الاسم`)]]); }
-    return { date, t: timeMin(timeRaw), timeRaw: nrm(timeRaw), place: REMOTE(place) ? '' : nrm(place), placeRaw: place, student: r[CI('الطالب')], members };
+    const link = String(r[CI('رابط البث')] || '').trim() || DEFAULTS.link; // الفاضي = قناة اليوتيوب الافتراضية
+    return { date, t: timeMin(timeRaw), timeRaw: nrm(timeRaw), place: REMOTE(place) ? '' : nrm(place), placeRaw: place, student: r[CI('الطالب')], members,
+      linkKey: link.toLowerCase().replace(/^https?:\/\/(www\.)?/, '').replace(/[/?#]+$/, ''), platform: QPoster.platformOf(link).name };
   }
   function clash(a, b) {
     if (!a || !b || a.date !== b.date) return null;
@@ -703,6 +705,8 @@
     const exact = (a.t != null && b.t != null) ? a.t === b.t : true;
     const out = [];
     if (a.place && a.place === b.place) out.push({ kind: 'hall', exact });
+    // البث: يتعارض فقط إذا كان نفس الرابط (مثل قناة اليوتيوب نفسها). منصتان مختلفتان = لا تعارض
+    if (a.linkKey && a.linkKey === b.linkKey) out.push({ kind: 'stream', exact, platform: a.platform });
     const bm = new Map(b.members);
     a.members.forEach(([n, raw]) => { if (bm.has(n)) out.push({ kind: 'member', exact, name: raw }); });
     return out.length ? out : null;
@@ -724,9 +728,9 @@
     return list.map(x => {
       const o = grid[x.other] || [], who = o[CI('الطالب')] || 'بدون اسم';
       const when = x.exact ? 'نفس اليوم والوقت' : 'نفس اليوم بوقت متقارب';
-      return x.kind === 'hall'
-        ? `تعارض مع السطر ${x.other + 1} «${who}»: ${when} في ${o[CI('المكان')] || 'نفس القاعة'} (${o[CI('الوقت')] || ''})`
-        : `${x.name} في لجنتين: السطر ${x.other + 1} «${who}» — ${when}`;
+      if (x.kind === 'hall') return `تعارض مع السطر ${x.other + 1} «${who}»: ${when} في ${o[CI('المكان')] || 'نفس القاعة'} (${o[CI('الوقت')] || ''})`;
+      if (x.kind === 'stream') return `رابط البث مشغول: السطر ${x.other + 1} «${who}» يبث على نفس رابط ${x.platform} — ${when} (${o[CI('الوقت')] || ''})`;
+      return `${x.name} في لجنتين: السطر ${x.other + 1} «${who}» — ${when}`;
     });
   }
   function conflictHtml(i) {
@@ -760,14 +764,16 @@
   // فحص التصميم الحالي (النموذج) مقابل الجدول
   function formConflictCheck() {
     const box = $('#formConflict'); if (!box) return;
-    const me = slotOf(dataToGrid({ ...state, gender: '' }));
+    const me = slotOf(dataToGrid({ ...state, gender: '', link: state.opt && state.opt.qr ? state.link : '' }));
     const hits = [];
     grid.forEach((r, i) => {
       if (i === activeRow) return;
       const c = clash(me, slotOf(r)); if (!c) return;
       const who = r[CI('الطالب')] || 'بدون اسم';
       if (nrm(who) === nrm(state.student)) return; // نفس الإعلان
-      c.forEach(x => hits.push(x.kind === 'hall' ? `السطر ${i + 1} «${who}» في نفس ${x.exact ? 'اليوم والوقت' : 'اليوم بوقت متقارب'} بـ${r[CI('المكان')]}` : `${x.name} مسجّل في لجنة السطر ${i + 1} «${who}» بنفس الوقت`));
+      c.forEach(x => hits.push(x.kind === 'hall' ? `السطر ${i + 1} «${who}» في نفس ${x.exact ? 'اليوم والوقت' : 'اليوم بوقت متقارب'} بـ${r[CI('المكان')]}`
+        : x.kind === 'stream' ? `السطر ${i + 1} «${who}» يبث على نفس رابط ${x.platform} بنفس الوقت`
+        : `${x.name} مسجّل في لجنة السطر ${i + 1} «${who}» بنفس الوقت`));
     });
     box.hidden = !hits.length;
     box.innerHTML = hits.length ? '⚠️ <b>تعارض في جدول البيانات:</b><br>' + hits.slice(0, 4).map(esc).join('<br>') : '';
@@ -1086,7 +1092,7 @@
   if (savedSheet) { $('#sheetUrl').value = savedSheet; $('#refreshSheet').hidden = false; }
 
   // نموذج التعبئة الجاهز (منسّق، بقوائم اختيار وورقة شرح)
-  const TEMPLATE_URL = 'assets/templates/template.xlsx?v=202610160116';
+  const TEMPLATE_URL = 'assets/templates/template.xlsx?v=202610160119';
   // نموذج Google Sheets: يفتح نسخة جديدة منه في حسابك (أنشئ نسختك ثم عبّئها)
   const GSHEET_TEMPLATE = 'https://docs.google.com/spreadsheets/d/1Xkwe3rF0iIVspBlWcr0tGOJA1KpJKWjERlh-gfOPqUQ/copy';
   $('#gsCopy').href = GSHEET_TEMPLATE;
