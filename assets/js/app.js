@@ -1,6 +1,20 @@
 /* واجهة المحرر: الحقول، المعاينة، الإكسل/جوجل شيت، التحميل، القوالب، الموظفين */
 (function () {
   'use strict';
+  // تحديث تلقائي: إذا نُشرت نسخة أحدث من المفتوحة يُعاد تحميل الصفحة (يتجاوز ذاكرة المتصفح المؤقتة)
+  const APP_V = '?v=202610160306'.slice(3);
+  let lastVCheck = 0;
+  function checkVersion() {
+    if (location.protocol === 'file:' || Date.now() - lastVCheck < 60000) return;
+    lastVCheck = Date.now();
+    fetch('version.txt?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : '').then(v => {
+      v = (v || '').trim(); if (!/^\d{8,}$/.test(v) || v <= APP_V) return;
+      try { if (sessionStorage.getItem('qu_reloaded') === v) return; sessionStorage.setItem('qu_reloaded', v); } catch (e) { /* اختياري */ }
+      location.replace(location.pathname.replace(/[^/]*$/, '') + 'app.html?u=' + v + location.hash);
+    }).catch(() => {});
+  }
+  checkVersion();
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) checkVersion(); });
   const session = QAuth.requireLogin();
   if (!session) return;
 
@@ -774,7 +788,8 @@
     const timeRaw = r[CI('الوقت')], place = r[CI('المكان')];
     const members = [];
     for (let k = 1; k <= GMEM; k++) { const n = nrm(r[CI(`عضو${k} الاسم`)]); if (n) members.push([n, r[CI(`عضو${k} الاسم`)]]); }
-    const link = String(r[CI('رابط البث')] || '').trim() || DEFAULTS.link; // الفاضي = قناة اليوتيوب الافتراضية
+    // الفاضي = قناة اليوتيوب الافتراضية، إلا المناقشة عن بعد: لها اجتماعها الخاص (زوم/بلاك بورد) فلا تتعارض مع غيرها
+    const link = String(r[CI('رابط البث')] || '').trim() || (REMOTE(place) ? '' : DEFAULTS.link);
     return { date, t: timeMin(timeRaw), timeRaw: nrm(timeRaw), place: REMOTE(place) ? '' : nrm(place), placeRaw: place, student: r[CI('الطالب')], members,
       linkKey: link.toLowerCase().replace(/^https?:\/\/(www\.)?/, '').replace(/[/?#]+$/, ''), platform: QPoster.platformOf(link).name,
       zoomKey: String(r[CI('رابط اللجنة')] || '').trim().toLowerCase().replace(/^https?:\/\/(www\.)?/, '').replace(/[/?#]+$/, '') };
@@ -994,7 +1009,7 @@
   // بيانات الكلية المشتركة (جدول حجز القاعة): تُضاف للجدول مرة لكل إصدار بدون تكرار ثم يُرتّب
   (async function loadShared() {
     try {
-      const res = await fetch('assets/data/defenses.json?v=202610160255', { cache: 'no-cache' }); if (!res.ok) return;
+      const res = await fetch('assets/data/defenses.json?v=202610160306', { cache: 'no-cache' }); if (!res.ok) return;
       const data = await res.json(), seenKey = userKey('sharedv');
       if (!data || !data.v || localStorage.getItem(seenKey) === data.v) return;
       const demo = new Set(SAMPLES.map(x => JSON.stringify(dataToGrid(x)))); // الأمثلة غير المعدّلة تُستبدل بالبيانات الحقيقية
@@ -1007,10 +1022,23 @@
         const old = have.get(key(r)); if (!old) { add.push(r); return; }
         let f = false; r.forEach((v, j) => { if (v && !String(old[j] || '').trim()) { old[j] = v; f = true; } }); if (f) filled++;
       });
+      // تصحيحات من مراجعة جدول الحجز: تتغيّر الخانة فقط إذا كانت ما زالت بالقيمة القديمة (ما عدّلها الموظف)
+      let fixed = 0, removed = 0;
+      (data.fixes || []).forEach(f => {
+        const r = have.get(key(GCOLS.map(c => c === 'الطالب' ? f['الطالب'] : c === 'التاريخ' ? f['التاريخ'] : '')));
+        if (!r) return; let ch = false;
+        Object.entries(f['غيّر'] || {}).forEach(([c, [was, now]]) => { const j = CI(c); if (j >= 0 && (r[j] || '') === was) { r[j] = now; ch = true; } });
+        if (ch) fixed++;
+      });
+      (data.remove || []).forEach(f => { // مناقشة مؤجلة: تُحذف إذا ما أضاف لها الموظف عنوان أو لجنة
+        const r = have.get(key(GCOLS.map(c => c === 'الطالب' ? f['الطالب'] : c === 'التاريخ' ? f['التاريخ'] : '')));
+        if (r && !r[CI('العنوان')] && !r[CI('عضو1 الاسم')]) { grid = grid.filter(x => x !== r); removed++; }
+      });
+      filled += fixed + removed;
       localStorage.setItem(seenKey, data.v);
       if (!add.length && !filled) { renderGrid(); gridChanged(); return; }
       grid = sortRows([...grid, ...add]); gridSel.clear(); activeRow = -1; renderGrid(); gridChanged();
-      toast(add.length ? `📅 أُضيفت ${add.length} مناقشة من جدول حجز القاعة — مرتبة تصاعدياً بالتاريخ` : `📅 حُدّثت ${filled} مناقشة من جدول حجز القاعة (الملاحظات ومنسق الحجز)`);
+      toast(add.length ? `📅 أُضيفت ${add.length} مناقشة من جدول حجز القاعة${filled ? ` وحُدّثت ${filled}` : ''} — مرتبة تصاعدياً بالتاريخ` : `📅 حُدّثت ${filled} مناقشة من جدول حجز القاعة`);
     } catch (e) { /* بدون اتصال أو نسخة الملف الواحد */ }
   })();
   $('#gDel').onclick = () => {
@@ -1075,17 +1103,23 @@
   }
   const hourText = h => h >= 6 && h <= 11 ? `${h} صباحاً` : (h === 12 || h === 1 || h === 2) ? `${h} ظهراً` : `${h} مساءً`;
   function timeIn(text) {
+    text = toLatin(text).replace(/(\d{1,2})\.(\d{2})(?!\d)/g, '$1:$2'); // 4.30 م → 4:30 م
     let m = text.match(/(\d{1,2}(?::\d{2})?)\s*(صباحاً|صباحا|ص|ظهراً|ظهرا|مساءً|مساء|م)(?![؀-ۿ])/);
-    if (m) { const suf = /^ص/.test(m[2]) ? 'صباحاً' : /^ظ/.test(m[2]) ? 'ظهراً' : 'مساءً'; return `${m[1]} ${suf}`; }
+    if (m) { const suf = /^ص/.test(m[2]) ? 'صباحاً' : /^ظ/.test(m[2]) || /^12\b/.test(m[1]) ? 'ظهراً' : 'مساءً'; return `${m[1]} ${suf}`; }
     m = text.match(/الساع[ةه]\s*(\d{1,2})(:\d{2})?/);
     if (m) { const h = +m[1]; return `${m[1]}${m[2] || ''} ${h >= 6 && h <= 11 ? 'صباحاً' : h === 12 ? 'ظهراً' : 'مساءً'}`; }
+    m = text.match(/(?:عن\s*بعد|[-–—])\s*(\d{1,2}):(\d{2})(?!\d)/); // وقت بدون ص/م: 9:30 → صباحاً
+    if (m) { const h = +m[1]; return `${m[1]}:${m[2]} ${h >= 6 && h <= 11 ? 'صباحاً' : h === 12 ? 'ظهراً' : 'مساءً'}`; }
     return '';
   }
   function parseBookingCell(raw, colHour) {
-    const text = String(raw || '').replace(/\s+/g, ' ').trim();
+    const text = String(raw || '').replace(/\s+/g, ' ').trim()
+      .replace(/([^\s\-–—])\s+((?:ال)?(?:ماجستير|دكتوراه|دكتوراة)(?:\s|$))/, '$1 - $2'); // «مناقشة الاسم ماجستير ...» بدون شرطة
     if (!/مناقش/.test(text)) return null;
-    const remote = /عن\s*بعد/.test(text);
-    const time = timeIn(text) || (colHour ? hourText(colHour) : '');
+    const own = timeIn(text);
+    // في جدول الحجز: الوقت المكتوب داخل الخانة يعني مناقشة عن بعد (خانة الساعة مجرد مكان في الجدول)
+    const remote = /عن\s*بعد/.test(text) || !!own;
+    const time = own || (colHour ? hourText(colHour) : '');
     const parts = text.replace(/^مناقش(ة|ات)\s*/, '').split(/\s+[-–—]\s*|\s*[-–—]\s+/).map(x => x.trim()).filter(Boolean);
     let degree = '', student = '';
     for (const part of parts) {
@@ -1120,11 +1154,16 @@
       const [y, m, d] = [+hj[1], +hj[2], +hj[3]];
       const note = info.noteCol >= 0 ? String(row[info.noteCol] || '').trim() : '';
       const coord = info.coordCol >= 0 ? String(row[info.coordCol] || '').trim() : '';
+      let k = 0; // ترتيب المناقشة في اليوم (لملاحظة مثل «تم تأجيل المناقشة الأولى والثانية انتهت»)
+      const nth = ['الاولي', 'الثانيه', 'الثالثه', 'الرابعه'], nn = nrm(note);
       info.hours.forEach(([col, h]) => {
         const data = parseBookingCell(row[col], h);
         if (!data) return;
-        out.push({ ...data, notes: note, coordinator: coord, day: info.dayCol >= 0 ? String(row[info.dayCol] || '').trim() : '', date: `${y}/${m}/${d} هـ`,
-          _y: y, _m: m, _d: d, _note: note, _postponed: /تأجيل|التأجيل/.test(note) && !/انتهت/.test(note) });
+        const which = nth[k++];
+        const postponed = /تاجيل|التاجيل/.test(nn) && (new RegExp(`تاجيل المناقشه ${which}`).test(nn) || (!/انتهت/.test(nn) && !/المناقشه (الاولي|الثانيه)/.test(nn)));
+        out.push({ ...data, notes: postponed ? 'تم التأجيل' : (/تاجيل/.test(nn) && /انتهت/.test(nn) ? 'انتهت المناقشة' : note), coordinator: coord,
+          day: info.dayCol >= 0 ? String(row[info.dayCol] || '').trim() : '', date: `${y}/${m}/${d} هـ`,
+          _y: y, _m: m, _d: d, _note: note, _postponed: postponed });
       });
     }
     return out;
@@ -1227,7 +1266,7 @@
   if (savedSheet) { $('#sheetUrl').value = savedSheet; $('#refreshSheet').hidden = false; }
 
   // نموذج التعبئة الجاهز (منسّق، بقوائم اختيار وورقة شرح)
-  const TEMPLATE_URL = 'assets/templates/template.xlsx?v=202610160255';
+  const TEMPLATE_URL = 'assets/templates/template.xlsx?v=202610160306';
   // نموذج Google Sheets: يفتح نسخة جديدة منه في حسابك (أنشئ نسختك ثم عبّئها)
   const GSHEET_TEMPLATE = 'https://docs.google.com/spreadsheets/d/1UeSeDlmeC8X-bhU-4uUWxqbu2aTQFDURwSryk6Z49to/copy';
   $('#gsCopy').href = GSHEET_TEMPLATE;
