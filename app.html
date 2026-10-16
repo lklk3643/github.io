@@ -8,9 +8,9 @@
     // حماية الصفحة: يجب تسجيل الدخول أولاً
     if (!(sessionStorage.getItem('qu_session') || localStorage.getItem('qu_session'))) location.replace('index.html');
   </script>
-  <link rel="stylesheet" href="assets/fonts/fonts.css?v=202610160130">
-  <link rel="stylesheet" href="assets/css/app.css?v=202610160130">
-  <link rel="stylesheet" href="assets/css/poster.css?v=202610160130">
+  <link rel="stylesheet" href="assets/fonts/fonts.css?v=202610160136">
+  <link rel="stylesheet" href="assets/css/app.css?v=202610160136">
+  <link rel="stylesheet" href="assets/css/poster.css?v=202610160136">
 </head>
 <body>
   <div class="topbar">
@@ -63,11 +63,11 @@
           <div class="group-title">الموعد والمكان</div>
           <div class="field"><label>اختر التاريخ الميلادي لتعبئة اليوم والتاريخ الهجري تلقائياً</label><input type="date" id="gDate"></div>
           <div class="row2">
-            <div class="field"><label>اليوم</label><input type="text" data-k="day"></div>
-            <div class="field"><label>التاريخ</label><input type="text" data-k="date"></div>
+            <div class="field"><label>اليوم</label><input type="text" data-k="day" inputmode="none" data-pick="day"></div>
+            <div class="field"><label>التاريخ (اضغط لاختيار التاريخ)</label><input type="text" data-k="date" inputmode="none" data-pick="date"></div>
           </div>
           <div class="row2">
-            <div class="field"><label>الوقت</label><input type="text" data-k="time"></div>
+            <div class="field"><label>الوقت</label><input type="text" data-k="time" inputmode="none" data-pick="time"></div>
             <div class="field"><label>المكان</label><input type="text" data-k="place"></div>
           </div>
           <div class="field"><label>ملاحظة المكان</label><input type="text" data-k="placeNote"></div>
@@ -92,9 +92,12 @@
             <input type="url" data-k="recordingLink" dir="ltr" placeholder="https://youtube.com/live/..."></div>
           <div class="msg-actions">
             <button class="btn primary" id="copyInvite">📋 نسخ رسالة الدعوة</button>
-            <button class="btn" id="copyRecord">📋 نسخ رسالة التسجيل</button>
+            <button class="btn wa-btn wa-mini" id="waInvite" title="إرسال الدعوة بالواتساب (الصورة + الرسالة)">💬 واتساب</button>
           </div>
-          <button class="btn wa-btn" id="waSend" style="width:100%;justify-content:center;margin-top:8px">💬 إرسال بالواتساب (الصورة + الرسالة)</button>
+          <div class="msg-actions" style="margin-top:6px">
+            <button class="btn" id="copyRecord">📋 نسخ رسالة التسجيل</button>
+            <button class="btn wa-btn wa-mini" id="waRecord" title="إرسال التسجيل بالواتساب (الصورة + الرسالة)">💬 واتساب</button>
+          </div>
           <button class="btn sm" id="editMsgTpl" style="margin-top:6px">✏️ تعديل نص الرسائل</button>
 
           <div class="group-title">التذييل</div>
@@ -336,6 +339,9 @@
     <button class="btn primary" id="bkGo" style="width:100%;justify-content:center;padding:11px"></button>
   </div></div>
 
+  <!-- منتقي اليوم / التاريخ / الوقت -->
+  <div class="picker" id="picker" hidden></div>
+
   <!-- إرسال بالواتساب: الصورة الأصلية + الرسالة -->
   <div class="modal" id="mSend"><div class="box" style="width:min(760px,100%)">
     <h2>💬 إرسال بالواتساب <button class="btn sm" data-close>✕</button></h2>
@@ -447,13 +453,13 @@
   <div class="toast" id="toast"></div>
   <div class="export-root"><div id="exportPoster"></div></div>
 
-  <script src="assets/vendor/xlsx.full.min.js?v=202610160130"></script>
-  <script src="assets/vendor/jszip.min.js?v=202610160130"></script>
-  <script src="assets/vendor/jspdf.umd.min.js?v=202610160130"></script>
-  <script src="assets/vendor/qrcode.js?v=202610160130"></script>
-  <script src="assets/vendor/html-to-image.js?v=202610160130"></script>
-  <script src="assets/js/auth.js?v=202610160130"></script>
-  <script src="assets/js/poster.js?v=202610160130"></script>
-  <script src="assets/js/app.js?v=202610160130"></script>
+  <script src="assets/vendor/xlsx.full.min.js?v=202610160136"></script>
+  <script src="assets/vendor/jszip.min.js?v=202610160136"></script>
+  <script src="assets/vendor/jspdf.umd.min.js?v=202610160136"></script>
+  <script src="assets/vendor/qrcode.js?v=202610160136"></script>
+  <script src="assets/vendor/html-to-image.js?v=202610160136"></script>
+  <script src="assets/js/auth.js?v=202610160136"></script>
+  <script src="assets/js/poster.js?v=202610160136"></script>
+  <script src="assets/js/app.js?v=202610160136"></script>
 </body>
 </html>

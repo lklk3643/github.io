@@ -607,6 +607,7 @@
     'اليوم': 'day', 'التاريخ': 'date', 'الوقت': 'time', 'المكان': 'place', 'ملاحظة المكان': 'placeNote', 'رابط البث': 'link',
     'رابط اللجنة': 'committeeLink', 'رابط التسجيل': 'recordingLink' };
   const GMEM = 5;
+  const PICK_COL = { 'اليوم': 'day', 'التاريخ': 'date', 'الوقت': 'time' };
   for (let i = 1; i <= GMEM; i++) GCOLS.push(`عضو${i} الاسم`, `عضو${i} الصفة`, `عضو${i} الدور`);
   const emptyRow = () => GCOLS.map(() => '');
   let grid = [];
@@ -664,8 +665,8 @@
     computeConflicts();
     const cls = c => /العنوان/.test(c) ? 'w-title' : /رابط/.test(c) ? 'w-link' : /الجنس|اليوم|الوقت|الدور/.test(c) ? 'w-sm' : '';
     $('#sheet').innerHTML = `<thead><tr><th class="n">#</th><th class="act">عرض / نسخ</th>${GCOLS.map(c => `<th class="${/^عضو/.test(c) ? 'mem' : ''}">${c}</th>`).join('')}</tr></thead>
-      <tbody>${grid.map((r, i) => `<tr data-r="${i}" class="${gridSel.has(i) ? 'sel' : ''} ${i === activeRow ? 'active' : ''} ${missingOf(r).length ? 'incomplete' : ''} ${conflicts.has(i) ? 'conflict' : ''}"><td class="n"><label><input type="checkbox" data-gsel ${gridSel.has(i) ? 'checked' : ''}>${i + 1}</label>${warnHtml(r)}${conflictHtml(i)}</td><td class="act"><button data-view title="عرض في التصميم">👁</button><button data-dup title="تكرار السطر (نفس اللجنة لطالب آخر)">⧉</button><button data-msg="invite" class="msg-b" title="نسخ رسالة الدعوة">دعوة</button><button data-msg="record" class="msg-b ${r[GCOLS.indexOf('رابط التسجيل')] ? 'has' : ''}" title="نسخ رسالة التسجيل">تسجيل</button><button data-wa class="wa-row" title="إرسال بالواتساب: الصورة + الرسالة">واتساب</button></td>${
-        GCOLS.map((c, j) => `<td><input type="text" class="${cls(c)}" data-c="${j}" value="${esc(r[j] || '')}"${c === 'رابط البث' ? ' dir="ltr" placeholder="يوتيوب (افتراضي)"' : c === 'رابط اللجنة' ? ' dir="ltr" placeholder="زوم (اختياري)"' : c === 'رابط التسجيل' ? ' dir="ltr" placeholder="بعد المناقشة"' : ''}></td>`).join('')}</tr>`).join('')}</tbody>`;
+      <tbody>${grid.map((r, i) => `<tr data-r="${i}" class="${gridSel.has(i) ? 'sel' : ''} ${i === activeRow ? 'active' : ''} ${missingOf(r).length ? 'incomplete' : ''} ${conflicts.has(i) ? 'conflict' : ''}"><td class="n"><label><input type="checkbox" data-gsel ${gridSel.has(i) ? 'checked' : ''}>${i + 1}</label>${warnHtml(r)}${conflictHtml(i)}</td><td class="act"><button data-view title="عرض في التصميم">👁</button><button data-dup title="تكرار السطر (نفس اللجنة لطالب آخر)">⧉</button><button data-msg="invite" class="msg-b" title="نسخ رسالة الدعوة">دعوة</button><button data-wa="invite" class="wa-i" title="إرسال الدعوة بالواتساب">💬</button><button data-msg="record" class="msg-b ${r[GCOLS.indexOf('رابط التسجيل')] ? 'has' : ''}" title="نسخ رسالة التسجيل">تسجيل</button><button data-wa="record" class="wa-i" title="إرسال التسجيل بالواتساب">💬</button></td>${
+        GCOLS.map((c, j) => `<td><input type="text" class="${cls(c)}" data-c="${j}" value="${esc(r[j] || '')}"${PICK_COL[c] ? ` inputmode="none" data-pick="${PICK_COL[c]}"` : ''}${c === 'رابط البث' ? ' dir="ltr" placeholder="يوتيوب (افتراضي)"' : c === 'رابط اللجنة' ? ' dir="ltr" placeholder="زوم (اختياري)"' : c === 'رابط التسجيل' ? ' dir="ltr" placeholder="بعد المناقشة"' : ''}></td>`).join('')}</tr>`).join('')}</tbody>`;
     updateGridInfo();
     const b = $('#gConflicts'); if (b) { b.hidden = !conflicts.size; b.textContent = `🔴 ${conflicts.size} سطر فيه تعارض`; }
     formConflictCheck();
@@ -1106,7 +1107,7 @@
   if (savedSheet) { $('#sheetUrl').value = savedSheet; $('#refreshSheet').hidden = false; }
 
   // نموذج التعبئة الجاهز (منسّق، بقوائم اختيار وورقة شرح)
-  const TEMPLATE_URL = 'assets/templates/template.xlsx?v=202610160130';
+  const TEMPLATE_URL = 'assets/templates/template.xlsx?v=202610160136';
   // نموذج Google Sheets: يفتح نسخة جديدة منه في حسابك (أنشئ نسختك ثم عبّئها)
   const GSHEET_TEMPLATE = 'https://docs.google.com/spreadsheets/d/1UeSeDlmeC8X-bhU-4uUWxqbu2aTQFDURwSryk6Z49to/copy';
   $('#gsCopy').href = GSHEET_TEMPLATE;
@@ -1309,6 +1310,7 @@
     }
     function keyOf(el) {
       if (!el || el.tagName !== 'INPUT' || el.type === 'checkbox') return null;
+      if (el.dataset.pick && el.getAttribute('inputmode') === 'none') return null; // يتولاه المنتقي
       if (el.dataset.k && FORM_KEYS[el.dataset.k]) return FORM_KEYS[el.dataset.k];
       if (el.dataset.m && M_KEYS[el.dataset.m]) return M_KEYS[el.dataset.m];
       if (el.dataset.c != null && el.closest('#sheet')) return COL_KEY(GCOLS[+el.dataset.c]);
@@ -1600,7 +1602,7 @@
     $('#sendWarn').textContent = missing ? '⚠️ ما فيه رابط تسجيل. أضفه في خانة «رابط التسجيل» (أو في عمود السطر بالجدول) ثم ارجع هنا.' : '';
     $('#sendText').value = missing ? '' : buildMsg(kind, SEND.s);
   }
-  async function openSend(s, kind) {
+  async function openSend(s, kind, readyBlob) {
     SEND.s = s; SEND.blob = null; SEND.file = null;
     sendSetKind(kind || (String(s.recordingLink || '').trim() ? 'record' : 'invite'));
     const img = $('#sendImg'); img.removeAttribute('src'); $('#sendImgNote').textContent = 'جارٍ تجهيز الصورة...';
@@ -1611,8 +1613,8 @@
       : 'في الكمبيوتر: يفتح واتساب ويب بالرسالة، والصورة تنسخ تلقائياً — الصقها في المحادثة (Ctrl+V).';
     openModal('#mSend');
     try {
-      const c = await capture(s, FORMATS[0], 2); // الصورة الأصلية الكاملة (مطابق للأصل)
-      SEND.blob = await new Promise(r => c.toBlob(r, 'image/jpeg', 0.93));
+      if (readyBlob) SEND.blob = readyBlob;
+      else { const cv = await capture(s, FORMATS[0], 2); SEND.blob = await new Promise(r => cv.toBlob(r, 'image/jpeg', 0.93)); } // الصورة الأصلية الكاملة
       SEND.file = new File([SEND.blob], `${safeName(s.student || 'اعلان')}.jpg`, { type: 'image/jpeg' });
       if (img._url) URL.revokeObjectURL(img._url);
       img._url = URL.createObjectURL(SEND.blob); img.src = img._url;
@@ -1652,12 +1654,34 @@
   };
   $('#sendCopy').onclick = async () => { if (await copyText($('#sendText').value)) toast('✓ تم نسخ الرسالة'); };
   $('#sendDl').onclick = () => { if (SEND.blob) saveBlob(SEND.blob, SEND.file.name); };
-  $('#waSend').onclick = () => openSend(state);
+  // إرسال مباشر: في الجوال/الآيباد يفتح المشاركة فوراً، وإذا طلب الجهاز ضغطة إضافية تظهر نافذة جاهزة
+  async function sendDirect(s, kind, isCurrent) {
+    if (kind === 'record' && !String(s.recordingLink || '').trim()) return toast('أضف «رابط التسجيل» أولاً (بعد انتهاء المناقشة)', true);
+    if (!canShareFiles()) return openSend(s, kind); // الكمبيوتر: نافذة واتساب ويب
+    const text = buildMsg(kind, s);
+    overlay.show('جارٍ تجهيز الصورة للواتساب...');
+    let blob;
+    try { const cv = await capture(s, FORMATS[0], 2); blob = await new Promise(r => cv.toBlob(r, 'image/jpeg', 0.93)); }
+    catch (e) { overlay.hide(); return toast('تعذّر تجهيز الصورة', true); }
+    overlay.hide();
+    const file = new File([blob], `${safeName(s.student || 'اعلان')}.jpg`, { type: 'image/jpeg' });
+    copyText(text);
+    try {
+      await navigator.share({ files: [file], text });
+      if (isCurrent) saveToHistory({ quiet: true });
+    } catch (e) {
+      if (e.name === 'AbortError') return;
+      await openSend(s, kind, blob); // الجهاز يحتاج ضغطة جديدة: النافذة جاهزة بزر «إرسال»
+      toast('جاهز ✓ — اضغط «إرسال للواتساب»');
+    }
+  }
+  $('#waInvite').onclick = () => sendDirect(state, 'invite', true);
+  $('#waRecord').onclick = () => sendDirect(state, 'record', true);
   $('#sheet').addEventListener('click', e => {
     const b = e.target.closest('[data-wa]'); if (!b) return;
     const r = +b.closest('tr').dataset.r;
     if (isEmptyRow(grid[r])) return toast('هذا السطر فاضي', true);
-    openSend(applyRow(state, parseRow(gridToObj(grid[r]))));
+    sendDirect(applyRow(state, parseRow(gridToObj(grid[r]))), b.dataset.wa || 'invite', false);
   });
 
   // ---------- مزامنة: تعديل سطر الجدول المفتوح من النموذج + تحديث تصميم السجل تلقائياً ----------
@@ -1683,6 +1707,87 @@
     const f = $('#syncFlag');
     if (f) f.textContent = activeRow >= 0 ? `🔗 مرتبط بالسطر ${activeRow + 1} في الجدول — التعديل ينحفظ فيه تلقائياً` : '';
   }
+
+  // ---------- منتقي اليوم / التاريخ / الوقت (بدل الكتابة) ----------
+  const DAYS = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+  function gregToHijri(d) {
+    const parts = new Intl.DateTimeFormat('en-u-ca-islamic-umalqura', { day: 'numeric', month: 'numeric', year: 'numeric' }).formatToParts(d);
+    const g = t => parseInt((parts.find(p => p.type === t) || {}).value, 10);
+    return { text: `${g('year')}/${g('month')}/${g('day')} هـ`, day: DAYS[d.getDay()] };
+  }
+  const pk = $('#picker'); let pkTarget = null;
+  function pkSibling(el, kind) {
+    if (el.dataset.k) return $(`[data-k=${kind}]`);
+    const tr = el.closest('tr'); if (!tr) return null;
+    const c = GCOLS.indexOf(kind === 'day' ? 'اليوم' : kind === 'date' ? 'التاريخ' : 'الوقت');
+    return tr.querySelector(`input[data-c="${c}"]`);
+  }
+  function pkSet(el, v) { el.value = v; el.dispatchEvent(new Event('input', { bubbles: true })); }
+  function pkClose() { pk.hidden = true; pkTarget = null; }
+  function pkPlace(el) {
+    const r = el.getBoundingClientRect(); pk.hidden = false;
+    const w = pk.offsetWidth, h = pk.offsetHeight;
+    pk.style.left = Math.max(8, Math.min(r.right - w, innerWidth - w - 8)) + 'px';
+    pk.style.top = (innerHeight - r.bottom < h + 10 && r.top > h + 10 ? r.top - h - 6 : r.bottom + 6) + 'px';
+  }
+  const pkFoot = '<div class="pk-foot"><button class="pk" data-pk-type>⌨️ كتابة</button><button class="pk" data-pk-clear>مسح</button><button class="pk" data-pk-close>إغلاق</button></div>';
+  function pkOpen(el) {
+    pkTarget = el; const kind = el.dataset.pick, cur = el.value.trim();
+    if (kind === 'day') {
+      pk.innerHTML = `<h4>اختر اليوم</h4><div class="pk-row">${DAYS.map(d => `<button class="pk ${d === cur ? 'on' : ''}" data-v="${d}">${d}</button>`).join('')}</div>${pkFoot}`;
+    } else if (kind === 'time') {
+      const m = toLatin(cur).match(/:(\d{2})/); const mins = m ? m[1] : '00';
+      const hb = (hs, suf) => hs.map(h => `<button class="pk" data-h="${h}" data-s="${suf}">${h}</button>`).join('');
+      pk.innerHTML = `<h4>اختر الوقت</h4>
+        <div class="pk-row"><span class="lbl">الدقائق</span>${['00', '15', '30', '45'].map(x => `<button class="pk ${x === mins ? 'on' : ''}" data-min="${x}"><bdi dir="ltr">:${x}</bdi></button>`).join('')}</div>
+        <div class="pk-row"><span class="lbl">صباحاً</span>${hb([7, 8, 9, 10, 11], 'صباحاً')}</div>
+        <div class="pk-row"><span class="lbl">ظهراً</span>${hb([12, 1, 2, 3], 'ظهراً')}</div>
+        <div class="pk-row"><span class="lbl">مساءً</span>${hb([4, 5, 6, 7, 8, 9], 'مساءً')}</div>${pkFoot}`;
+    } else {
+      let iso = '';
+      const g = hijriToGreg(cur); if (g) { const [y, mo, d] = g.split('/'); iso = `${y}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}`; }
+      pk.innerHTML = `<h4>اختر التاريخ <span class="hint">(يعبّي الهجري واليوم)</span></h4>
+        <input type="date" id="pkDate" value="${iso}">
+        <div class="pk-prev" id="pkPrev">${cur ? esc(cur) + (g ? ' = ' + g : '') : ''}</div>
+        <div class="pk-row"><button class="pk" data-qd="0">اليوم</button><button class="pk" data-qd="1">بكرة</button><button class="pk" data-qd="7">بعد أسبوع</button></div>${pkFoot}`;
+      const di = $('#pkDate');
+      const apply = d => {
+        const h = gregToHijri(d); pkSet(pkTarget, h.text);
+        const dayEl = pkSibling(pkTarget, 'day'); if (dayEl) pkSet(dayEl, h.day);
+        $('#pkPrev').textContent = `${h.day} ${h.text} = ${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()} ✓`;
+      };
+      di.addEventListener('change', () => { if (di.value) { apply(new Date(di.value + 'T12:00:00')); setTimeout(pkClose, 700); } });
+      pk.querySelectorAll('[data-qd]').forEach(b => b.onclick = () => { const d = new Date(); d.setHours(12); d.setDate(d.getDate() + +b.dataset.qd); apply(d); setTimeout(pkClose, 600); });
+    }
+    pkPlace(el);
+  }
+  pk.addEventListener('mousedown', e => { if (e.target.tagName !== 'INPUT') e.preventDefault(); });
+  pk.addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b || !pkTarget) return;
+    if (b.dataset.v) { pkSet(pkTarget, b.dataset.v); pkClose(); }
+    else if (b.dataset.min) { pk.querySelectorAll('[data-min]').forEach(x => x.classList.toggle('on', x === b)); }
+    else if (b.dataset.h) {
+      const min = (pk.querySelector('[data-min].on') || {}).dataset; const mm = min && min.min !== '00' ? ':' + min.min : '';
+      pkSet(pkTarget, `${b.dataset.h}${mm} ${b.dataset.s}`); pkClose();
+    }
+    else if (b.hasAttribute('data-pk-clear')) { pkSet(pkTarget, ''); pkClose(); }
+    else if (b.hasAttribute('data-pk-close')) pkClose();
+    else if (b.hasAttribute('data-pk-type')) { const el = pkTarget; pkClose(); el._pkSwitch = true; el.setAttribute('inputmode', 'text'); el.blur(); setTimeout(() => { el.focus(); el._pkSwitch = false; }, 60); }
+  });
+  document.addEventListener('click', e => {
+    const el = e.target.closest('input[data-pick]');
+    if (el && el.getAttribute('inputmode') === 'none') { pkOpen(el); return; }
+    if (!pk.hidden && !e.target.closest('#picker')) pkClose();
+  });
+  document.addEventListener('focusin', e => {
+    const el = e.target;
+    if (el.matches && el.matches('input[data-pick]') && el.getAttribute('inputmode') === 'none' && pkTarget !== el) pkOpen(el);
+  });
+  document.addEventListener('focusout', e => { // بعد الكتابة اليدوية يرجع للمنتقي
+    const el = e.target; if (el._pkSwitch) return;
+    if (el.matches && el.matches('input[data-pick]') && el.getAttribute('inputmode') === 'text') setTimeout(() => { if (document.activeElement !== el) el.setAttribute('inputmode', 'none'); }, 200);
+  });
+  window.addEventListener('scroll', () => { if (pkTarget) pkPlace(pkTarget); }, true);
   // ---------- البدء ----------
   fillForm();
   drawPreview();

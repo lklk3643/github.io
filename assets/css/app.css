@@ -159,6 +159,22 @@ a.btn { text-decoration: none; }
 .sheet td.act .wa-row { font-size: 11.5px; padding: 3px 6px; margin-inline-start: 2px; background: #25D366; color: #fff; border: 0; border-radius: 6px; }
 @media (max-width: 760px) { .send-grid { grid-template-columns: 1fr; } .send-img { max-width: 220px; margin: 0 auto; } }
 
+/* أزرار واتساب بجانب النسخ */
+.msg-actions .wa-mini { flex: 0 0 auto; }
+.sheet td.act .wa-i { font-size: 13px; padding: 2px 5px; margin-inline-start: 1px; background: #25D366; color: #fff; border: 0; border-radius: 6px; }
+
+/* منتقي اليوم / التاريخ / الوقت */
+.picker { position: fixed; z-index: 85; background: #fff; border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 12px 34px rgba(15,74,77,.22);
+  padding: 10px; width: 300px; max-width: calc(100vw - 16px); }
+.picker h4 { margin: 0 0 8px; font-size: 13px; color: var(--brand-d); display: flex; justify-content: space-between; align-items: center; }
+.picker .pk-row { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 8px; }
+.picker .pk-row .lbl { width: 100%; font-size: 11.5px; color: var(--muted); }
+.picker button.pk { border: 1px solid var(--line); background: #fbfdfd; border-radius: 9px; padding: 7px 10px; font: inherit; font-size: 14px; cursor: pointer; min-width: 44px; }
+.picker button.pk:hover, .picker button.pk.on { background: var(--brand); color: #fff; border-color: var(--brand); }
+.picker input[type=date] { width: 100%; padding: 9px; border: 1px solid var(--line); border-radius: 9px; font: inherit; font-size: 16px; }
+.picker .pk-prev { font-size: 13px; color: var(--ok); margin: 6px 0; min-height: 18px; }
+.picker .pk-foot { display: flex; justify-content: space-between; gap: 6px; border-top: 1px dashed var(--line); padding-top: 8px; }
+
 /* التعارضات */
 .sheet td.n .conf { cursor: help; font-size: 12px; }
 .sheet tr.conflict td.n { background: #fde8e8 !important; }
