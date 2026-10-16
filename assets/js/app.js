@@ -22,7 +22,7 @@
     out.committee = Array.isArray(s.committee) ? s.committee : d.committee;
     if (!out.link) out.link = d.link;
     if (/الإعلام والا?إ?تصال المؤسسي/.test(out.dept || '')) out.dept = d.dept; // الافتراضي الجديد: كلية الشريعة
-    if (out.v !== 2) { out.opt.qr = false; out.v = 2; } // رمز QR يظهر فقط عند تفعيل المربع
+    if ((out.v || 0) < 3) { out.opt.qr = true; out.v = 3; } // رمز QR مفعّل افتراضياً (برابط اليوتيوب)
     return out;
   }
   let state;
@@ -1127,7 +1127,7 @@
   if (savedSheet) { $('#sheetUrl').value = savedSheet; $('#refreshSheet').hidden = false; }
 
   // نموذج التعبئة الجاهز (منسّق، بقوائم اختيار وورقة شرح)
-  const TEMPLATE_URL = 'assets/templates/template.xlsx?v=202610160140';
+  const TEMPLATE_URL = 'assets/templates/template.xlsx?v=202610160142';
   // نموذج Google Sheets: يفتح نسخة جديدة منه في حسابك (أنشئ نسختك ثم عبّئها)
   const GSHEET_TEMPLATE = 'https://docs.google.com/spreadsheets/d/1UeSeDlmeC8X-bhU-4uUWxqbu2aTQFDURwSryk6Z49to/copy';
   $('#gsCopy').href = GSHEET_TEMPLATE;

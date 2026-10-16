@@ -34,7 +34,7 @@
     uniEn: 'Qassim University',
     calligraphy: 'دعوة',
     theme: { primary: '#2b7574', dark: '#0f4a4d', light: '#d9eae9', accent: '#5e9998' },
-    opt: { building: true, pattern: true, calligraphy: true, footer: true, qr: false, compactWide: false, titleSize: 32 },
+    opt: { building: true, pattern: true, calligraphy: true, footer: true, qr: true, compactWide: false, titleSize: 32 },
     assets: { logo: '', building: '', bg: '' }
   };
 
@@ -84,8 +84,8 @@
   };
 
   // الصور الافتراضية مأخوذة من التصميم الأصلي (يمكن استبدالها من تبويب المظهر)
-  const DEFAULT_LOGO = 'assets/img/logo.png?v=202610160140';
-  const DEFAULT_BUILDING = 'assets/img/building.jpg?v=202610160140';
+  const DEFAULT_LOGO = 'assets/img/logo.png?v=202610160142';
+  const DEFAULT_BUILDING = 'assets/img/building.jpg?v=202610160142';
 
   // ---------- الزخارف ----------
   function star8(cx, cy, r, color, sw) {
@@ -126,7 +126,7 @@
 
   // ---------- النسخة المطابقة للتصميم الأصلي (1045×1505) ----------
   // الخلفية هي التصميم الأصلي نفسه بعد مسح النصوص المتغيرة، وتُكتب النصوص الجديدة بنفس المواضع والخط والألوان.
-  const EXACT_BG = 'assets/img/template.jpg?v=202610160140';
+  const EXACT_BG = 'assets/img/template.jpg?v=202610160142';
   // cx: مركز النص، rx: الحافة اليمنى، y: منتصف النص، w: أقصى عرض، s: الحجم، dy: تصحيح رأسي
   const EXACT = {
     college: { cx: 524, y: 269.5, w: 430, s: 30.4, wt: 600, c: '#0d5a5e', dy: -3 },
