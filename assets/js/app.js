@@ -263,16 +263,36 @@
     return fontCSS;
   }
 
+  // متصفحات آبل (سفاري، وكل متصفحات الآيفون/الآيباد) قد ترسم الصورة قبل تحميل الصور الداخلية
+  const IS_WEBKIT = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+    || (/Safari/.test(navigator.userAgent) && !/Chrome|Chromium|CriOS|FxiOS|Edg|Android/.test(navigator.userAgent));
+  const imgCacheBg = {};
+  const loadImg = src => imgCacheBg[src] || (imgCacheBg[src] = new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = src; }));
   async function capture(s, f, scale) {
     render(exportEl, s, f);
     await settle(exportEl);
     fit(exportEl);
     await nextFrame();
     const ratio = f.w * scale > 6000 ? 1 : scale;
-    return htmlToImage.toCanvas(exportEl, {
+    const exact = f.layout === 'exact';
+    let bg = null;
+    if (exact) {
+      // الخلفية الأصلية نرسمها بأنفسنا تحت طبقة النصوص (حتى لا تختفي في سفاري)
+      try { bg = await loadImg(QPoster.EXACT_BG); exportEl.style.background = 'transparent'; } catch (e) { bg = null; }
+    }
+    const opts = {
       width: f.w, height: f.h, pixelRatio: ratio, fontEmbedCSS: await getFontCSS(),
-      backgroundColor: '#ffffff', filter: n => !(n.classList && n.classList.contains('qp-safe'))
-    });
+      backgroundColor: bg ? undefined : '#ffffff', filter: n => !(n.classList && n.classList.contains('qp-safe'))
+    };
+    if (IS_WEBKIT) { try { await htmlToImage.toCanvas(exportEl, opts); await nextFrame(); } catch (e) { /* تسخين فقط */ } }
+    const layer = await htmlToImage.toCanvas(exportEl, opts);
+    if (!bg) return layer;
+    const out = document.createElement('canvas'); out.width = layer.width; out.height = layer.height;
+    const ctx = out.getContext('2d');
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, out.width, out.height);
+    ctx.drawImage(bg, 0, 0, out.width, out.height);
+    ctx.drawImage(layer, 0, 0);
+    return out;
   }
 
   const canvasBlob = (c, type) => new Promise(r => c.toBlob(r, type === 'jpg' ? 'image/jpeg' : 'image/png', 0.93));
@@ -1107,7 +1127,7 @@
   if (savedSheet) { $('#sheetUrl').value = savedSheet; $('#refreshSheet').hidden = false; }
 
   // نموذج التعبئة الجاهز (منسّق، بقوائم اختيار وورقة شرح)
-  const TEMPLATE_URL = 'assets/templates/template.xlsx?v=202610160136';
+  const TEMPLATE_URL = 'assets/templates/template.xlsx?v=202610160140';
   // نموذج Google Sheets: يفتح نسخة جديدة منه في حسابك (أنشئ نسختك ثم عبّئها)
   const GSHEET_TEMPLATE = 'https://docs.google.com/spreadsheets/d/1UeSeDlmeC8X-bhU-4uUWxqbu2aTQFDURwSryk6Z49to/copy';
   $('#gsCopy').href = GSHEET_TEMPLATE;
