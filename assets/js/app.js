@@ -42,9 +42,10 @@
   }
 
   // ---------- عام ----------
-  function toast(msg, err) {
+  function toast(msg, err, act) {
     const t = $('#toast');
     t.textContent = msg; t.className = 'toast show' + (err ? ' err' : '');
+    if (act) { const b = document.createElement('button'); b.className = 'toast-act'; b.textContent = act.label; b.onclick = () => { act.fn(); t.className = 'toast'; }; t.appendChild(b); }
     clearTimeout(t._h); t._h = setTimeout(() => { t.className = 'toast'; }, 3500);
   }
   const overlay = {
@@ -866,6 +867,12 @@
     refreshConflictsSoon(r);
     gridChanged();
   });
+  // كتابة اسم الطالب في الجدول تعبّي الجنس تلقائياً (إذا كان فاضياً)
+  $('#sheet').addEventListener('focusout', e => {
+    const inp = e.target; if (!inp.dataset || +inp.dataset.c !== GCOLS.indexOf('الطالب') || !inp.value.trim()) return;
+    const g = inp.closest('tr').querySelector(`input[data-c="${GCOLS.indexOf('الجنس')}"]`);
+    if (g && !g.value.trim()) { g.value = guessGender(inp.value); g.dispatchEvent(new Event('input', { bubbles: true })); }
+  });
   $('#sheet').addEventListener('change', e => {
     if (!e.target.matches('[data-gsel]')) return;
     const tr = e.target.closest('tr'), r = +tr.dataset.r;
@@ -916,6 +923,34 @@
     if (firstEmpty >= 0) grid[firstEmpty] = row; else grid.push(row);
     renderGrid(); gridChanged(); toast('تمت إضافة التصميم الحالي كصف ✓');
   };
+  // ترتيب تصاعدي: التاريخ الهجري ثم الوقت (الأسطر بلا تاريخ في الآخر)
+  function gridDateKey(r) {
+    const m = toLatin(r[CI('التاريخ')] || '').match(/(\d{4})\D+(\d{1,2})\D+(\d{1,2})/);
+    const t = timeMin(r[CI('الوقت')] || '');
+    return (m ? +m[1] * 10000 + +m[2] * 100 + +m[3] : 99999999) * 10000 + (t == null ? 9999 : t);
+  }
+  const sortRows = rows => rows.filter(r => !isEmptyRow(r)).map((r, i) => [gridDateKey(r), i, r]).sort((a, b) => a[0] - b[0] || a[1] - b[1]).map(x => x[2]);
+  $('#gSort').onclick = () => {
+    grid = sortRows(grid); gridSel.clear(); activeRow = -1; renderGrid(); gridChanged();
+    toast('تم ترتيب الجدول تصاعدياً حسب التاريخ والوقت ✓');
+  };
+  // بيانات الكلية المشتركة (جدول حجز القاعة): تُضاف للجدول مرة لكل إصدار بدون تكرار ثم يُرتّب
+  (async function loadShared() {
+    try {
+      const res = await fetch('assets/data/defenses.json?v=202610160227', { cache: 'no-cache' }); if (!res.ok) return;
+      const data = await res.json(), seenKey = userKey('sharedv');
+      if (!data || !data.v || localStorage.getItem(seenKey) === data.v) return;
+      const demo = new Set(SAMPLES.map(x => JSON.stringify(dataToGrid(x)))); // الأمثلة غير المعدّلة تُستبدل بالبيانات الحقيقية
+      grid = grid.filter(r => !demo.has(JSON.stringify(r)));
+      const key = r => nrm(r[CI('الطالب')]) + '|' + toLatin(r[CI('التاريخ')] || '').replace(/\D+/g, '-');
+      const have = new Set(grid.filter(r => !isEmptyRow(r)).map(key));
+      const add = data.rows.map(o => GCOLS.map(c => o[c] || '')).filter(r => !have.has(key(r)));
+      localStorage.setItem(seenKey, data.v);
+      if (!add.length) { renderGrid(); gridChanged(); return; }
+      grid = sortRows([...grid, ...add]); gridSel.clear(); activeRow = -1; renderGrid(); gridChanged();
+      toast(`📅 أُضيفت ${add.length} مناقشة من جدول حجز القاعة — مرتبة تصاعدياً بالتاريخ`);
+    } catch (e) { /* بدون اتصال أو نسخة الملف الواحد */ }
+  })();
   $('#gDel').onclick = () => {
     if (!gridSel.size) return toast('حدد الصفوف من المربعات بجانب الأرقام', true);
     if (!confirm(`حذف ${gridSel.size} سطر؟`)) return;
@@ -1129,7 +1164,7 @@
   if (savedSheet) { $('#sheetUrl').value = savedSheet; $('#refreshSheet').hidden = false; }
 
   // نموذج التعبئة الجاهز (منسّق، بقوائم اختيار وورقة شرح)
-  const TEMPLATE_URL = 'assets/templates/template.xlsx?v=202610160145';
+  const TEMPLATE_URL = 'assets/templates/template.xlsx?v=202610160227';
   // نموذج Google Sheets: يفتح نسخة جديدة منه في حسابك (أنشئ نسختك ثم عبّئها)
   const GSHEET_TEMPLATE = 'https://docs.google.com/spreadsheets/d/1UeSeDlmeC8X-bhU-4uUWxqbu2aTQFDURwSryk6Z49to/copy';
   $('#gsCopy').href = GSHEET_TEMPLATE;
@@ -1143,7 +1178,11 @@
   };
 
   // ---------- النوافذ ----------
-  const openModal = id => $(id).classList.add('open');
+  const openModal = id => { // أي نافذة تُغلق المنتقي والاقتراحات المفتوحة
+    pkClose();
+    document.querySelectorAll('.sugg').forEach(x => { x.hidden = true; });
+    $(id).classList.add('open');
+  };
   $$('.modal').forEach(m => m.addEventListener('click', e => {
     if (e.target === m || e.target.closest('[data-close]')) m.classList.remove('open');
   }));
@@ -1283,7 +1322,13 @@
         'الأستاذ في قسم أصول الفقه', 'الأستاذ المشارك في قسم أصول الفقه', 'الأستاذ المساعد في قسم أصول الفقه'],
       mRole: ['مشرفاً ومقرراً', 'مشرفاً', 'مشرفاً مشاركاً', 'مناقشاً', 'مناقشاً خارجياً', 'مشرفةً ومقررةً', 'مناقِشةً'],
       mName: [],
-      link: [DEFAULTS.link]
+      link: [DEFAULTS.link],
+      // أجزاء تُركّب منها الدرجة والصفة؛ أي قسم/تخصص جديد يُكتب مرة يصير متاحاً في القوائم
+      level: ['الماجستير', 'الدكتوراه'],
+      spec: ['الفقه', 'الفقه المقارن', 'أصول الفقه', 'العقيدة', 'السنة وعلومها', 'القرآن وعلومه'],
+      rank: ['الأستاذ', 'الأستاذ المشارك', 'الأستاذ المساعد', 'الأستاذة', 'الأستاذة المشاركة', 'الأستاذة المساعدة'],
+      dept: ['الفقه', 'أصول الفقه', 'العقيدة والمذاهب المعاصرة', 'السنة وعلومها', 'القرآن وعلومه'],
+      where: []
     };
     const FORM_KEYS = { degree: 'degree', day: 'day', time: 'time', place: 'place', placeNote: 'placeNote', link: 'link' };
     const EMO = { youtube: '▶️', zoom: '🎥', teams: '👥', webex: '🌐', blackboard: '🎓', meet: '📹', link: '🔗' };
@@ -1298,9 +1343,21 @@
     const readLearn = () => { try { return JSON.parse(localStorage.getItem(learnKey)) || {}; } catch (e) { return {}; } };
 
     function add(key, v, w = 1) {
-      v = String(v || '').trim(); if (!v || v.length > 200) return;
+      v = String(v || '').replace(/\s+/g, ' ').trim(); if (!v || v.length > 200) return;
       (counts[key] = counts[key] || new Map()).set(v, (counts[key].get(v) || 0) + w);
+      const d = split(key, v);
+      if (d) Object.entries(d).forEach(([k, x]) => { if (x) (counts[k] = counts[k] || new Map()).set(x, (counts[k].get(x) || 0) + w); });
     }
+    // تفكيك «الدكتوراه في أصول الفقه» و«الأستاذ المشارك في قسم الفقه بجامعة الملك سعود» إلى أجزائها
+    function split(key, v) {
+      if (key === 'degree') { const m = v.match(/^(\S+(?:\s+\S+)?)\s+في\s+(.+)$/); return m ? { level: m[1], spec: m[2] } : null; }
+      if (key === 'mTitle') {
+        const m = v.match(/^(.+?)\s+(?:في\s+|ب)قسم\s+(.+?)(?:\s+((?:ب|في\s+)(?:جامعة|كلية)\s+.+))?$/);
+        return m ? { rank: m[1], dept: m[2], where: m[3] || '' } : null;
+      }
+      return null;
+    }
+    const hiddenOf = () => new Set(readLearn().__hidden || []);
     function addState(s) {
       if (!s) return;
       Object.entries(FORM_KEYS).forEach(([f, k]) => add(k, s[f]));
@@ -1317,7 +1374,7 @@
       histStates.forEach(addState);
       try { getDesigns().forEach(d => addState(d.state)); } catch (e) { /* لا قوالب */ }
       addState(state);
-      Object.entries(readLearn()).forEach(([k, arr]) => (arr || []).forEach(v => add(k, v)));
+      Object.entries(readLearn()).forEach(([k, arr]) => { if (k !== '__hidden') (arr || []).forEach(v => add(k, v)); });
       dirty = false;
     }
     async function refreshHistory() {
@@ -1341,11 +1398,11 @@
     function matches(key, q) {
       if (dirty) rebuild();
       const m = counts[key]; if (!m) return [];
-      const nq = norm(q);
+      const nq = norm(q), hid = hiddenOf();
       const out = [];
       m.forEach((n, v) => {
         const nv = norm(v);
-        if (nq && nv === nq) return;
+        if ((nq && nv === nq) || hid.has(key + '|' + v)) return;
         let score = 0;
         if (!nq) score = 1;
         else if (nv.startsWith(nq)) score = 4;
@@ -1362,7 +1419,7 @@
     let target = null, items = [], idx = -1;
     function hide() { box.hidden = true; target = null; items = []; idx = -1; }
     function show(el) {
-      const key = keyOf(el); if (!key) return hide();
+      const key = keyOf(el); if (!key || document.activeElement !== el) return hide();
       items = matches(key, el.value);
       if (!items.length) return hide();
       target = el; idx = -1;
@@ -1380,7 +1437,6 @@
       box.hidden = false;
       const below = innerHeight - r.bottom, h = box.offsetHeight;
       box.style.top = (below < h + 10 && r.top > h + 10 ? r.top - h - 4 : r.bottom + 4) + 'px';
-      if (!q && document.activeElement !== el) hide();
     }
     function pick(i) {
       const el = target, v = items[i]; if (!el || v == null) return;
@@ -1417,12 +1473,28 @@
     window.addEventListener('scroll', () => { if (target) show(target); }, true);
     window.addEventListener('resize', hide);
     refreshHistory();
-    function top(key, n = 60) {
+    function top(key, n = 80) {
       if (dirty) rebuild();
       const m = counts[key]; if (!m) return [];
-      return [...m.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'ar')).slice(0, n).map(x => x[0]);
+      const hid = hiddenOf();
+      return [...m.entries()].filter(x => !hid.has(key + '|' + x[0]))
+        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'ar')).slice(0, n).map(x => x[0]);
     }
-    return { refreshHistory, markDirty: () => { dirty = true; }, top };
+    // إخفاء قيمة من القائمة (خطأ إملائي مثلاً) أو إرجاعها
+    function hide(key, v, off = true) {
+      const L = readLearn(); const h = new Set(L.__hidden || []);
+      if (off) { h.add(key + '|' + v); if (L[key]) L[key] = L[key].filter(x => x !== v); } else h.delete(key + '|' + v);
+      L.__hidden = [...h]; try { localStorage.setItem(learnKey, JSON.stringify(L)); } catch (e) { /* مساحة */ }
+      dirty = true;
+    }
+    // ألقاب سبق استخدامها لعضو معيّن (الأكثر أولاً)
+    const titlesOf = name => nameTitle[String(name || '').trim()] ? [...nameTitle[String(name || '').trim()].entries()].sort((a, b) => b[1] - a[1]).map(x => x[0]) : [];
+    function learnPick(key, v) { // اختيار من القائمة: يُحفظ ويُعاد إظهاره لو كان مخفياً
+      v = String(v || '').replace(/\s+/g, ' ').trim(); if (!v) return;
+      if (hiddenOf().has(key + '|' + v)) hide(key, v, false);
+      learn(key, v);
+    }
+    return { refreshHistory, markDirty: () => { dirty = true; }, top, hide, learn: learnPick, split, titlesOf };
   })();
 
   // ---------- تراجع / إعادة ----------
@@ -1757,23 +1829,89 @@
     pk.style.left = Math.max(8, Math.min(r.right - w, innerWidth - w - 8)) + 'px';
     pk.style.top = (innerHeight - r.bottom < h + 10 && r.top > h + 10 ? r.top - h - 6 : r.bottom + 6) + 'px';
   }
+  // الحقل المجاور في نفس السطر/العضو: 'الطالب' أو 'الاسم' / 'الصفة' لنفس العضو
+  function pkRel(el, what) {
+    if (what === 'الطالب') {
+      if (el.dataset.k) return $('[data-k=student]');
+      const tr = el.closest('tr'); return tr && tr.querySelector(`input[data-c="${GCOLS.indexOf('الطالب')}"]`);
+    }
+    if (el.dataset.m) { const m = el.closest('.member'); return m && m.querySelector(`[data-m=${what === 'الاسم' ? 'name' : 'title'}]`); }
+    const c = GCOLS[+el.dataset.c] || '', mm = c.match(/^(عضو\d+) /); if (!mm) return null;
+    return el.closest('tr').querySelector(`input[data-c="${GCOLS.indexOf(`${mm[1]} ${what}`)}"]`);
+  }
+  // تركيب الدرجة (المرحلة + التخصص) أو الصفة (الرتبة + القسم + الجهة) من أجزاء متعلَّمة
+  const PK_PARTS = { degree: [['level', 'المرحلة'], ['spec', 'التخصص']], mTitle: [['rank', 'الرتبة'], ['dept', 'القسم'], ['where', 'الجهة (للمناقش من خارج الجامعة)']] };
+  function pkBuilder(key, cur) {
+    const init = QSuggest.split(key, cur) || {};
+    return `<div class="pk-pane pk-build" data-pane="build" data-key="${key}" hidden>${PK_PARTS[key].map(([p, lbl]) => {
+      const vals = QSuggest.top(p, 40), sel = init[p] || (p === 'where' ? '' : vals[0] || '');
+      const chips = (p === 'where' ? [''] : []).concat(vals.includes(sel) || !sel ? vals : [sel, ...vals]);
+      return `<div class="pk-row" data-part="${p}"><span class="lbl">${lbl}</span>${chips.map(v => `<button class="pk ${v === sel ? 'on' : ''}" data-bv="${esc(v)}">${v ? esc(v) : 'من جامعة القصيم'}</button>`).join('')}
+        <input class="pk-bnew" placeholder="${p === 'where' ? 'جامعة أخرى... مثل: جامعة الملك سعود' : `${lbl} جديد...`}"></div>`;
+    }).join('')}<div class="pk-prev" id="pkBPrev"></div><button class="btn primary pk-apply" data-bapply>✓ اعتماد</button></div>`;
+  }
+  function pkBuildVal() {
+    const box = pk.querySelector('.pk-build'); if (!box) return '';
+    const v = p => { const row = box.querySelector(`[data-part=${p}]`); const t = row.querySelector('.pk-bnew').value.trim(); return t || (row.querySelector('[data-bv].on') || { dataset: {} }).dataset.bv || ''; };
+    if (box.dataset.key === 'degree') return v('level') && v('spec') ? `${v('level')} في ${v('spec')}` : '';
+    let w = v('where'); if (w && !/^(ب|في\s)/.test(w)) w = 'ب' + w;
+    return v('rank') && v('dept') ? `${v('rank')} في قسم ${v('dept').replace(/^قسم\s+/, '')}${w ? ' ' + w : ''}` : '';
+  }
+  function pkBuildUpd() { const o = $('#pkBPrev'); if (o) { const v = pkBuildVal(); o.textContent = v ? `النتيجة: ${v}` : 'اختر من كل سطر'; } }
+  function pkTab(t) {
+    pk.querySelectorAll('[data-tab]').forEach(b => b.classList.toggle('on', b.dataset.tab === t));
+    pk.querySelectorAll('[data-pane]').forEach(p => { p.hidden = p.dataset.pane !== t; });
+    if (pkTarget) pkPlace(pkTarget);
+  }
+  pk.addEventListener('input', e => {
+    if (!e.target.matches('.pk-bnew')) return;
+    e.target.closest('.pk-row').querySelectorAll('[data-bv]').forEach(b => b.classList.toggle('on', false));
+    pkBuildUpd();
+  });
   const pkFoot = '<div class="pk-foot"><button class="pk" data-pk-type>⌨️ كتابة</button><button class="pk" data-pk-clear>مسح</button><button class="pk" data-pk-close>إغلاق</button></div>';
   function pkOpen(el) {
+    document.querySelectorAll('.sugg').forEach(x => { x.hidden = true; });
     pkTarget = el; const kind = el.dataset.pick, cur = el.value.trim();
     if (kind && kind.startsWith('list:')) {
       const key = kind.slice(5);
       const LABEL = { gender: 'الجنس', degree: 'الدرجة', place: 'المكان', placeNote: 'ملاحظة المكان', mTitle: 'الصفة', mRole: 'الدور' };
-      const items = key === 'gender' ? ['ذكر', 'أنثى'] : QSuggest.top(key);
-      const btn = v => `<button class="pk-li ${v === cur ? 'on' : ''}" data-v="${esc(v)}">${esc(v)}</button>`;
-      pk.innerHTML = `<h4>اختر ${LABEL[key] || ''} <span class="hint">${key === 'gender' ? '' : 'الأكثر استخداماً أولاً'}</span></h4>
-        ${items.length > 8 ? '<input type="search" class="pk-search" placeholder="بحث...">' : ''}
-        <div class="pk-list ${key === 'gender' ? 'pk-two' : ''}">${items.map(btn).join('') || '<div class="hint">ما فيه قيم سابقة — اضغط «كتابة»</div>'}</div>${pkFoot}`;
-      const sr = pk.querySelector('.pk-search');
-      if (sr) sr.addEventListener('input', () => {
-        const q = nrm(sr.value);
-        pk.querySelectorAll('.pk-li').forEach(b => { b.hidden = q && !nrm(b.dataset.v).includes(q); });
-      });
-    } else if (kind === 'day') {
+      let items = key === 'gender' ? ['ذكر', 'أنثى'] : QSuggest.top(key), mine = [], tip = 'الأكثر استخداماً أولاً';
+      if (key === 'gender') {
+        const st = pkRel(el, 'الطالب'); const g = st && st.value.trim() ? guessGender(st.value) : '';
+        if (g) { items = [g, ...items.filter(x => x !== g)]; tip = `المقترح من الاسم: ${g}`; }
+      } else if (key === 'mTitle') {
+        mine = QSuggest.titlesOf((pkRel(el, 'الاسم') || {}).value);
+        items = [...mine, ...items.filter(x => !mine.includes(x))];
+      } else if (key === 'mRole') { // صيغة المؤنث أولاً إذا كانت الصفة لأستاذة
+        const t = (pkRel(el, 'الصفة') || {}).value || '', fem = /^(ال)?(أستاذة|دكتورة)/.test(t.trim());
+        const isF = v => /(ةً|ة)(\s|$)/.test(v);
+        items = [...items.filter(v => isF(v) === fem), ...items.filter(v => isF(v) !== fem)];
+      }
+      const build = key === 'degree' || key === 'mTitle';
+      const btn = v => `<button class="pk-li ${v === cur ? 'on' : ''}" data-v="${esc(v)}"><span>${esc(v)}</span>${mine.includes(v) ? '<em>سبق له</em>' : ''}${key === 'gender' ? '' : '<i class="pk-x" data-x title="إخفاء من القائمة">✕</i>'}</button>`;
+      pk.innerHTML = `<h4>اختر ${LABEL[key] || ''} <span class="hint">${tip}</span></h4>
+        ${build ? '<div class="pk-tabs"><button class="pk on" data-tab="list">📋 من القائمة</button><button class="pk" data-tab="build">🧩 تركيب جديد</button></div>' : ''}
+        <div class="pk-pane" data-pane="list">
+        ${key === 'gender' ? '' : '<input type="search" class="pk-search" placeholder="ابحث أو اكتب قيمة جديدة..." enterkeyhint="done">'}
+        <div class="pk-list ${key === 'gender' ? 'pk-two' : ''}"><button class="pk-li pk-new" data-new hidden></button>${items.map(btn).join('')}</div>
+        </div>${build ? pkBuilder(key, cur) : ''}${pkFoot}`;
+      const sr = pk.querySelector('.pk-search'), nb = pk.querySelector('[data-new]');
+      if (sr) {
+        sr.addEventListener('input', () => {
+          const q = nrm(sr.value), raw = sr.value.trim(); let exact = false;
+          pk.querySelectorAll('.pk-li[data-v]').forEach(b => { const n = nrm(b.dataset.v); b.hidden = q && !n.includes(q); if (q && n === q) exact = true; });
+          nb.hidden = !raw || exact; nb.dataset.nv = raw; nb.innerHTML = `➕ استخدام «${esc(raw)}» <small>ويُضاف للقائمة</small>`;
+        });
+        sr.addEventListener('keydown', e => {
+          if (e.key !== 'Enter') return; e.preventDefault();
+          const first = [...pk.querySelectorAll('.pk-li[data-v]')].find(b => !b.hidden);
+          if (!nb.hidden) nb.click(); else if (first && sr.value.trim()) first.click();
+        });
+        if (matchMedia('(pointer: fine)').matches) setTimeout(() => sr.focus(), 30);
+      }
+      if (build && !items.length) pkTab('build');
+      if (build) pkBuildUpd();
+    } else if (kind === 'day') {    } else if (kind === 'day') {
       pk.innerHTML = `<h4>اختر اليوم</h4><div class="pk-row">${DAYS.map(d => `<button class="pk ${d === cur ? 'on' : ''}" data-v="${d}">${d}</button>`).join('')}</div>${pkFoot}`;
     } else if (kind === 'time') {
       const m = toLatin(cur).match(/:(\d{2})/); const mins = m ? m[1] : '00';
@@ -1803,8 +1941,26 @@
   }
   pk.addEventListener('mousedown', e => { if (e.target.tagName !== 'INPUT') e.preventDefault(); });
   pk.addEventListener('click', e => {
-    const b = e.target.closest('button'); if (!b || !pkTarget) return;
-    if (b.dataset.v) { pkSet(pkTarget, b.dataset.v); pkClose(); }
+    if (!pkTarget) return;
+    const lk = (pkTarget.dataset.pick || '').startsWith('list:') ? pkTarget.dataset.pick.slice(5) : '';
+    const x = e.target.closest('[data-x]');
+    if (x) { // إخفاء قيمة من القائمة مع إمكانية التراجع
+      const it = x.closest('[data-v]'), v = it.dataset.v; QSuggest.hide(lk, v); it.remove();
+      toast(`أُخفيت «${v}» من القائمة`, false, { label: 'تراجع', fn: () => QSuggest.hide(lk, v, false) });
+      return;
+    }
+    const b = e.target.closest('button'); if (!b) return;
+    if (b.dataset.tab) { pkTab(b.dataset.tab); return; }
+    if (b.dataset.bv != null) {
+      const row = b.closest('.pk-row'); row.querySelectorAll('[data-bv]').forEach(x => x.classList.toggle('on', x === b));
+      row.querySelector('.pk-bnew').value = ''; pkBuildUpd(); return;
+    }
+    if (b.hasAttribute('data-bapply')) {
+      const v = pkBuildVal(); if (!v) { toast('اختر من كل سطر أولاً', true); return; }
+      pkSet(pkTarget, v); QSuggest.learn(lk, v); pkClose(); toast(`✓ ${v} — صارت في القائمة`); return;
+    }
+    if (b.hasAttribute('data-new')) { const v = b.dataset.nv; pkSet(pkTarget, v); QSuggest.learn(lk, v); pkClose(); toast(`✓ أُضيفت «${v}» للقائمة`); return; }
+    if (b.dataset.v) { pkSet(pkTarget, b.dataset.v); if (lk) QSuggest.learn(lk, b.dataset.v); pkClose(); }
     else if (b.dataset.min) { pk.querySelectorAll('[data-min]').forEach(x => x.classList.toggle('on', x === b)); }
     else if (b.dataset.h) {
       const min = (pk.querySelector('[data-min].on') || {}).dataset; const mm = min && min.min !== '00' ? ':' + min.min : '';
@@ -1821,6 +1977,7 @@
   });
   document.addEventListener('focusin', e => {
     const el = e.target;
+    if (!pk.hidden && el !== pkTarget && !pk.contains(el) && !(el.matches && el.matches('input[data-pick]'))) pkClose();
     if (el.matches && el.matches('input[data-pick]') && el.getAttribute('inputmode') === 'none' && pkTarget !== el) pkOpen(el);
   });
   document.addEventListener('focusout', e => { // بعد الكتابة اليدوية يرجع للمنتقي
