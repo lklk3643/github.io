@@ -8,9 +8,9 @@
     // حماية الصفحة: يجب تسجيل الدخول أولاً
     if (!(sessionStorage.getItem('qu_session') || localStorage.getItem('qu_session'))) location.replace('index.html');
   </script>
-  <link rel="stylesheet" href="assets/fonts/fonts.css?v=202610160955">
-  <link rel="stylesheet" href="assets/css/app.css?v=202610160955">
-  <link rel="stylesheet" href="assets/css/poster.css?v=202610160955">
+  <link rel="stylesheet" href="assets/fonts/fonts.css?v=202610161136">
+  <link rel="stylesheet" href="assets/css/app.css?v=202610161136">
+  <link rel="stylesheet" href="assets/css/poster.css?v=202610161136">
 </head>
 <body>
   <div class="topbar">
@@ -260,7 +260,13 @@
         <span><b class="chip conf">تعارض</b> مناقشة قادمة بنفس الوقت والقاعة أو الرابط أو نفس الدكتور مع سطر ثاني</span>
         <span class="hint">اضغط على العلامة لمعرفة التفاصيل. المناقشات المنتهية ما عليها تنبيهات. 👁 يعرض السطر في التصميم.</span>
       </div>
-      <div class="gridwrap"><table class="sheet" id="sheet"></table></div>
+      <div class="gridbox">
+        <div class="gridwrap"><table class="sheet" id="sheet"></table></div>
+        <div class="grid-jump">
+          <button type="button" id="gTop" title="بداية الجدول">⬆<span>البداية</span></button>
+          <button type="button" id="gBottom" title="نهاية الجدول">⬇<span>النهاية</span></button>
+        </div>
+      </div>
     </section>
   </div>
 
@@ -473,13 +479,13 @@
   <div class="toast" id="toast"></div>
   <div class="export-root"><div id="exportPoster"></div></div>
 
-  <script src="assets/vendor/xlsx.full.min.js?v=202610160955"></script>
-  <script src="assets/vendor/jszip.min.js?v=202610160955"></script>
-  <script src="assets/vendor/jspdf.umd.min.js?v=202610160955"></script>
-  <script src="assets/vendor/qrcode.js?v=202610160955"></script>
-  <script src="assets/vendor/html-to-image.js?v=202610160955"></script>
-  <script src="assets/js/auth.js?v=202610160955"></script>
-  <script src="assets/js/poster.js?v=202610160955"></script>
-  <script src="assets/js/app.js?v=202610160955"></script>
+  <script src="assets/vendor/xlsx.full.min.js?v=202610161136"></script>
+  <script src="assets/vendor/jszip.min.js?v=202610161136"></script>
+  <script src="assets/vendor/jspdf.umd.min.js?v=202610161136"></script>
+  <script src="assets/vendor/qrcode.js?v=202610161136"></script>
+  <script src="assets/vendor/html-to-image.js?v=202610161136"></script>
+  <script src="assets/js/auth.js?v=202610161136"></script>
+  <script src="assets/js/poster.js?v=202610161136"></script>
+  <script src="assets/js/app.js?v=202610161136"></script>
 </body>
 </html>

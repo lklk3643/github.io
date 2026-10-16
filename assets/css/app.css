@@ -335,3 +335,14 @@ a.btn { text-decoration: none; }
 .trash-it { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: #fbfdfd; cursor: pointer; }
 .trash-it small { font-size: 12px; }
 @media (max-width: 560px) { .trash-it { grid-template-columns: auto 1fr; } .trash-it > small.hint { grid-column: 2; } }
+/* أزرار القفز لبداية ونهاية الجدول */
+.gridbox { position: relative; }
+.grid-jump { position: fixed; left: 16px; bottom: 20px; z-index: 60; display: flex; flex-direction: column; gap: 6px;
+  opacity: 0; pointer-events: none; transform: translateY(8px); transition: .2s; }
+.grid-jump.on { opacity: 1; pointer-events: auto; transform: none; }
+.grid-jump button { display: flex; align-items: center; gap: 5px; border: 1px solid var(--line); background: rgba(255,255,255,.95); color: var(--brand-d);
+  border-radius: 999px; padding: 6px 11px; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; box-shadow: 0 3px 10px rgba(15,74,77,.18); }
+.grid-jump button:hover { background: var(--brand); color: #fff; border-color: var(--brand); }
+.grid-jump button span { font-size: 12px; font-weight: 600; }
+@media (max-width: 980px) { .grid-jump { bottom: calc(84px + env(safe-area-inset-bottom)); } } /* فوق شريط التنقل السفلي */
+@media (max-width: 760px) { .grid-jump button span { display: none; } .grid-jump button { padding: 9px 12px; font-size: 16px; } }
