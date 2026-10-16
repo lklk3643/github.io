@@ -2,7 +2,7 @@
 (function () {
   'use strict';
   // تحديث تلقائي: إذا نُشرت نسخة أحدث من المفتوحة يُعاد تحميل الصفحة (يتجاوز ذاكرة المتصفح المؤقتة)
-  const APP_V = '?v=202610161136'.slice(3);
+  const APP_V = '?v=202610161148'.slice(3);
   let lastVCheck = 0;
   function checkVersion() {
     if (location.protocol === 'file:' || Date.now() - lastVCheck < 60000) return;
@@ -768,7 +768,10 @@
     const m = toLatin(r[CI('التاريخ')] || '').match(/(\d{4})\D+(\d{1,2})\D+(\d{1,2})/);
     return !!m && TODAY_H > 0 && +m[1] * 10000 + +m[2] * 100 + +m[3] < TODAY_H;
   }
-  function missingOf(r) { return isEmptyRow(r) || isPast(r) ? [] : REQUIRED.filter(c => !String(r[GCOLS.indexOf(c)] || '').trim()); }
+  // خيار «تنبيهات المنتهية»: إذا كان مفعّلاً تظهر «ناقص» و«تعارض» على المناقشات المنتهية أيضاً
+  const showPast = () => { try { return localStorage.getItem(userKey('pastwarn')) === '1'; } catch (e) { return false; } };
+  const quiet = r => isPast(r) && !showPast();
+  function missingOf(r) { return isEmptyRow(r) || quiet(r) ? [] : REQUIRED.filter(c => !String(r[GCOLS.indexOf(c)] || '').trim()); }
   function warnHtml(r) { const m = missingOf(r); return m.length ? ` <button class="chip warn" data-why="${esc('ناقص لتصميم الإعلان: ' + m.join('، '))}">ناقص</button>` : ''; }
   function updRowWarn(i) {
     const tr = $(`#sheet tr[data-r="${i}"]`); if (!tr) return;
@@ -820,7 +823,7 @@
   let conflicts = new Map(); // رقم السطر → [{other, kind, exact, name}]
   function computeConflicts() {
     conflicts = new Map();
-    const slots = grid.map(r => isPast(r) ? null : slotOf(r));
+    const slots = grid.map(r => quiet(r) ? null : slotOf(r));
     for (let i = 0; i < slots.length; i++) for (let j = i + 1; j < slots.length; j++) {
       if (!slots[i] || !slots[j]) continue;
       const c = clash(slots[i], slots[j]); if (!c) continue;
@@ -875,7 +878,7 @@
     const me = slotOf(dataToGrid({ ...state, gender: '', link: state.opt && state.opt.qr ? state.link : '' }));
     const hits = [];
     grid.forEach((r, i) => {
-      if (i === activeRow || isPast(r)) return;
+      if (i === activeRow || quiet(r)) return;
       const c = clash(me, slotOf(r)); if (!c) return;
       const who = r[CI('الطالب')] || 'بدون اسم';
       if (nrm(who) === nrm(state.student)) return; // نفس الإعلان
@@ -1059,6 +1062,10 @@
   if ('IntersectionObserver' in window) // تظهر الأزرار فقط والجدول على الشاشة
     new IntersectionObserver(es => es.forEach(x => $('.grid-jump').classList.toggle('on', x.isIntersecting))).observe($('.gridwrap'));
   else $('.grid-jump').classList.add('on');
+  { const pw = $('#gPastWarn'); pw.checked = showPast();
+    pw.onchange = () => { try { localStorage.setItem(userKey('pastwarn'), pw.checked ? '1' : '0'); } catch (e) { /* اختياري */ } renderGrid();
+      const w = $$('#sheet .chip.warn').length, c = conflicts.size;
+      toast(pw.checked ? `تظهر التنبيهات على كل المناقشات: ${w} ناقص، ${c} تعارض` : 'التنبيهات على المناقشات الجاية بس'); }; }
   $('#gSort').onclick = () => {
     gridSnap('ترتيب بالتاريخ');
     grid = sortRows(grid); gridSel.clear(); activeRow = -1; renderGrid(); gridChanged();
@@ -1067,7 +1074,7 @@
   // بيانات الكلية المشتركة (جدول حجز القاعة): تُضاف للجدول مرة لكل إصدار بدون تكرار ثم يُرتّب
   (async function loadShared() {
     try {
-      const res = await fetch('assets/data/defenses.json?v=202610161136', { cache: 'no-cache' }); if (!res.ok) return;
+      const res = await fetch('assets/data/defenses.json?v=202610161148', { cache: 'no-cache' }); if (!res.ok) return;
       const data = await res.json(), seenKey = userKey('sharedv');
       if (!data || !data.v || localStorage.getItem(seenKey) === data.v) return;
       const demo = new Set(SAMPLES.map(x => JSON.stringify(dataToGrid(x)))); // الأمثلة غير المعدّلة تُستبدل بالبيانات الحقيقية
@@ -1417,7 +1424,7 @@
   if (savedSheet) { $('#sheetUrl').value = savedSheet; $('#refreshSheet').hidden = false; }
 
   // نموذج التعبئة الجاهز (منسّق، بقوائم اختيار وورقة شرح)
-  const TEMPLATE_URL = 'assets/templates/template.xlsx?v=202610161136';
+  const TEMPLATE_URL = 'assets/templates/template.xlsx?v=202610161148';
   // نموذج Google Sheets: يفتح نسخة جديدة منه في حسابك (أنشئ نسختك ثم عبّئها)
   const GSHEET_TEMPLATE = 'https://docs.google.com/spreadsheets/d/1UeSeDlmeC8X-bhU-4uUWxqbu2aTQFDURwSryk6Z49to/copy';
   $('#gsCopy').href = GSHEET_TEMPLATE;
