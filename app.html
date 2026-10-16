@@ -8,9 +8,9 @@
     // حماية الصفحة: يجب تسجيل الدخول أولاً
     if (!(sessionStorage.getItem('qu_session') || localStorage.getItem('qu_session'))) location.replace('index.html');
   </script>
-  <link rel="stylesheet" href="assets/fonts/fonts.css?v=202610160048">
-  <link rel="stylesheet" href="assets/css/app.css?v=202610160048">
-  <link rel="stylesheet" href="assets/css/poster.css?v=202610160048">
+  <link rel="stylesheet" href="assets/fonts/fonts.css?v=202610160052">
+  <link rel="stylesheet" href="assets/css/app.css?v=202610160052">
+  <link rel="stylesheet" href="assets/css/poster.css?v=202610160052">
 </head>
 <body>
   <div class="topbar">
@@ -18,6 +18,7 @@
     <div class="spacer"></div>
     <span class="who" id="who"></span>
     <div class="tb-actions">
+      <button class="btn sm" id="btnHelp" title="دليل الاستخدام">❓<span class="lbl"> الدليل</span></button>
       <button class="btn sm" id="btnSheet" title="جدول البيانات">📋<span class="lbl"> جدول البيانات</span></button>
       <button class="btn sm" id="btnHistory" title="سجل التصاميم">🕘<span class="lbl"> سجل التصاميم</span></button>
       <button class="btn sm" id="btnDesigns" title="قوالبي">📁<span class="lbl"> قوالبي</span></button>
@@ -144,8 +145,10 @@
     <main class="main">
       <div class="panel toolbar">
         <div class="editing-bar">
-          <span id="editingLabel" class="hint"></span>
+          <span class="hint"><span id="editingLabel"></span> <span id="savedFlag" class="saved-flag"></span></span>
           <span style="display:flex;gap:6px;flex-wrap:wrap">
+            <button class="btn sm" id="btnUndo" title="تراجع (Ctrl+Z)" disabled>↶</button>
+            <button class="btn sm" id="btnRedo" title="إعادة (Ctrl+Y)" disabled>↷</button>
             <button class="btn sm primary" id="btnSaveHist">💾 حفظ في السجل</button>
             <button class="btn sm" id="btnSaveCopy">📄 حفظ كنسخة جديدة</button>
             <button class="btn sm" id="btnNew">➕ تصميم جديد</button>
@@ -160,7 +163,7 @@
       </div>
 
       <div class="panel" style="overflow:hidden" id="previewPanel">
-        <div class="stage" id="stage"><div class="scaler" id="scaler"><div id="poster"></div></div></div>
+        <div class="stage" id="stage" title="اضغط للعرض بحجم كامل"><div class="scaler" id="scaler"><div id="poster"></div></div></div>
         <div class="sizebadge" id="sizeBadge"></div>
       </div>
 
@@ -180,6 +183,12 @@
           <button class="btn primary" id="exCurrent">⬇️ تحميل التصميم الحالي</button>
           <button class="btn" id="exRows">📦 تحميل المحدد من الجدول</button>
           <button class="btn" id="printBtn">🖨️ طباعة</button>
+        </div>
+        <div class="export-actions" style="margin-top:8px">
+          <button class="btn" id="shareBtn">📤 مشاركة الصورة</button>
+          <button class="btn" id="copyImgBtn">📋 نسخ الصورة</button>
+          <button class="btn" id="captionBtn">📝 نص للنشر</button>
+          <button class="btn" id="zoomBtn">🔍 عرض بحجم كامل</button>
         </div>
         <p class="hint" style="margin:10px 0 0">يمكنك تحديد أكثر من مقاس ليتم تحميلها دفعة واحدة. عند اختيار PDF مع عدة صفوف ستحصل على ملف PDF لكل إعلان إضافةً إلى ملف PDF مجمّع.</p>
       </div>
@@ -257,6 +266,44 @@
     </div>
   </div></div>
 
+  <!-- نافذة نص النشر -->
+  <div class="modal" id="mCaption"><div class="box" style="width:min(620px,100%)">
+    <h2>نص جاهز للنشر <button class="btn sm" data-close>✕</button></h2>
+    <p class="hint" style="margin-top:0">نص الإعلان لواتساب و X والإيميل. تقدر تعدّل عليه قبل النسخ.</p>
+    <textarea id="captionText" style="width:100%;min-height:300px;padding:10px;border:1px solid var(--line);border-radius:10px;line-height:1.8;font:inherit"></textarea>
+    <label class="check"><input type="checkbox" id="capTags" checked> إضافة الوسوم (#جامعة_القصيم #كلية_الشريعة)</label>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn primary" id="capCopy">📋 نسخ النص</button>
+      <a class="btn" id="capWa" target="_blank" rel="noopener">💬 واتساب</a>
+      <a class="btn" id="capX" target="_blank" rel="noopener">𝕏 نشر في X</a>
+    </div>
+  </div></div>
+
+  <!-- عرض بحجم كامل -->
+  <div class="modal zoom" id="mZoom"><div class="zoombox">
+    <button class="btn sm zoom-close" data-close>✕ إغلاق</button>
+    <img id="zoomImg" alt="معاينة الإعلان">
+  </div></div>
+
+  <!-- دليل الاستخدام -->
+  <div class="modal" id="mHelp"><div class="box" style="width:min(680px,100%)">
+    <h2>دليل الاستخدام <button class="btn sm" data-close>✕</button></h2>
+    <div class="howto"><b>١) إعلان واحد</b><ol>
+      <li>عبّئ البيانات من القائمة الجانبية (المحتوى ← اللجنة). المعاينة تتحدث مباشرة.</li>
+      <li>اختر المقاس من «المعاينة»، ثم «⬇️ تحميل التصميم الحالي» أو «🖨️ طباعة».</li>
+      <li>للنشر السريع: «📤 مشاركة الصورة» أو «📋 نسخ الصورة» أو «📝 نص للنشر».</li></ol></div>
+    <div class="howto"><b>٢) إعلانات كثيرة دفعة واحدة</b><ol>
+      <li>انزل لـ«جدول بيانات الإعلانات» (أو زر 📋 فوق). كل سطر = إعلان.</li>
+      <li>اكتب، أو الصق من Excel / Google Sheets، أو استورد ملف «نموذج Excel» بعد تعبئته.</li>
+      <li>حدد الأسطر واضغط «📦 تحميل المحدد». زر 👁 يعرض أي سطر، و⧉ ينسخ السطر لإعلان مشابه.</li></ol></div>
+    <div class="howto"><b>٣) الاقتراحات والسجل</b><ol>
+      <li>اكتب جزءاً من اسم الدكتور (مثل «عمر») وتطلع الأسماء السابقة، واختيار الاسم يعبّي صفته.</li>
+      <li>كل إعلان تحمّله ينحفظ في «🕘 سجل التصاميم»: تقدر تعدّله أو تسوي منه نسخة جديدة.</li>
+      <li>↶ ↷ للتراجع والإعادة، و Ctrl+S للحفظ في السجل.</li></ol></div>
+    <div class="howto"><b>٤) رابط البث</b><ol>
+      <li>في «المحتوى ← رابط البث» فعّل المربع، ويظهر رمز QR في الإعلان. تقدر تحط أي رابط (يوتيوب، زوم، بلاك بورد...).</li></ol></div>
+  </div></div>
+
   <!-- نافذة سجل التصاميم -->
   <div class="modal" id="mHistory"><div class="box" style="width:min(1100px,100%)">
     <h2>سجل التصاميم <span id="histCount" class="hint"></span> <button class="btn sm" data-close>✕</button></h2>
@@ -329,13 +376,13 @@
   <div class="toast" id="toast"></div>
   <div class="export-root"><div id="exportPoster"></div></div>
 
-  <script src="assets/vendor/xlsx.full.min.js?v=202610160048"></script>
-  <script src="assets/vendor/jszip.min.js?v=202610160048"></script>
-  <script src="assets/vendor/jspdf.umd.min.js?v=202610160048"></script>
-  <script src="assets/vendor/qrcode.js?v=202610160048"></script>
-  <script src="assets/vendor/html-to-image.js?v=202610160048"></script>
-  <script src="assets/js/auth.js?v=202610160048"></script>
-  <script src="assets/js/poster.js?v=202610160048"></script>
-  <script src="assets/js/app.js?v=202610160048"></script>
+  <script src="assets/vendor/xlsx.full.min.js?v=202610160052"></script>
+  <script src="assets/vendor/jszip.min.js?v=202610160052"></script>
+  <script src="assets/vendor/jspdf.umd.min.js?v=202610160052"></script>
+  <script src="assets/vendor/qrcode.js?v=202610160052"></script>
+  <script src="assets/vendor/html-to-image.js?v=202610160052"></script>
+  <script src="assets/js/auth.js?v=202610160052"></script>
+  <script src="assets/js/poster.js?v=202610160052"></script>
+  <script src="assets/js/app.js?v=202610160052"></script>
 </body>
 </html>

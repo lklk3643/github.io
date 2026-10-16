@@ -32,7 +32,11 @@
   function saveDraft() {
     clearTimeout(saveTimer);
     saveTimer = setTimeout(() => {
-      try { localStorage.setItem(userKey('draft'), JSON.stringify(state)); }
+      try {
+        localStorage.setItem(userKey('draft'), JSON.stringify(state));
+        const f = document.getElementById('savedFlag');
+        if (f) { f.textContent = '✓ محفوظ تلقائياً'; f.classList.add('show'); clearTimeout(f._t); f._t = setTimeout(() => f.classList.remove('show'), 1800); }
+      }
       catch (e) { toast('مساحة التخزين ممتلئة – الصور كبيرة جداً، احذف بعض القوالب أو الصور', true); }
     }, 400);
   }
@@ -212,7 +216,7 @@
   function changed(noSave) {
     clearTimeout(renderTimer);
     renderTimer = setTimeout(drawPreview, 60);
-    if (!noSave) saveDraft();
+    if (!noSave) { saveDraft(); if (window.QUndo) QUndo.record(); }
   }
   async function drawPreview() {
     const f = currentFmt;
@@ -342,6 +346,8 @@
   $('#exRows').onclick = () => {
     const items = selectedGridStates();
     if (!items.length) { $('#dataSheet').scrollIntoView({ behavior: 'smooth' }); return toast('حدد الأسطر من جدول البيانات (المربعات بجانب الأرقام)', true); }
+    const bad = gridItems(true).filter(r => missingOf(grid[r.i]).length);
+    if (bad.length && !confirm(`فيه ${bad.length} إعلان ناقص (عليه ⚠️) مثل السطر ${bad[0].n}: ${missingOf(grid[bad[0].i]).join('، ')}.\nالخانات الناقصة تاخذ قيمتها من التصميم الحالي. تكمل التحميل؟`)) return;
     runExport(items, 'اعلانات-المناقشات.zip');
   };
 
@@ -634,11 +640,21 @@
     if (!grid.length) grid = Array.from({ length: 5 }, emptyRow);
     const cls = c => /العنوان/.test(c) ? 'w-title' : /رابط/.test(c) ? 'w-link' : /الجنس|اليوم|الوقت|الدور/.test(c) ? 'w-sm' : '';
     $('#sheet').innerHTML = `<thead><tr><th class="n">#</th><th class="act">عرض</th>${GCOLS.map(c => `<th class="${/^عضو/.test(c) ? 'mem' : ''}">${c}</th>`).join('')}</tr></thead>
-      <tbody>${grid.map((r, i) => `<tr data-r="${i}" class="${gridSel.has(i) ? 'sel' : ''} ${i === activeRow ? 'active' : ''}"><td class="n"><label><input type="checkbox" data-gsel ${gridSel.has(i) ? 'checked' : ''}>${i + 1}</label></td><td class="act"><button data-view title="عرض في التصميم">👁</button></td>${
+      <tbody>${grid.map((r, i) => `<tr data-r="${i}" class="${gridSel.has(i) ? 'sel' : ''} ${i === activeRow ? 'active' : ''} ${missingOf(r).length ? 'incomplete' : ''}"><td class="n"><label><input type="checkbox" data-gsel ${gridSel.has(i) ? 'checked' : ''}>${i + 1}</label>${warnHtml(r)}</td><td class="act"><button data-view title="عرض في التصميم">👁</button><button data-dup title="تكرار السطر (نفس اللجنة لطالب آخر)">⧉</button></td>${
         GCOLS.map((c, j) => `<td><input type="text" class="${cls(c)}" data-c="${j}" value="${esc(r[j] || '')}"${/رابط/.test(c) ? ' dir="ltr"' : ''}></td>`).join('')}</tr>`).join('')}</tbody>`;
     updateGridInfo();
   }
   let activeRow = -1;
+  // الحقول الأساسية لكل إعلان؛ السطر الناقص يظهر عليه ⚠️
+  const REQUIRED = ['الطالب', 'الدرجة', 'العنوان', 'التاريخ', 'الوقت', 'المكان', 'عضو1 الاسم'];
+  function missingOf(r) { return isEmptyRow(r) ? [] : REQUIRED.filter(c => !String(r[GCOLS.indexOf(c)] || '').trim()); }
+  function warnHtml(r) { const m = missingOf(r); return m.length ? ` <span class="warn" title="ناقص: ${esc(m.join('، '))}">⚠️</span>` : ''; }
+  function updRowWarn(i) {
+    const tr = $(`#sheet tr[data-r="${i}"]`); if (!tr) return;
+    const td = tr.querySelector('td.n'); const w = td.querySelector('.warn'); if (w) w.remove();
+    td.insertAdjacentHTML('beforeend', warnHtml(grid[i]));
+    tr.classList.toggle('incomplete', missingOf(grid[i]).length > 0);
+  }
   const cellAt = (r, c) => $(`#sheet tr[data-r="${r}"] input[data-c="${c}"]`);
 
   // تحليل نص منسوخ من Excel/Sheets (مفصول بـ Tab ويدعم الخلايا بين علامات تنصيص)
@@ -659,6 +675,19 @@
 
   $('#btnSheet').onclick = () => $('#dataSheet').scrollIntoView({ behavior: 'smooth' });
   $('#sheet').addEventListener('click', e => {
+    const dup = e.target.closest('[data-dup]');
+    if (dup) {
+      const r = +dup.closest('tr').dataset.r;
+      if (isEmptyRow(grid[r])) return toast('هذا السطر فاضي', true);
+      const copy = grid[r].slice();
+      ['الطالب', 'العنوان', 'الجنس'].forEach(c => { copy[GCOLS.indexOf(c)] = ''; });
+      grid.splice(r + 1, 0, copy);
+      const shifted = [...gridSel].map(i => i > r ? i + 1 : i); gridSel.clear(); shifted.forEach(i => gridSel.add(i));
+      if (activeRow > r) activeRow++;
+      renderGrid(); gridChanged();
+      const st = cellAt(r + 1, GCOLS.indexOf('الطالب')); if (st) st.focus();
+      return toast('تم تكرار السطر — اكتب اسم الطالب والعنوان الجديد');
+    }
     if (!e.target.closest('[data-view]')) return;
     const r = +e.target.closest('tr').dataset.r;
     if (isEmptyRow(grid[r])) return toast('هذا السطر فاضي', true);
@@ -673,6 +702,7 @@
     const inp = e.target; if (!inp.dataset.c) return;
     const r = +inp.closest('tr').dataset.r;
     grid[r][+inp.dataset.c] = inp.value;
+    updRowWarn(r);
     gridChanged();
   });
   $('#sheet').addEventListener('change', e => {
@@ -799,7 +829,7 @@
   if (savedSheet) { $('#sheetUrl').value = savedSheet; $('#refreshSheet').hidden = false; }
 
   // نموذج التعبئة الجاهز (منسّق، بقوائم اختيار وورقة شرح)
-  const TEMPLATE_URL = 'assets/templates/template.xlsx?v=202610160048';
+  const TEMPLATE_URL = 'assets/templates/template.xlsx?v=202610160052';
   // نموذج Google Sheets: يفتح نسخة جديدة منه في حسابك (أنشئ نسختك ثم عبّئها)
   const GSHEET_TEMPLATE = 'https://docs.google.com/spreadsheets/d/1Xkwe3rF0iIVspBlWcr0tGOJA1KpJKWjERlh-gfOPqUQ/copy';
   $('#gsCopy').href = GSHEET_TEMPLATE;
@@ -1082,6 +1112,122 @@
     refreshHistory();
     return { refreshHistory, markDirty: () => { dirty = true; } };
   })();
+
+  // ---------- تراجع / إعادة ----------
+  window.QUndo = (function () {
+    const undoS = [], redoS = [];
+    let last = JSON.stringify(state), t = null;
+    const upd = () => { $('#btnUndo').disabled = !undoS.length; $('#btnRedo').disabled = !redoS.length; };
+    function commit() {
+      clearTimeout(t); t = null;
+      const cur = JSON.stringify(state);
+      if (cur === last) return;
+      undoS.push(last); if (undoS.length > 60) undoS.shift();
+      redoS.length = 0; last = cur; upd();
+    }
+    function record() { clearTimeout(t); t = setTimeout(commit, 450); }
+    function apply(snap) { state = normalize(JSON.parse(snap)); last = snap; fillForm(); changed(true); saveDraft(); upd(); }
+    function undo() { if (t) commit(); if (!undoS.length) return; redoS.push(JSON.stringify(state)); apply(undoS.pop()); toast('↶ تم التراجع'); }
+    function redo() { if (!redoS.length) return; undoS.push(JSON.stringify(state)); apply(redoS.pop()); toast('↷ تمت الإعادة'); }
+    $('#btnUndo').onclick = undo; $('#btnRedo').onclick = redo;
+    document.addEventListener('keydown', e => {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      const inField = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement && document.activeElement.tagName);
+      const k = e.key.toLowerCase();
+      if (inField) return; // داخل الخانة: التراجع الطبيعي للنص
+      if (k === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
+      else if (k === 'y' || (k === 'z' && e.shiftKey)) { e.preventDefault(); redo(); }
+    });
+    return { record, undo, redo };
+  })();
+
+  // ---------- صورة التصميم الحالي: مشاركة / نسخ / عرض كامل ----------
+  let imgCache = { key: '', blob: null };
+  const imgKey = scale => JSON.stringify(state) + currentFmt.id + currentFmt.w + 'x' + currentFmt.h + '@' + scale;
+  async function currentBlob(scale = 2) {
+    const key = imgKey(scale);
+    if (imgCache.key === key) return imgCache.blob;
+    const blob = await canvasBlob(await capture(state, currentFmt, scale), 'png');
+    imgCache = { key, blob };
+    return blob;
+  }
+  $('#shareBtn').onclick = async () => {
+    const name = `${safeName(state.student)}.png`;
+    const ready = imgCache.key === imgKey(2);
+    let blob;
+    if (!ready) {
+      overlay.show('جارٍ تجهيز الصورة...');
+      try { blob = await currentBlob(2); } catch (e) { overlay.hide(); return toast('تعذّر تجهيز الصورة', true); }
+      overlay.hide();
+    } else blob = imgCache.blob;
+    const file = new File([blob], name, { type: 'image/png' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try { await navigator.share({ files: [file], title: 'إعلان مناقشة رسالة علمية' }); saveToHistory({ quiet: true }); }
+      catch (e) { if (e.name === 'NotAllowedError') toast('الصورة جاهزة ✓ — اضغط «مشاركة الصورة» مرة ثانية'); }
+    } else {
+      saveBlob(blob, name);
+      toast('المشاركة المباشرة غير مدعومة في هذا المتصفح — تم تنزيل الصورة');
+    }
+  };
+  $('#copyImgBtn').onclick = async () => {
+    if (!navigator.clipboard || !window.ClipboardItem) return toast('نسخ الصور غير مدعوم في هذا المتصفح — استخدم التحميل', true);
+    overlay.show('جارٍ نسخ الصورة...');
+    try {
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': currentBlob(2) })]);
+      toast('تم نسخ الصورة ✓ الصقها في واتساب أو X أو الإيميل (Ctrl+V)');
+    } catch (e) { toast('تعذّر نسخ الصورة — استخدم «تحميل» أو «مشاركة»', true); }
+    finally { overlay.hide(); }
+  };
+  async function openZoom() {
+    overlay.show('جارٍ تجهيز العرض...');
+    try {
+      const blob = await currentBlob(2);
+      const img = $('#zoomImg');
+      if (img._url) URL.revokeObjectURL(img._url);
+      img._url = URL.createObjectURL(blob); img.src = img._url; img.classList.remove('full');
+      openModal('#mZoom');
+    } catch (e) { toast('تعذّر العرض', true); } finally { overlay.hide(); }
+  }
+  $('#zoomBtn').onclick = openZoom;
+  $('#stage').addEventListener('click', openZoom);
+  $('#zoomImg').onclick = e => { e.stopPropagation(); e.target.classList.toggle('full'); };
+  $('#mZoom .zoombox').addEventListener('click', e => { if (e.target.classList.contains('zoombox')) $('#mZoom').classList.remove('open'); });
+
+  // ---------- نص جاهز للنشر ----------
+  function buildCaption(s, tags) {
+    const one = v => String(v || '').replace(/\s*\n\s*/g, ' ').trim();
+    const mem = (s.committee || []).filter(m => m && m.name).map(m => `• ${m.name}${m.role ? ' — ' + m.role : ''}`).join('\n');
+    const lines = [
+      `📢 ${one(s.college)}`, one(s.intro), `🎓 ${one(s.degree)}`, `👤 ${one(s.by)}: ${one(s.student)}`, '',
+      `📖 ${one(s.titleLabel)} ${one(s.title)}`, '',
+      mem ? `👥 ${one(s.committeeLabel)}:\n${mem}` : '', '',
+      `🗓 ${one(s.day)} ${one(s.date)}`, `⏰ ${one(s.time)}`, `📍 ${[one(s.place), one(s.placeNote)].filter(Boolean).join(' ')}`,
+      s.opt && s.opt.qr && s.link ? `🔗 رابط البث: ${s.link}` : '',
+      tags ? '\n#جامعة_القصيم #كلية_الشريعة #مناقشة_علمية' : ''
+    ];
+    return lines.filter((x, i, a) => !(x === '' && (a[i - 1] === '' || i === 0))).join('\n').replace(/\n{3,}/g, '\n\n').trim();
+  }
+  function updCapLinks() {
+    const t = encodeURIComponent($('#captionText').value);
+    $('#capWa').href = `https://wa.me/?text=${t}`;
+    $('#capX').href = `https://twitter.com/intent/tweet?text=${t}`;
+  }
+  $('#captionBtn').onclick = () => { $('#captionText').value = buildCaption(state, $('#capTags').checked); updCapLinks(); openModal('#mCaption'); };
+  $('#capTags').onchange = () => { $('#captionText').value = buildCaption(state, $('#capTags').checked); updCapLinks(); };
+  $('#captionText').addEventListener('input', updCapLinks);
+  $('#capCopy').onclick = async () => {
+    const ta = $('#captionText');
+    try { await navigator.clipboard.writeText(ta.value); }
+    catch (e) { ta.select(); document.execCommand('copy'); }
+    toast('تم نسخ النص ✓');
+  };
+
+  // ---------- دليل الاستخدام ----------
+  $('#btnHelp').onclick = () => openModal('#mHelp');
+  if (!localStorage.getItem(userKey('helpSeen'))) {
+    setTimeout(() => openModal('#mHelp'), 800);
+    try { localStorage.setItem(userKey('helpSeen'), '1'); } catch (e) { /* اختياري */ }
+  }
 
   // ---------- البدء ----------
   fillForm();
