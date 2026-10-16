@@ -55,6 +55,9 @@
   if (session.role === 'admin') $('#btnUsers').hidden = false;
   if (session.weak) $('#weakBanner').hidden = false;
   $('#btnLogout').onclick = () => QAuth.logout();
+  // التنقل السفلي (جوال / آيباد عمودي)
+  const GO = { side: '.side', preview: '#previewPanel', export: '#exportPanel', dataSheet: '#dataSheet' };
+  $$('.mnav [data-go]').forEach(b => b.onclick = () => { const t = $(GO[b.dataset.go]); if (t) t.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
 
   // ---------- التبويبات ----------
   $$('.tabs button').forEach(b => b.onclick = () => {
@@ -794,7 +797,7 @@
   if (savedSheet) { $('#sheetUrl').value = savedSheet; $('#refreshSheet').hidden = false; }
 
   // نموذج التعبئة الجاهز (منسّق، بقوائم اختيار وورقة شرح)
-  const TEMPLATE_URL = 'assets/templates/template.xlsx?v=202610160038';
+  const TEMPLATE_URL = 'assets/templates/template.xlsx?v=202610160045';
   // نموذج Google Sheets: يفتح نسخة جديدة منه في حسابك (أنشئ نسختك ثم عبّئها)
   const GSHEET_TEMPLATE = 'https://docs.google.com/spreadsheets/d/1Xkwe3rF0iIVspBlWcr0tGOJA1KpJKWjERlh-gfOPqUQ/copy';
   $('#gsCopy').href = GSHEET_TEMPLATE;

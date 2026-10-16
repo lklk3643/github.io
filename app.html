@@ -2,27 +2,29 @@
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>مصمم إعلانات المناقشات</title>
   <script>
     // حماية الصفحة: يجب تسجيل الدخول أولاً
     if (!(sessionStorage.getItem('qu_session') || localStorage.getItem('qu_session'))) location.replace('index.html');
   </script>
-  <link rel="stylesheet" href="assets/fonts/fonts.css?v=202610160038">
-  <link rel="stylesheet" href="assets/css/app.css?v=202610160038">
-  <link rel="stylesheet" href="assets/css/poster.css?v=202610160038">
+  <link rel="stylesheet" href="assets/fonts/fonts.css?v=202610160045">
+  <link rel="stylesheet" href="assets/css/app.css?v=202610160045">
+  <link rel="stylesheet" href="assets/css/poster.css?v=202610160045">
 </head>
 <body>
   <div class="topbar">
-    <div class="brand" id="brandLogo"><span>مصمم إعلانات المناقشات العلمية</span></div>
+    <div class="brand" id="brandLogo"><span class="brand-title">مصمم إعلانات المناقشات العلمية</span></div>
     <div class="spacer"></div>
     <span class="who" id="who"></span>
-    <button class="btn sm" id="btnSheet">📋 جدول البيانات</button>
-    <button class="btn sm" id="btnHistory">🕘 سجل التصاميم</button>
-    <button class="btn sm" id="btnDesigns">📁 قوالبي</button>
-    <button class="btn sm" id="btnUsers" hidden>👥 الموظفون</button>
-    <button class="btn sm" id="btnPass">🔑 كلمة المرور</button>
-    <button class="btn sm" id="btnLogout">خروج</button>
+    <div class="tb-actions">
+      <button class="btn sm" id="btnSheet" title="جدول البيانات">📋<span class="lbl"> جدول البيانات</span></button>
+      <button class="btn sm" id="btnHistory" title="سجل التصاميم">🕘<span class="lbl"> سجل التصاميم</span></button>
+      <button class="btn sm" id="btnDesigns" title="قوالبي">📁<span class="lbl"> قوالبي</span></button>
+      <button class="btn sm" id="btnUsers" title="الموظفون" hidden>👥<span class="lbl"> الموظفون</span></button>
+      <button class="btn sm" id="btnPass" title="كلمة المرور">🔑<span class="lbl"> كلمة المرور</span></button>
+      <button class="btn sm" id="btnLogout" title="خروج">⏻<span class="lbl"> خروج</span></button>
+    </div>
   </div>
   <div class="banner" id="weakBanner" hidden>⚠️ أنت تستخدم كلمة المرور الافتراضية للمدير. غيّرها الآن من زر «كلمة المرور».</div>
 
@@ -157,12 +159,12 @@
         </span>
       </div>
 
-      <div class="panel" style="overflow:hidden">
+      <div class="panel" style="overflow:hidden" id="previewPanel">
         <div class="stage" id="stage"><div class="scaler" id="scaler"><div id="poster"></div></div></div>
         <div class="sizebadge" id="sizeBadge"></div>
       </div>
 
-      <div class="panel export">
+      <div class="panel export" id="exportPanel">
         <h3>التحميل</h3>
         <div class="fmt-grid" id="exportFormats"></div>
         <div class="export-actions">
@@ -317,16 +319,22 @@
   </div></div>
 
   <div class="overlay" id="overlay"><div id="overlayText">جارٍ التجهيز...</div><div class="progress"><div id="overlayBar"></div></div></div>
+  <nav class="mnav" aria-label="تنقل سريع">
+    <button data-go="side">✏️<span>البيانات</span></button>
+    <button data-go="preview">👁<span>المعاينة</span></button>
+    <button data-go="export">⬇️<span>التحميل</span></button>
+    <button data-go="dataSheet">📋<span>الجدول</span></button>
+  </nav>
   <div class="toast" id="toast"></div>
   <div class="export-root"><div id="exportPoster"></div></div>
 
-  <script src="assets/vendor/xlsx.full.min.js?v=202610160038"></script>
-  <script src="assets/vendor/jszip.min.js?v=202610160038"></script>
-  <script src="assets/vendor/jspdf.umd.min.js?v=202610160038"></script>
-  <script src="assets/vendor/qrcode.js?v=202610160038"></script>
-  <script src="assets/vendor/html-to-image.js?v=202610160038"></script>
-  <script src="assets/js/auth.js?v=202610160038"></script>
-  <script src="assets/js/poster.js?v=202610160038"></script>
-  <script src="assets/js/app.js?v=202610160038"></script>
+  <script src="assets/vendor/xlsx.full.min.js?v=202610160045"></script>
+  <script src="assets/vendor/jszip.min.js?v=202610160045"></script>
+  <script src="assets/vendor/jspdf.umd.min.js?v=202610160045"></script>
+  <script src="assets/vendor/qrcode.js?v=202610160045"></script>
+  <script src="assets/vendor/html-to-image.js?v=202610160045"></script>
+  <script src="assets/js/auth.js?v=202610160045"></script>
+  <script src="assets/js/poster.js?v=202610160045"></script>
+  <script src="assets/js/app.js?v=202610160045"></script>
 </body>
 </html>
