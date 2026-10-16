@@ -91,8 +91,7 @@
 .qp-info-text { display: flex; flex-direction: column; font-size: 29px; font-weight: 600; line-height: 1.35; color: #12393b; }
 .qp-info-text span { font-size: 25px; font-weight: 500; }
 .qp-sep { width: 2px; align-self: stretch; background: color-mix(in srgb, var(--l) 60%, #b9cfce); margin: 6px 0; }
-.qp-qr svg { width: 88px; height: 88px; background: #fff; padding: 4px; border-radius: 8px; }
-.qp-qr svg path, .qp-qr svg rect[fill="black"] { fill: var(--d); }
+.qp-qr .qr-wrap { width: 88px; height: 88px; background: #fff; padding: 4px; border-radius: 8px; }
 
 /* التذييل */
 .qp-footer { position: absolute; left: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: space-between;
@@ -151,5 +150,12 @@
 .qp-exact .ex-qr { position: absolute; left: 22px; top: 1262px; width: 122px; padding: 9px 9px 6px; background: rgba(255,255,255,.95);
   border-radius: 14px; box-shadow: 0 2px 10px rgba(15,74,77,.18); display: flex; flex-direction: column; align-items: center; gap: 4px;
   font-size: 11.5px; font-weight: 500; color: #0d5a5e; white-space: nowrap; }
-.qp-exact .ex-qr svg { width: 104px; height: 104px; display: block; }
-.qp-exact .ex-qr svg path, .qp-exact .ex-qr svg rect[fill="black"] { fill: #0a3d45; }
+.qp-exact .ex-qr .qr-wrap { width: 104px; height: 104px; }
+
+/* رمز QR مع أيقونة المنصة */
+.qr-wrap { position: relative; display: block; }
+.qr-wrap > svg { width: 100%; height: 100%; display: block; }
+.qr-wrap > svg path, .qr-wrap > svg rect[fill="black"] { fill: #0a3d45; }
+.qr-logo { position: absolute; left: 50%; top: 50%; width: 21%; height: 21%; transform: translate(-50%, -50%);
+  background: #fff; border-radius: 22%; padding: 3%; box-sizing: content-box; display: grid; place-items: center; }
+.qr-logo svg { width: 100%; height: 100%; display: block; }

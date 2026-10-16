@@ -82,8 +82,8 @@
   };
 
   // الصور الافتراضية مأخوذة من التصميم الأصلي (يمكن استبدالها من تبويب المظهر)
-  const DEFAULT_LOGO = 'assets/img/logo.png?v=202610160055';
-  const DEFAULT_BUILDING = 'assets/img/building.jpg?v=202610160055';
+  const DEFAULT_LOGO = 'assets/img/logo.png?v=202610160058';
+  const DEFAULT_BUILDING = 'assets/img/building.jpg?v=202610160058';
 
   // ---------- الزخارف ----------
   function star8(cx, cy, r, color, sw) {
@@ -124,7 +124,7 @@
 
   // ---------- النسخة المطابقة للتصميم الأصلي (1045×1505) ----------
   // الخلفية هي التصميم الأصلي نفسه بعد مسح النصوص المتغيرة، وتُكتب النصوص الجديدة بنفس المواضع والخط والألوان.
-  const EXACT_BG = 'assets/img/template.jpg?v=202610160055';
+  const EXACT_BG = 'assets/img/template.jpg?v=202610160058';
   // cx: مركز النص، rx: الحافة اليمنى، y: منتصف النص، w: أقصى عرض، s: الحجم، dy: تصحيح رأسي
   const EXACT = {
     college: { cx: 524, y: 269.5, w: 430, s: 30.4, wt: 600, c: '#0d5a5e', dy: -3 },
@@ -152,10 +152,32 @@
     return `<div class="ex" data-ex="${key}" style="${pos}width:${spec.w}px;top:${spec.y - H / 2 + spec.dy}px;height:${H}px;font-size:${spec.s}px;font-weight:${spec.wt};color:${spec.c}">${esc(text)}</div>`;
   }
 
+  // ---------- رمز QR مع أيقونة المنصة في المنتصف ----------
+  const PLATFORMS = [
+    { id: 'youtube', re: /youtu\.?be/i, name: 'يوتيوب', cta: 'شاهد البث على يوتيوب',
+      icon: '<rect x="1" y="4.5" width="22" height="15" rx="4.6" fill="#FF0000"/><path d="M9.8 8.4v7.2l6.2-3.6z" fill="#fff"/>' },
+    { id: 'zoom', re: /zoom\.(us|com)|\bzoom\b/i, name: 'زوم', cta: 'انضم عبر زوم',
+      icon: '<rect width="24" height="24" rx="6" fill="#2D8CFF"/><path d="M4.6 8.6c0-.5.4-.9.9-.9h7.6c1.2 0 2.1.9 2.1 2.1v5.6c0 .5-.4.9-.9.9H6.7c-1.2 0-2.1-.9-2.1-2.1zM16.2 10.7l3.2-2.3c.3-.2.6 0 .6.3v6.6c0 .4-.3.5-.6.3l-3.2-2.3z" fill="#fff"/>' },
+    { id: 'teams', re: /teams\.(microsoft|live)|\bteams\b/i, name: 'Teams', cta: 'انضم عبر Teams',
+      icon: '<rect width="24" height="24" rx="5" fill="#5059C9"/><path d="M6 6.8h11.2v2.7h-4.2V18h-2.8V9.5H6z" fill="#fff"/>' },
+    { id: 'webex', re: /webex/i, name: 'Webex', cta: 'انضم عبر Webex',
+      icon: '<circle cx="12" cy="12" r="12" fill="#07C160"/><circle cx="12" cy="12" r="12" fill="#00A0D1" opacity=".55"/><path d="M4.6 8h2.2l1.7 6.1L10.6 8h2.1l2 6.1L16.4 8h2.2l-2.9 8.6h-2.1L11.6 11l-2 5.6H7.5z" fill="#fff"/>' },
+    { id: 'blackboard', re: /blackboard|bbcollab|collaborate/i, name: 'بلاك بورد', cta: 'انضم عبر بلاك بورد',
+      icon: '<rect width="24" height="24" rx="5" fill="#262626"/><text x="12" y="16.6" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="11.5" fill="#fff">Bb</text>' },
+    { id: 'meet', re: /meet\.google/i, name: 'Google Meet', cta: 'انضم عبر Google Meet',
+      icon: '<rect width="24" height="24" rx="6" fill="#00897B"/><path d="M5 8.6c0-.6.5-1.1 1.1-1.1h7.4c.6 0 1.1.5 1.1 1.1v6.8c0 .6-.5 1.1-1.1 1.1H6.1c-.6 0-1.1-.5-1.1-1.1zM15.6 10.6l3.4-2.4v7.6l-3.4-2.4z" fill="#fff"/>' }
+  ];
+  const GENERIC = { id: 'link', name: 'رابط', cta: 'شاهد البث المباشر',
+    icon: '<circle cx="12" cy="12" r="12" fill="#2b7574"/><path d="M10.6 13.4a3 3 0 0 0 4.2 0l2.4-2.4a3 3 0 0 0-4.2-4.2l-.9.9M13.4 10.6a3 3 0 0 0-4.2 0L6.8 13a3 3 0 0 0 4.2 4.2l.9-.9" stroke="#fff" stroke-width="1.8" fill="none" stroke-linecap="round"/>' };
+  const platformOf = link => PLATFORMS.find(p => p.re.test(String(link || ''))) || GENERIC;
+
   function qrSvg(state) {
     if (!state.opt || !state.opt.qr || !state.link || !window.qrcode) return '';
-    try { const q = window.qrcode(0, 'M'); q.addData(state.link); q.make(); return q.createSvgTag({ cellSize: 4, margin: 0, scalable: true }); }
-    catch (e) { return ''; }
+    try {
+      const q = window.qrcode(0, 'H'); q.addData(state.link); q.make(); // تصحيح أخطاء عالٍ حتى يُقرأ مع الأيقونة
+      const pf = platformOf(state.link);
+      return `<div class="qr-wrap">${q.createSvgTag({ cellSize: 4, margin: 0, scalable: true })}<span class="qr-logo"><svg viewBox="0 0 24 24">${pf.icon}</svg></span></div>`;
+    } catch (e) { return ''; }
   }
 
   function renderExact(el, state) {
@@ -187,7 +209,7 @@
     });
     ['day', 'date', 'time', 'place', 'placeNote', 'dept'].forEach(k => { html += exItem(E[k], state[k], k); });
     const qr = qrSvg(state);
-    if (qr) html += `<div class="ex-qr">${qr}<span>شاهد البث المباشر</span></div>`;
+    if (qr) html += `<div class="ex-qr">${qr}<span>${platformOf(state.link).cta}</span></div>`;
     el.innerHTML = html;
   }
 
@@ -229,11 +251,10 @@
       `<tr><td class="qp-c-name">${esc(r.name)}</td><td>${esc(r.title)}</td><td>${esc(r.role)}</td></tr>`).join('');
 
     let qr = '';
-    if (o.qr && state.link && window.qrcode) {
-      try {
-        const q = window.qrcode(0, 'M'); q.addData(state.link); q.make();
-        qr = `<div class="qp-sep"></div><div class="qp-info-item qp-qr">${q.createSvgTag({ cellSize: 4, margin: 0, scalable: true })}<div class="qp-info-text"><b>امسح للبث</b><span>المباشر</span></div></div>`;
-      } catch (e) { qr = ''; }
+    const qrBox = qrSvg(state);
+    if (qrBox) {
+      const pf = platformOf(state.link);
+      qr = `<div class="qp-sep"></div><div class="qp-info-item qp-qr">${qrBox}<div class="qp-info-text"><b>امسح للبث</b><span>${pf.id === 'link' ? 'المباشر' : 'عبر ' + pf.name}</span></div></div>`;
     }
 
     const building = o.building ? `<img class="qp-building-img" src="${state.assets.building || DEFAULT_BUILDING}" alt="">` : '';
@@ -308,5 +329,5 @@
     return s;
   }
 
-  window.QPoster = { DEFAULTS, THEMES, FORMATS, customFormat, render, fit, ICON, DEFAULT_LOGO, EXACT, EXACT_ROWS };
+  window.QPoster = { DEFAULTS, THEMES, FORMATS, customFormat, render, fit, ICON, DEFAULT_LOGO, EXACT, EXACT_ROWS, platformOf };
 })();

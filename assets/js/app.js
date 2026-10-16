@@ -241,9 +241,14 @@
   window.addEventListener('resize', () => layoutPreview());
 
   // ---------- التحميل ----------
-  $('#exportFormats').innerHTML = FORMATS.map(f => `<label class="fmt"><input type="checkbox" value="${f.id}" ${f.id === 'exact' ? 'checked' : ''}>
+  let defaultFmts = ['exact', 'youtube'];
+  try { const saved = JSON.parse(localStorage.getItem(userKey('fmts'))); if (Array.isArray(saved) && saved.length) defaultFmts = saved; } catch (e) { /* افتراضي */ }
+  $('#exportFormats').innerHTML = FORMATS.map(f => `<label class="fmt"><input type="checkbox" value="${f.id}" ${defaultFmts.includes(f.id) ? 'checked' : ''}>
       <span>${f.name}<small>${f.w}×${f.h}</small></span></label>`).join('') +
     `<label class="fmt"><input type="checkbox" value="custom"><span>المقاس المخصص<small>من شريط المعاينة</small></span></label>`;
+  $('#exportFormats').addEventListener('change', () => {
+    try { localStorage.setItem(userKey('fmts'), JSON.stringify($$('#exportFormats input:checked').map(i => i.value))); } catch (e) { /* اختياري */ }
+  });
   const selectedFormats = () => $$('#exportFormats input:checked').map(i => getFormat(i.value));
 
   const exportEl = $('#exportPoster');
@@ -316,7 +321,11 @@
   }
 
   async function deliver(files, zipName) {
-    if (files.length === 1) return saveBlob(files[0].blob, files[0].name.replace('/', '-'));
+    // ملفات قليلة (مثل الصورة الأصلية + صورة اليوتيوب) تنزل منفصلة، والكثيرة في ZIP
+    if (files.length <= 3) {
+      for (const f of files) { saveBlob(f.blob, f.name.replace(/\//g, '-')); await new Promise(r => setTimeout(r, 450)); }
+      return;
+    }
     const zip = new JSZip();
     files.forEach(f => zip.file(f.name, f.blob));
     saveBlob(await zip.generateAsync({ type: 'blob' }), zipName);
@@ -829,7 +838,7 @@
   if (savedSheet) { $('#sheetUrl').value = savedSheet; $('#refreshSheet').hidden = false; }
 
   // نموذج التعبئة الجاهز (منسّق، بقوائم اختيار وورقة شرح)
-  const TEMPLATE_URL = 'assets/templates/template.xlsx?v=202610160055';
+  const TEMPLATE_URL = 'assets/templates/template.xlsx?v=202610160058';
   // نموذج Google Sheets: يفتح نسخة جديدة منه في حسابك (أنشئ نسختك ثم عبّئها)
   const GSHEET_TEMPLATE = 'https://docs.google.com/spreadsheets/d/1Xkwe3rF0iIVspBlWcr0tGOJA1KpJKWjERlh-gfOPqUQ/copy';
   $('#gsCopy').href = GSHEET_TEMPLATE;
@@ -986,8 +995,8 @@
       link: [DEFAULTS.link]
     };
     const FORM_KEYS = { degree: 'degree', day: 'day', time: 'time', place: 'place', placeNote: 'placeNote', link: 'link' };
-    const platform = v => /youtu/i.test(v) ? '▶️ يوتيوب' + (v === DEFAULTS.link ? ' (الافتراضي)' : '') : /zoom/i.test(v) ? '🎥 زوم'
-      : /blackboard|bbcollab/i.test(v) ? '🎓 بلاك بورد' : /teams/i.test(v) ? '👥 تيمز' : /meet\.google/i.test(v) ? '📹 Google Meet' : '🔗 رابط';
+    const EMO = { youtube: '▶️', zoom: '🎥', teams: '👥', webex: '🌐', blackboard: '🎓', meet: '📹', link: '🔗' };
+    const platform = v => { const p = QPoster.platformOf(v); return `${EMO[p.id]} ${p.name}${v === DEFAULTS.link ? ' (الافتراضي)' : ''}`; };
     const M_KEYS = { name: 'mName', title: 'mTitle', role: 'mRole' };
     const COL_KEY = c => /الاسم$/.test(c) ? 'mName' : /الصفة$/.test(c) ? 'mTitle' : /الدور$/.test(c) ? 'mRole'
       : { 'الدرجة': 'degree', 'اليوم': 'day', 'الوقت': 'time', 'الجنس': 'gender', 'المكان': 'place', 'ملاحظة المكان': 'placeNote', 'رابط البث': 'link' }[c] || null;
