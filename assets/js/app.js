@@ -789,19 +789,16 @@
   const savedSheet = localStorage.getItem(userKey('sheet'));
   if (savedSheet) { $('#sheetUrl').value = savedSheet; $('#refreshSheet').hidden = false; }
 
+  // نموذج التعبئة الجاهز (منسّق، بقوائم اختيار وورقة شرح)
+  const TEMPLATE_URL = 'assets/templates/template.xlsx';
+  // نموذج Google Sheets: يفتح نسخة جديدة منه في حسابك (أنشئ نسختك ثم عبّئها)
+  const GSHEET_TEMPLATE = 'https://docs.google.com/spreadsheets/d/1QolKhZXdip6kYCdmmUPUBEWNGz24eT29RKgqJGqtR6A/copy';
+  $('#gsTemplate').href = GSHEET_TEMPLATE; $('#gsTemplate').hidden = false;
   $('#dlTemplate').onclick = () => {
-    const d = DEFAULTS;
-    const r1 = dataToGrid({ ...d, gender: 'ذكر' });
-    const r2 = dataToGrid({ college: 'يسر كلية الشريعة', intro: d.intro, degree: 'الدكتوراه في أصول الفقه', gender: 'أنثى', student: 'نورة بنت محمد العتيبي',
-      title: 'عنوان الرسالة هنا\n(دراسة تطبيقية)', day: 'الثلاثاء', date: '1448/5/2 هـ', time: '10 صباحاً', place: 'القاعة الكبرى', placeNote: '(والبث عبر الإنترنت)', link: d.link,
-      committee: [{ name: 'أ.د. ...', title: 'الأستاذ في قسم أصول الفقه', role: 'مشرفاً ومقرراً' }, { name: 'د. ...', title: 'الأستاذ المشارك', role: 'مناقشاً' }] });
-    const ws = XLSX.utils.aoa_to_sheet([GCOLS, r1, r2]);
-    ws['!cols'] = GCOLS.map(h => ({ wch: /العنوان/.test(h) ? 60 : 22 }));
-    ws['!views'] = [{ RTL: true }];
-    const wb = XLSX.utils.book_new();
-    wb.Workbook = { Views: [{ RTL: true }] };
-    XLSX.utils.book_append_sheet(wb, ws, 'المناقشات');
-    XLSX.writeFile(wb, 'نموذج-اعلانات-المناقشات.xlsx');
+    const a = document.createElement('a');
+    a.href = TEMPLATE_URL; a.download = 'نموذج-تعبئة-اعلانات-المناقشات.xlsx';
+    document.body.appendChild(a); a.click(); a.remove();
+    toast('تم تنزيل نموذج التعبئة — عبّئه ثم استورده من «📄 من ملف Excel / CSV»');
   };
 
   // ---------- النوافذ ----------
