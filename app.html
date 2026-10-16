@@ -8,9 +8,9 @@
     // حماية الصفحة: يجب تسجيل الدخول أولاً
     if (!(sessionStorage.getItem('qu_session') || localStorage.getItem('qu_session'))) location.replace('index.html');
   </script>
-  <link rel="stylesheet" href="assets/fonts/fonts.css?v=202610160243">
-  <link rel="stylesheet" href="assets/css/app.css?v=202610160243">
-  <link rel="stylesheet" href="assets/css/poster.css?v=202610160243">
+  <link rel="stylesheet" href="assets/fonts/fonts.css?v=202610160255">
+  <link rel="stylesheet" href="assets/css/app.css?v=202610160255">
+  <link rel="stylesheet" href="assets/css/poster.css?v=202610160255">
 </head>
 <body>
   <div class="topbar">
@@ -252,7 +252,11 @@
           <span class="hint" id="gSelCount"></span>
         </div>
       </div>
-      <p class="hint" style="margin:0 0 8px">👁 لعرض أي سطر في التصميم فوق. Google Sheets: «مشاركة» ← «أي شخص لديه الرابط» (عارض). الخانات الفاضية تاخذ قيمتها من التصميم الحالي، وفي العنوان استخدم | لسطر جديد.</p>
+      <div class="ds-legend">
+        <span><b class="chip warn">ناقص</b> مناقشة قادمة ينقصها شي لتصميم الإعلان (مثل العنوان أو اللجنة)</span>
+        <span><b class="chip conf">تعارض</b> مناقشة قادمة بنفس الوقت والقاعة أو الرابط أو نفس الدكتور مع سطر ثاني</span>
+        <span class="hint">اضغط على العلامة لمعرفة التفاصيل. المناقشات المنتهية ما عليها تنبيهات. 👁 يعرض السطر في التصميم.</span>
+      </div>
       <div class="gridwrap"><table class="sheet" id="sheet"></table></div>
     </section>
   </div>
@@ -455,13 +459,13 @@
   <div class="toast" id="toast"></div>
   <div class="export-root"><div id="exportPoster"></div></div>
 
-  <script src="assets/vendor/xlsx.full.min.js?v=202610160243"></script>
-  <script src="assets/vendor/jszip.min.js?v=202610160243"></script>
-  <script src="assets/vendor/jspdf.umd.min.js?v=202610160243"></script>
-  <script src="assets/vendor/qrcode.js?v=202610160243"></script>
-  <script src="assets/vendor/html-to-image.js?v=202610160243"></script>
-  <script src="assets/js/auth.js?v=202610160243"></script>
-  <script src="assets/js/poster.js?v=202610160243"></script>
-  <script src="assets/js/app.js?v=202610160243"></script>
+  <script src="assets/vendor/xlsx.full.min.js?v=202610160255"></script>
+  <script src="assets/vendor/jszip.min.js?v=202610160255"></script>
+  <script src="assets/vendor/jspdf.umd.min.js?v=202610160255"></script>
+  <script src="assets/vendor/qrcode.js?v=202610160255"></script>
+  <script src="assets/vendor/html-to-image.js?v=202610160255"></script>
+  <script src="assets/js/auth.js?v=202610160255"></script>
+  <script src="assets/js/poster.js?v=202610160255"></script>
+  <script src="assets/js/app.js?v=202610160255"></script>
 </body>
 </html>

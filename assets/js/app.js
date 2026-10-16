@@ -46,7 +46,7 @@
     const t = $('#toast');
     t.textContent = msg; t.className = 'toast show' + (err ? ' err' : '');
     if (act) { const b = document.createElement('button'); b.className = 'toast-act'; b.textContent = act.label; b.onclick = () => { act.fn(); t.className = 'toast'; }; t.appendChild(b); }
-    clearTimeout(t._h); t._h = setTimeout(() => { t.className = 'toast'; }, 3500);
+    clearTimeout(t._h); t._h = setTimeout(() => { t.className = 'toast'; }, Math.min(9000, Math.max(3500, String(msg).length * 55)));
   }
   const overlay = {
     show(txt) { $('#overlayText').textContent = txt; $('#overlayBar').style.width = '0'; $('#overlay').classList.add('open'); },
@@ -729,7 +729,7 @@
     computeConflicts();
     const cls = c => /العنوان/.test(c) ? 'w-title' : /رابط/.test(c) ? 'w-link' : /الجنس|اليوم|الوقت|الدور/.test(c) ? 'w-sm' : '';
     $('#sheet').innerHTML = `<thead><tr><th class="n">#</th><th class="act">عرض / نسخ</th>${GCOLS.map(c => `<th class="${/^عضو/.test(c) ? 'mem' : ''}">${c}</th>`).join('')}</tr></thead>
-      <tbody>${grid.map((r, i) => `${(b => b ? `<tr class="wk-sep"><td colspan="${GCOLS.length + 2}"><span>🌙 إجازة أسبوعية</span> الجمعة ${b.fri} · السبت ${b.sat}${b.gap ? ` <small>(بعدها ${b.gap === 1 ? 'أسبوع' : b.gap + ' أسابيع'} بدون مناقشات)</small>` : ''}</td></tr>` : '')(weekBreak(i))}<tr data-r="${i}" class="${gridSel.has(i) ? 'sel' : ''} ${i === activeRow ? 'active' : ''} ${missingOf(r).length ? 'incomplete' : ''} ${conflicts.has(i) ? 'conflict' : ''}"><td class="n"><label><input type="checkbox" data-gsel ${gridSel.has(i) ? 'checked' : ''}>${i + 1}</label>${warnHtml(r)}${conflictHtml(i)}</td><td class="act"><button data-view title="عرض في التصميم">👁</button><button data-dup title="تكرار السطر (نفس اللجنة لطالب آخر)">⧉</button><button data-msg="invite" class="msg-b" title="نسخ رسالة الدعوة">دعوة</button><button data-wa="invite" class="wa-i" title="إرسال الدعوة بالواتساب">💬</button><button data-msg="record" class="msg-b ${r[GCOLS.indexOf('رابط التسجيل')] ? 'has' : ''}" title="نسخ رسالة التسجيل">تسجيل</button><button data-wa="record" class="wa-i" title="إرسال التسجيل بالواتساب">💬</button></td>${
+      <tbody>${grid.map((r, i) => `${(b => b ? `<tr class="wk-sep"><td colspan="${GCOLS.length + 2}"><span>🌙 إجازة أسبوعية</span> الجمعة ${b.fri} · السبت ${b.sat}${b.gap ? ` <small>(بعدها ${b.gap === 1 ? 'أسبوع' : b.gap + ' أسابيع'} بدون مناقشات)</small>` : ''}</td></tr>` : '')(weekBreak(i))}<tr data-r="${i}" class="${gridSel.has(i) ? 'sel' : ''} ${i === activeRow ? 'active' : ''} ${missingOf(r).length ? 'incomplete' : ''} ${isPast(r) ? 'past' : ''} ${conflicts.has(i) ? 'conflict' : ''}"><td class="n"><label><input type="checkbox" data-gsel ${gridSel.has(i) ? 'checked' : ''}>${i + 1}</label>${warnHtml(r)}${conflictHtml(i)}</td><td class="act"><button data-view title="عرض في التصميم">👁</button><button data-dup title="تكرار السطر (نفس اللجنة لطالب آخر)">⧉</button><button data-msg="invite" class="msg-b" title="نسخ رسالة الدعوة">دعوة</button><button data-wa="invite" class="wa-i" title="إرسال الدعوة بالواتساب">💬</button><button data-msg="record" class="msg-b ${r[GCOLS.indexOf('رابط التسجيل')] ? 'has' : ''}" title="نسخ رسالة التسجيل">تسجيل</button><button data-wa="record" class="wa-i" title="إرسال التسجيل بالواتساب">💬</button></td>${
         GCOLS.map((c, j) => `<td><input type="text" class="${cls(c)}" data-c="${j}" value="${esc(r[j] || '')}"${pickOf(c) ? ` inputmode="none" data-pick="${pickOf(c)}"` : ''}${c === 'رابط البث' ? ' dir="ltr" placeholder="يوتيوب (افتراضي)"' : c === 'رابط اللجنة' ? ' dir="ltr" placeholder="زوم (اختياري)"' : c === 'رابط التسجيل' ? ' dir="ltr" placeholder="بعد المناقشة"' : ''}></td>`).join('')}</tr>`).join('')}</tbody>`;
     updateGridInfo();
     const b = $('#gConflicts'); if (b) { b.hidden = !conflicts.size; b.textContent = `🔴 ${conflicts.size} سطر فيه تعارض`; }
@@ -739,8 +739,14 @@
   const gridOfState = () => dataToGrid({ ...state, gender: /طالبة/.test(state.by || '') ? 'أنثى' : 'ذكر' });
   // الحقول الأساسية لكل إعلان؛ السطر الناقص يظهر عليه ⚠️
   const REQUIRED = ['الطالب', 'الدرجة', 'العنوان', 'التاريخ', 'الوقت', 'المكان', 'عضو1 الاسم'];
-  function missingOf(r) { return isEmptyRow(r) ? [] : REQUIRED.filter(c => !String(r[GCOLS.indexOf(c)] || '').trim()); }
-  function warnHtml(r) { const m = missingOf(r); return m.length ? ` <span class="warn" title="ناقص: ${esc(m.join('، '))}">⚠️</span>` : ''; }
+  // المناقشات التي مضى تاريخها لا تحتاج تنبيهات (لا نقص ولا تعارض)
+  const TODAY_H = todayHijri();
+  function isPast(r) {
+    const m = toLatin(r[CI('التاريخ')] || '').match(/(\d{4})\D+(\d{1,2})\D+(\d{1,2})/);
+    return !!m && TODAY_H > 0 && +m[1] * 10000 + +m[2] * 100 + +m[3] < TODAY_H;
+  }
+  function missingOf(r) { return isEmptyRow(r) || isPast(r) ? [] : REQUIRED.filter(c => !String(r[GCOLS.indexOf(c)] || '').trim()); }
+  function warnHtml(r) { const m = missingOf(r); return m.length ? ` <button class="chip warn" data-why="${esc('ناقص لتصميم الإعلان: ' + m.join('، '))}">ناقص</button>` : ''; }
   function updRowWarn(i) {
     const tr = $(`#sheet tr[data-r="${i}"]`); if (!tr) return;
     const td = tr.querySelector('td.n'); const w = td.querySelector('.warn'); if (w) w.remove();
@@ -790,8 +796,9 @@
   let conflicts = new Map(); // رقم السطر → [{other, kind, exact, name}]
   function computeConflicts() {
     conflicts = new Map();
-    const slots = grid.map(slotOf);
+    const slots = grid.map(r => isPast(r) ? null : slotOf(r));
     for (let i = 0; i < slots.length; i++) for (let j = i + 1; j < slots.length; j++) {
+      if (!slots[i] || !slots[j]) continue;
       const c = clash(slots[i], slots[j]); if (!c) continue;
       c.forEach(x => {
         (conflicts.get(i) || conflicts.set(i, []).get(i)).push({ ...x, other: j });
@@ -812,7 +819,7 @@
   }
   function conflictHtml(i) {
     const list = conflicts.get(i); if (!list) return '';
-    return ` <span class="conf" title="${esc(conflictText(i, list).join('\n'))}">🔴</span>`;
+    return ` <button class="chip conf" data-why="${esc(conflictText(i, list).join('\n'))}">تعارض</button>`;
   }
   function refreshConflicts() {
     computeConflicts();
@@ -844,7 +851,7 @@
     const me = slotOf(dataToGrid({ ...state, gender: '', link: state.opt && state.opt.qr ? state.link : '' }));
     const hits = [];
     grid.forEach((r, i) => {
-      if (i === activeRow) return;
+      if (i === activeRow || isPast(r)) return;
       const c = clash(me, slotOf(r)); if (!c) return;
       const who = r[CI('الطالب')] || 'بدون اسم';
       if (nrm(who) === nrm(state.student)) return; // نفس الإعلان
@@ -916,6 +923,10 @@
     const co = inp.closest('tr').querySelector(`input[data-c="${GCOLS.indexOf('منسق الحجز')}"]`), me = QSuggest.last('coord');
     if (co && !co.value.trim() && me) { co.value = me; co.dispatchEvent(new Event('input', { bubbles: true })); }
   });
+  $('#sheet').addEventListener('click', e => { // شرح علامة «ناقص» أو «تعارض» عند الضغط
+    const c = e.target.closest('[data-why]'); if (!c) return;
+    e.preventDefault(); e.stopPropagation(); toast(c.dataset.why, c.classList.contains('conf'));
+  }, true);
   $('#sheet').addEventListener('change', e => {
     if (!e.target.matches('[data-gsel]')) return;
     const tr = e.target.closest('tr'), r = +tr.dataset.r;
@@ -983,7 +994,7 @@
   // بيانات الكلية المشتركة (جدول حجز القاعة): تُضاف للجدول مرة لكل إصدار بدون تكرار ثم يُرتّب
   (async function loadShared() {
     try {
-      const res = await fetch('assets/data/defenses.json?v=202610160243', { cache: 'no-cache' }); if (!res.ok) return;
+      const res = await fetch('assets/data/defenses.json?v=202610160255', { cache: 'no-cache' }); if (!res.ok) return;
       const data = await res.json(), seenKey = userKey('sharedv');
       if (!data || !data.v || localStorage.getItem(seenKey) === data.v) return;
       const demo = new Set(SAMPLES.map(x => JSON.stringify(dataToGrid(x)))); // الأمثلة غير المعدّلة تُستبدل بالبيانات الحقيقية
@@ -1216,7 +1227,7 @@
   if (savedSheet) { $('#sheetUrl').value = savedSheet; $('#refreshSheet').hidden = false; }
 
   // نموذج التعبئة الجاهز (منسّق، بقوائم اختيار وورقة شرح)
-  const TEMPLATE_URL = 'assets/templates/template.xlsx?v=202610160243';
+  const TEMPLATE_URL = 'assets/templates/template.xlsx?v=202610160255';
   // نموذج Google Sheets: يفتح نسخة جديدة منه في حسابك (أنشئ نسختك ثم عبّئها)
   const GSHEET_TEMPLATE = 'https://docs.google.com/spreadsheets/d/1UeSeDlmeC8X-bhU-4uUWxqbu2aTQFDURwSryk6Z49to/copy';
   $('#gsCopy').href = GSHEET_TEMPLATE;
