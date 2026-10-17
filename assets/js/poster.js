@@ -84,8 +84,8 @@
   };
 
   // الصور الافتراضية مأخوذة من التصميم الأصلي (يمكن استبدالها من تبويب المظهر)
-  const DEFAULT_LOGO = 'assets/img/logo.png?v=202610161159';
-  const DEFAULT_BUILDING = 'assets/img/building.jpg?v=202610161159';
+  const DEFAULT_LOGO = 'assets/img/logo.png?v=202610170013';
+  const DEFAULT_BUILDING = 'assets/img/building.jpg?v=202610170013';
 
   // ---------- الزخارف ----------
   function star8(cx, cy, r, color, sw) {
@@ -126,7 +126,7 @@
 
   // ---------- النسخة المطابقة للتصميم الأصلي (1045×1505) ----------
   // الخلفية هي التصميم الأصلي نفسه بعد مسح النصوص المتغيرة، وتُكتب النصوص الجديدة بنفس المواضع والخط والألوان.
-  const EXACT_BG = 'assets/img/template.jpg?v=202610161159';
+  const EXACT_BG = 'assets/img/template.jpg?v=202610170013';
   // cx: مركز النص، rx: الحافة اليمنى، y: منتصف النص، w: أقصى عرض، s: الحجم، dy: تصحيح رأسي
   const EXACT = {
     college: { cx: 524, y: 269.5, w: 430, s: 30.4, wt: 600, c: '#0d5a5e', dy: -3 },
@@ -252,6 +252,7 @@
     const hideCommittee = f.compact || (wide && o.compactWide);
     el.className = 'qp';
     el.dataset.layout = f.layout;
+    el.dataset.fmt = f.id || '';
     el.dataset.format = f.id;
     el.style.cssText = `width:${f.w}px;height:${f.h}px;--p:${t.primary};--d:${t.dark};--l:${t.light};--a:${t.accent};--title:${o.titleSize || 34}px;--footer:${f.footer}px;`;
     if (state.assets.bg) el.style.backgroundImage = `url("${state.assets.bg}")`;

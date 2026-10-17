@@ -2,7 +2,7 @@
 (function () {
   'use strict';
   // تحديث تلقائي: إذا نُشرت نسخة أحدث من المفتوحة يُعاد تحميل الصفحة (يتجاوز ذاكرة المتصفح المؤقتة)
-  const APP_V = '?v=202610161159'.slice(3);
+  const APP_V = '?v=202610170013'.slice(3);
   let lastVCheck = 0;
   function checkVersion() {
     if (location.protocol === 'file:' || Date.now() - lastVCheck < 60000) return;
@@ -1075,7 +1075,7 @@
   // بيانات الكلية المشتركة (جدول حجز القاعة): تُضاف للجدول مرة لكل إصدار بدون تكرار ثم يُرتّب
   (async function loadShared() {
     try {
-      const res = await fetch('assets/data/defenses.json?v=202610161159', { cache: 'no-cache' }); if (!res.ok) return;
+      const res = await fetch('assets/data/defenses.json?v=202610170013', { cache: 'no-cache' }); if (!res.ok) return;
       const data = await res.json(), seenKey = userKey('sharedv');
       if (!data || !data.v || localStorage.getItem(seenKey) === data.v) return;
       const demo = new Set(SAMPLES.map(x => JSON.stringify(dataToGrid(x)))); // الأمثلة غير المعدّلة تُستبدل بالبيانات الحقيقية
@@ -1425,7 +1425,7 @@
   if (savedSheet) { $('#sheetUrl').value = savedSheet; $('#refreshSheet').hidden = false; }
 
   // نموذج التعبئة الجاهز (منسّق، بقوائم اختيار وورقة شرح)
-  const TEMPLATE_URL = 'assets/templates/template.xlsx?v=202610161159';
+  const TEMPLATE_URL = 'assets/templates/template.xlsx?v=202610170013';
   // نموذج Google Sheets: يفتح نسخة جديدة منه في حسابك (أنشئ نسختك ثم عبّئها)
   const GSHEET_TEMPLATE = 'https://docs.google.com/spreadsheets/d/1UeSeDlmeC8X-bhU-4uUWxqbu2aTQFDURwSryk6Z49to/copy';
   $('#gsCopy').href = GSHEET_TEMPLATE;
@@ -1974,6 +1974,8 @@
     $('#sendWarn').textContent = missing ? '⚠️ ما فيه رابط تسجيل. أضفه في خانة «رابط التسجيل» (أو في عمود السطر بالجدول) ثم ارجع هنا.' : '';
     $('#sendText').value = missing ? '' : buildMsg(kind, SEND.s);
   }
+  // صورة رسائل الواتساب (الدعوة والتسجيل): مقاس الستوري 1080×1920
+  const SEND_FMT = () => FORMATS.find(f => f.id === 'story') || FORMATS[0];
   async function openSend(s, kind, readyBlob) {
     SEND.s = s; SEND.blob = null; SEND.file = null;
     sendSetKind(kind || (String(s.recordingLink || '').trim() ? 'record' : 'invite'));
@@ -1986,11 +1988,11 @@
     openModal('#mSend');
     try {
       if (readyBlob) SEND.blob = readyBlob;
-      else { const cv = await capture(s, FORMATS[0], 2); SEND.blob = await new Promise(r => cv.toBlob(r, 'image/jpeg', 0.93)); } // الصورة الأصلية الكاملة
+      else { const cv = await capture(s, SEND_FMT(), 1); SEND.blob = await new Promise(r => cv.toBlob(r, 'image/jpeg', 0.93)); } // مقاس الستوري
       SEND.file = new File([SEND.blob], `${safeName(s.student || 'اعلان')}.jpg`, { type: 'image/jpeg' });
       if (img._url) URL.revokeObjectURL(img._url);
       img._url = URL.createObjectURL(SEND.blob); img.src = img._url;
-      $('#sendImgNote').textContent = 'الصورة الأصلية الكاملة — جاهزة ✓';
+      $('#sendImgNote').textContent = 'صورة بمقاس الستوري (1080×1920) — جاهزة ✓';
     } catch (e) { $('#sendImgNote').textContent = 'تعذّر تجهيز الصورة'; }
   }
   $$('[data-send]').forEach(b => b.onclick = () => sendSetKind(b.dataset.send));
@@ -2033,7 +2035,7 @@
     const text = buildMsg(kind, s);
     overlay.show('جارٍ تجهيز الصورة للواتساب...');
     let blob;
-    try { const cv = await capture(s, FORMATS[0], 2); blob = await new Promise(r => cv.toBlob(r, 'image/jpeg', 0.93)); }
+    try { const cv = await capture(s, SEND_FMT(), 1); blob = await new Promise(r => cv.toBlob(r, 'image/jpeg', 0.93)); }
     catch (e) { overlay.hide(); return toast('تعذّر تجهيز الصورة', true); }
     overlay.hide();
     const file = new File([blob], `${safeName(s.student || 'اعلان')}.jpg`, { type: 'image/jpeg' });
