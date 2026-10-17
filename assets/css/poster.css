@@ -160,10 +160,3 @@
 .qr-logo { position: absolute; left: 50%; top: 50%; width: 21%; height: 21%; transform: translate(-50%, -50%);
   background: #fff; border-radius: 22%; padding: 3%; box-sizing: content-box; display: grid; place-items: center; }
 .qr-logo svg { width: 100%; height: 100%; display: block; }
-
-/* الستوري و A4: شريط المعلومات شبكة 2×2 مرتبة (التاريخ | الوقت — المكان | QR) بدل صف واحد مزحوم */
-.qp[data-layout="tall"] .qp-info { display: grid; grid-template-columns: 1fr 1fr; gap: 22px 18px; padding: 24px 30px; align-items: center; justify-items: start; }
-.qp[data-layout="tall"] .qp-sep { display: none; }
-.qp[data-layout="tall"] .qp-info-text { white-space: nowrap; }
-.qp[data-layout="tall"] .qp-info-text b { font-size: 31px; }
-.qp[data-layout="tall"] .qp-info:not(:has(.qp-qr)) .qp-info-item:last-child { grid-column: span 2; }
