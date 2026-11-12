@@ -474,6 +474,7 @@
       Object.assign(item, { title: titleOf(s), updatedAt: now, state: clone(s), thumb: await thumbOf(s),
         versions: (existing ? existing.versions || 1 : 0) + 1 });
       const id = await HDB.put(item);
+      if (window.QDetails) QDetails.record(s);   // العنوان واللجنة لشاشة OBS (details.js)
       if (s === state) setEditing(id, item.title);
       if (window.QSuggest) QSuggest.refreshHistory();
       if (!quiet) toast(existing ? 'تم تحديث التصميم في السجل ✓' : 'تم الحفظ في السجل ✓');
@@ -481,6 +482,8 @@
     } catch (e) { console.error(e); toast('تعذّر الحفظ في السجل', true); return null; }
   }
 
+  // أول تشغيل بوجود رمز النشر: تفاصيل كل التصاميم الموجودة في السجل لشاشة OBS
+  setTimeout(async () => { try { if (window.QDetails) QDetails.backfill(await HDB.list()); } catch (e) {} }, 4000);
   async function renderHistory() {
     const q = $('#histSearch').value.trim();
     let list = (await HDB.list()).sort((a, b) => b.updatedAt - a.updatedAt);
