@@ -3,22 +3,24 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>الندوات – مصمم الإعلانات</title>
+  <title>مصمم إعلانات الندوات</title>
   <script>
     // حماية الصفحة: يجب تسجيل الدخول أولاً (مثل صفحة المناقشات)
     if (!(sessionStorage.getItem('qu_session') || localStorage.getItem('qu_session'))) location.replace('index.html');
   </script>
-  <link rel="stylesheet" href="assets/fonts/fonts.css?v=202611120001">
-  <link rel="stylesheet" href="assets/css/app.css?v=202611120001">
-  <link rel="stylesheet" href="assets/css/seminars.css?v=202611120007">
+  <link rel="stylesheet" href="assets/fonts/fonts.css?v=202611130001">
+  <link rel="stylesheet" href="assets/css/app.css?v=202611130001">
+  <link rel="stylesheet" href="assets/css/seminars.css?v=202611130001">
 </head>
-<body>
+<body class="sem-page">
   <div class="topbar">
-    <div class="brand"><img class="brand-logo" src="assets/img/logo.png?v=202610170020" alt=""><span class="brand-title">ندوات كلية الشريعة</span></div>
+    <div class="brand"><img class="brand-logo" src="assets/img/logo.png?v=202610170020" alt=""><span class="brand-title">مصمم إعلانات الندوات</span></div>
     <div class="spacer"></div>
     <span class="who" id="who"></span>
     <div class="tb-actions">
-      <a class="btn sm" href="app.html?v=202610170020" title="إعلانات المناقشات">📢<span class="lbl"> المناقشات</span></a>
+      <a class="btn sm" href="app.html?v=202611130001" title="إعلانات المناقشات">📢<span class="lbl"> المناقشات</span></a>
+      <button class="btn sm" id="btnHelp" title="دليل الاستخدام">❓<span class="lbl"> الدليل</span></button>
+      <button class="btn sm" id="btnSheet" title="جدول البيانات">📋<span class="lbl"> جدول البيانات</span></button>
       <button class="btn sm" id="btnSetup" title="إعداد النشر" hidden>⚙️<span class="lbl"> إعداد النشر</span></button>
       <button class="btn sm" id="btnLogout" title="خروج">⏻<span class="lbl"> خروج</span></button>
     </div>
@@ -29,91 +31,235 @@
     <button class="btn primary" id="btnPublish">🌐 نشر الندوات</button>
   </div>
 
-  <div class="sem-layout">
-    <!-- قائمة الندوات -->
-    <aside class="panel sem-list">
-      <button class="btn primary sem-new" id="btnNew">➕ ندوة جديدة</button>
-      <input type="search" id="search" class="sem-search" placeholder="بحث بالعنوان أو اسم مشارك" aria-label="بحث">
-      <ol id="list" class="sem-items"></ol>
-      <p id="listEmpty" class="sem-empty" hidden>لا توجد ندوات بعد. اضغط «ندوة جديدة».</p>
+  <div class="layout">
+    <!-- لوحة التحرير -->
+    <aside class="panel side">
+      <div class="tabs">
+        <button data-tab="content" class="active">المحتوى</button>
+        <button data-tab="programme">البرنامج</button>
+        <button data-tab="design">المظهر</button>
+      </div>
+      <div class="tab-body">
+        <!-- المحتوى -->
+        <div class="tab-pane active" data-pane="content">
+          <div class="group-title">الندوة</div>
+          <div class="field"><label for="f_title">عنوان الندوة</label><textarea id="f_title" data-k="title" rows="2"></textarea></div>
+          <div class="field"><label for="f_subtitle">عنوان فرعي</label><input type="text" id="f_subtitle" data-k="subtitle"></div>
+          <div class="field"><label for="f_series">النوع / الاسم</label>
+            <div class="chips" style="margin-bottom:6px" id="seriesChips">
+              <button class="chip" data-series="ندوة">ندوة</button>
+              <button class="chip" data-series="الملتقى العلمي">ملتقى</button>
+              <button class="chip" data-series="حلقة نقاش">حلقة نقاش</button>
+              <button class="chip" data-series="لقاء علمي">لقاء علمي</button>
+            </div>
+            <input type="text" id="f_series" data-k="series" list="series" placeholder="ندوة"></div>
+          <datalist id="series"><option value="ندوة"><option value="الملتقى العلمي"><option value="حلقة نقاش"><option value="لقاء علمي"></datalist>
+          <div class="row2">
+            <div class="field"><label for="f_dept">القسم المنظِّم</label><input type="text" id="f_dept" data-k="department" list="depts" placeholder="قسم الفقه"></div>
+            <div class="field"><label for="f_org">الجهة</label><input type="text" id="f_org" data-k="organizer"></div>
+          </div>
+          <datalist id="depts"><option value="قسم الفقه"><option value="قسم أصول الفقه"><option value="قسم العقيدة والمذاهب المعاصرة"><option value="قسم القرآن وعلومه"><option value="قسم السنة وعلومها"></datalist>
+
+          <div class="group-title">الموعد والمكان</div>
+          <div class="field"><label for="f_date">التاريخ الميلادي (يُحسب اليوم والهجري تلقائياً)</label><input type="date" id="f_date" data-k="date"><small id="hijri" class="hint"></small></div>
+          <div class="row2">
+            <div class="field"><label for="f_start">من الساعة</label><input type="time" id="f_start" data-k="start"></div>
+            <div class="field"><label for="f_end">إلى الساعة</label><input type="time" id="f_end" data-k="end"></div>
+          </div>
+          <div class="row2">
+            <div class="field"><label for="f_place">المكان</label><input type="text" id="f_place" data-k="place" list="places"></div>
+            <div class="field"><label for="f_pnote">ملاحظة المكان</label><input type="text" id="f_pnote" data-k="place_note" list="pnotes"></div>
+          </div>
+          <datalist id="places"><option value="قاعة ابن عثيمين"><option value="عن بعد"></datalist>
+          <datalist id="pnotes"><option value="(والبث عبر الإنترنت)"><option value="(عبر الإنترنت)"></datalist>
+          <div class="field"><label for="f_status">الحالة</label>
+            <select id="f_status" data-k="status"><option value="confirmed">مؤكدة</option><option value="postponed">مؤجلة</option><option value="cancelled">ملغاة</option></select></div>
+          <div class="conf-note" id="formConflict" hidden></div>
+
+          <div class="qrbox">
+            <div style="font-weight:700;font-size:13px;color:var(--brand-d)">رابط البث</div>
+            <label class="check" style="margin:0"><input type="checkbox" id="qrOn"> إضافة رابط البث للإعلان (يظهر كرمز QR)</label>
+            <div id="linkRow" hidden>
+              <div style="display:flex;gap:6px">
+                <input type="url" id="f_link" data-k="link" dir="ltr" placeholder="https://..." style="flex:1;min-width:0;padding:8px 10px;border:1px solid var(--line);border-radius:9px">
+                <button class="btn sm" id="linkDefault" title="رابط قناة اليوتيوب">↺ اليوتيوب</button>
+              </div>
+              <div class="hint" style="margin-top:4px">تقدر تحط أي رابط: يوتيوب، بلاك بورد، زوم، تيمز أو أي منصة.</div>
+            </div>
+          </div>
+
+          <div class="group-title">رسالة واتساب</div>
+          <div class="msg-actions">
+            <button class="btn primary" id="copyInvite">📋 نسخ رسالة الدعوة</button>
+            <button class="btn wa-btn wa-mini" id="waInvite" title="إرسال بالواتساب (الصورة + الرسالة)">💬 واتساب</button>
+          </div>
+
+          <div class="group-title">ملاحظات</div>
+          <div class="field"><label for="f_pub">ملاحظة تظهر في الإعلان</label><input type="text" id="f_pub" data-k="public_note" placeholder="مثال: الطالبات: قاعة الاجتماعات / شطر الطالبات"></div>
+          <div class="field"><label for="f_notes">ملاحظات داخلية (لا تظهر في الإعلان)</label><textarea id="f_notes" data-k="notes" rows="2"></textarea></div>
+        </div>
+
+        <!-- البرنامج -->
+        <div class="tab-pane" data-pane="programme">
+          <p class="hint" style="margin-top:0">أضف البنود بالترتيب: افتتاح، ثم جلسة وتحتها أوراقها، ثم استراحة… ↑↓ لتغيير الترتيب. لا شيء إجباري.</p>
+          <ol id="parts" class="prog"></ol>
+          <div class="add-row" role="group" aria-label="إضافة بند">
+            <button class="btn" data-add="opening">➕ افتتاح</button>
+            <button class="btn" data-add="session">➕ جلسة</button>
+            <button class="btn primary" data-add="paper">➕ ورقة / متحدث</button>
+            <button class="btn" data-add="discussion">➕ مداخلات</button>
+            <button class="btn" data-add="break">➕ استراحة</button>
+            <button class="btn" data-add="closing">➕ ختام</button>
+          </div>
+        </div>
+
+        <!-- المظهر -->
+        <div class="tab-pane" data-pane="design">
+          <div class="group-title">الترويسة</div>
+          <select id="f_hdr" data-k="poster_header" class="sem-select"><option value="simple">الشعار في الوسط</option><option value="official">ترويسة رسمية (المملكة / الوزارة / الجامعة)</option></select>
+          <div class="group-title">شكل البرنامج</div>
+          <select id="f_lay" data-k="programme_layout" class="sem-select"><option value="cells">خلايا ملوّنة</option><option value="table">جدول مرقّم</option></select>
+          <p class="hint">الإعلان يتبع نماذج إعلانات الجامعة للندوات: الترويسة، ثم العنوان، ثم البرنامج بالأوقات، ثم الموعد والمكان ورمز البث.</p>
+        </div>
+      </div>
     </aside>
 
-    <!-- النموذج -->
-    <section class="panel sem-form" aria-labelledby="formTitle">
-      <h2 id="formTitle" class="group-title">بيانات الندوة</h2>
-      <div class="field"><label for="f_title">عنوان الندوة *</label><input type="text" id="f_title" data-k="title" required></div>
-      <div class="field"><label for="f_subtitle">عنوان فرعي (اختياري)</label><input type="text" id="f_subtitle" data-k="subtitle"></div>
-      <div class="row3">
-        <div class="field"><label for="f_series">النوع / الاسم (مثال: الملتقى العلمي الرابع)</label><input type="text" id="f_series" data-k="series" list="series" placeholder="ندوة"></div>
-        <div class="field"><label for="f_dept">القسم المنظِّم</label><input type="text" id="f_dept" data-k="department" list="depts" placeholder="قسم الفقه"></div>
-        <div class="field"><label for="f_org">الجهة</label><input type="text" id="f_org" data-k="organizer"></div>
-      </div>
-      <datalist id="series"><option value="ندوة"><option value="الملتقى العلمي"><option value="حلقة نقاش"><option value="لقاء علمي"></datalist>
-      <datalist id="depts"><option value="قسم الفقه"><option value="قسم أصول الفقه"><option value="قسم العقيدة والمذاهب المعاصرة"><option value="قسم القرآن وعلومه"><option value="قسم السنة وعلومها"></datalist>
-      <div class="row3">
-        <div class="field"><label for="f_date">التاريخ *</label><input type="date" id="f_date" data-k="date" required><small id="hijri" class="hint"></small></div>
-        <div class="field"><label for="f_start">من الساعة *</label><input type="time" id="f_start" data-k="start" required></div>
-        <div class="field"><label for="f_end">إلى الساعة</label><input type="time" id="f_end" data-k="end"></div>
-      </div>
-      <div class="row2">
-        <div class="field"><label for="f_place">المكان</label><input type="text" id="f_place" data-k="place" list="places"></div>
-        <div class="field"><label for="f_pnote">ملاحظة المكان</label><input type="text" id="f_pnote" data-k="place_note" list="pnotes"></div>
-      </div>
-      <datalist id="places"><option value="قاعة ابن عثيمين"><option value="عن بعد"></datalist>
-      <datalist id="pnotes"><option value="(والبث عبر الإنترنت)"><option value="(عبر الإنترنت)"></datalist>
-      <div class="row2">
-        <div class="field"><label for="f_link">رابط البث (يظهر كرمز QR)</label><input type="url" id="f_link" data-k="link" dir="ltr" placeholder="https://"></div>
-        <div class="field"><label for="f_status">الحالة</label>
-          <select id="f_status" data-k="status"><option value="confirmed">مؤكدة</option><option value="postponed">مؤجلة</option><option value="cancelled">ملغاة</option></select></div>
+    <!-- المعاينة والتصدير -->
+    <main class="main">
+      <div class="panel toolbar">
+        <div class="editing-bar">
+          <span class="hint"><span id="editingLabel"></span> <span id="savedFlag" class="saved-flag"></span></span>
+          <span style="display:flex;gap:6px;flex-wrap:wrap">
+            <button class="btn sm" id="btnDup" title="نسخة جديدة من هذه الندوة">📄 حفظ كنسخة جديدة</button>
+            <button class="btn sm" id="btnNew">➕ ندوة جديدة</button>
+            <button class="btn sm danger" id="btnDelete">🗑️ حذف الندوة</button>
+          </span>
+        </div>
+        <span class="label">المعاينة:</span>
+        <div class="chips" id="previewFormats">
+          <button class="chip active" data-size="programme">برنامج الندوة</button>
+          <button class="chip" data-size="post">منشور 1080×1350</button>
+          <button class="chip" data-size="story">ستوري 1080×1920</button>
+        </div>
       </div>
 
-      <h3 class="group-title">برنامج الندوة (بالترتيب)</h3>
-      <p class="hint">أضف البنود بالترتيب: افتتاح، ثم جلسة وتحتها أوراقها، ثم استراحة… استخدم ↑↓ لتغيير الترتيب.</p>
-      <ol id="parts" class="prog"></ol>
-      <div class="add-row" role="group" aria-label="إضافة بند">
-        <button class="btn" data-add="opening">➕ افتتاح</button>
-        <button class="btn" data-add="session">➕ جلسة</button>
-        <button class="btn primary" data-add="paper">➕ ورقة / متحدث</button>
-        <button class="btn" data-add="discussion">➕ مداخلات</button>
-        <button class="btn" data-add="break">➕ استراحة</button>
-        <button class="btn" data-add="closing">➕ ختام</button>
+      <div class="panel" style="overflow:hidden" id="previewPanel">
+        <div class="prev-stage" id="stage" title="اضغط للعرض بحجم كامل"><div id="poster" class="qs" data-size="programme"></div></div>
       </div>
 
-      <h3 class="group-title">إعدادات الإعلان</h3>
-      <div class="row2">
-        <div class="field"><label for="f_hdr">الترويسة</label>
-          <select id="f_hdr" data-k="poster_header"><option value="simple">الشعار في الوسط</option><option value="official">ترويسة رسمية (المملكة / الوزارة / الجامعة)</option></select></div>
-        <div class="field"><label for="f_lay">شكل البرنامج</label>
-          <select id="f_lay" data-k="programme_layout"><option value="cells">خلايا ملوّنة</option><option value="table">جدول مرقّم</option></select></div>
+      <div class="panel export" id="exportPanel">
+        <h3>التحميل</h3>
+        <div class="export-actions">
+          <select id="exType">
+            <option value="png">PNG (أعلى جودة)</option>
+            <option value="jpg">JPG (حجم أصغر)</option>
+            <option value="pdf">PDF</option>
+          </select>
+          <select id="exScale">
+            <option value="1">الدقة الأصلية</option>
+            <option value="2" selected>دقة مضاعفة ×2 (للطباعة)</option>
+          </select>
+          <button class="btn primary" id="exCurrent">⬇️ تحميل التصميم الحالي</button>
+          <button class="btn" id="exRows">📦 تحميل المحدد من الجدول</button>
+          <button class="btn" id="printBtn">🖨️ طباعة</button>
+        </div>
+        <div class="export-actions" style="margin-top:8px">
+          <button class="btn wa-btn" id="btnWa">💬 واتساب</button>
+          <button class="btn" id="shareBtn">📤 مشاركة الصورة</button>
+          <button class="btn" id="copyImgBtn">📋 نسخ الصورة</button>
+          <button class="btn" id="captionBtn">📝 نص للنشر</button>
+          <button class="btn" id="zoomBtn">🔍 عرض بحجم كامل</button>
+        </div>
+        <p class="hint" style="margin:10px 0 0">المقاس حسب «المعاينة» فوق. «تحميل المحدد» يحمّل كل ندوة محددة في الجدول بملف مستقل داخل ملف مضغوط.</p>
       </div>
-      <div class="field"><label for="f_pub">ملاحظة تظهر في الإعلان (اختياري)</label><input type="text" id="f_pub" data-k="public_note" placeholder="مثال: الطالبات: قاعة الاجتماعات / شطر الطالبات"></div>
+    </main>
+  </div>
 
-      <div class="field" style="margin-top:12px"><label for="f_notes">ملاحظات داخلية (لا تظهر في الإعلان)</label><textarea id="f_notes" data-k="notes"></textarea></div>
-
-      <div class="form-actions">
-        <button class="btn primary" id="btnSave">💾 حفظ</button>
-        <button class="btn danger" id="btnDelete">🗑️ حذف الندوة</button>
+  <div class="ds-outer">
+    <!-- جدول بيانات الندوات -->
+    <section class="panel datasheet" id="dataSheet">
+      <div class="ds-head">
+        <h3>📋 جدول بيانات الندوات <span class="hint" id="gridCount"></span></h3>
+        <button class="btn sm conf-btn" id="gConflicts" hidden></button>
+        <span class="hint">كل سطر = ندوة. اكتب مباشرة في الخانات وتنحفظ تلقائياً. 👁 يعرض السطر في التصميم، والبرنامج يُعبّأ من تبويب «البرنامج».</span>
       </div>
-      <p class="err" id="formErr" role="alert"></p>
-    </section>
-
-    <!-- الإعلان -->
-    <section class="panel sem-preview" aria-label="إعلان الندوة">
-      <div class="prev-bar">
-        <span>الإعلان:</span>
-        <button class="chip active" data-size="programme">برنامج الندوة</button>
-        <button class="chip" data-size="post">منشور 1080×1350</button>
-        <button class="chip" data-size="story">ستوري 1080×1920</button>
+      <div class="ds-tools">
+        <div class="ds-group"><span class="ds-label">الصفوف</span>
+          <button class="btn sm" id="gAdd">➕ ندوة</button>
+          <button class="btn sm" id="gSort" title="ترتيب حسب التاريخ ثم الوقت">↕️ ترتيب بالتاريخ</button>
+          <input type="search" id="search" class="ds-url" placeholder="بحث بالعنوان أو اسم مشارك" aria-label="بحث">
+          <button class="btn sm danger" id="gDel">🗑️ حذف المحدد</button>
+        </div>
+        <div class="ds-group"><span class="ds-label">تصدير</span>
+          <button class="btn sm" id="gExport">⬇️ Excel</button>
+          <button class="btn sm" id="gExportCsv">⬇️ CSV</button>
+        </div>
+        <div class="ds-group"><span class="ds-label">الإعلانات</span>
+          <button class="btn sm" id="gSelAll">☑️ تحديد الكل</button>
+          <button class="btn sm" id="gSelNone">إلغاء التحديد</button>
+          <button class="btn sm primary" id="gDl">📦 تحميل المحدد</button>
+          <span class="hint" id="gSelCount"></span>
+        </div>
       </div>
-      <div class="prev-stage" id="stage"><div id="poster" class="qs" data-size="programme"></div></div>
-      <div class="prev-actions">
-        <button class="btn primary" id="btnPng">⬇️ تحميل PNG</button>
-        <button class="btn" id="btnPdf">📄 تحميل PDF</button>
-        <button class="btn wa" id="btnWa">💬 واتساب</button>
-        <button class="btn" id="btnCopyText">📝 نسخ نص للنشر</button>
+      <div class="ds-legend">
+        <span><b class="chip warn">ناقص</b> ندوة ينقصها شي للإعلان (مثل العنوان أو الموعد أو المتحدثين) — تنبيه فقط، مو إجباري</span>
+        <span><b class="chip conf">تعارض</b> ندوة بنفس اليوم والوقت والقاعة مع سطر ثاني</span>
+      </div>
+      <div class="gridbox">
+        <div class="gridwrap"><table class="sheet" id="sheet"></table></div>
       </div>
     </section>
   </div>
+
+  <!-- إرسال بالواتساب: الصورة + الرسالة -->
+  <div class="modal" id="mSend"><div class="box" style="width:min(760px,100%)">
+    <h2>💬 إرسال بالواتساب <button class="btn sm" data-close>✕</button></h2>
+    <div class="send-grid">
+      <div class="send-img"><img id="sendImg" alt="صورة الإعلان"><div class="hint" id="sendImgNote">جارٍ تجهيز الصورة...</div></div>
+      <div><textarea id="sendText"></textarea></div>
+    </div>
+    <div class="send-actions">
+      <button class="btn wa-btn" id="sendShare">📤 إرسال للواتساب (الصورة + الرسالة)</button>
+      <button class="btn wa-btn" id="sendWeb">💬 واتساب ويب (الرسالة) + نسخ الصورة</button>
+      <button class="btn" id="sendCopy">📋 نسخ الرسالة</button>
+      <button class="btn" id="sendDl">⬇️ تحميل الصورة</button>
+    </div>
+    <p class="hint" id="sendHint" style="margin:8px 0 0"></p>
+  </div></div>
+
+  <!-- نص النشر -->
+  <div class="modal" id="mCaption"><div class="box" style="width:min(620px,100%)">
+    <h2>نص جاهز للنشر <button class="btn sm" data-close>✕</button></h2>
+    <p class="hint" style="margin-top:0">نص الإعلان لواتساب و X والإيميل. تقدر تعدّل عليه قبل النسخ.</p>
+    <textarea id="captionText" style="width:100%;min-height:300px;padding:10px;border:1px solid var(--line);border-radius:10px;line-height:1.8;font:inherit"></textarea>
+    <label class="check"><input type="checkbox" id="capTags" checked> إضافة الوسوم (#جامعة_القصيم #كلية_الشريعة)</label>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn primary" id="capCopy">📋 نسخ النص</button>
+      <a class="btn" id="capWa" target="_blank" rel="noopener">💬 واتساب</a>
+      <a class="btn" id="capX" target="_blank" rel="noopener">𝕏 نشر في X</a>
+    </div>
+  </div></div>
+
+  <!-- عرض بحجم كامل -->
+  <div class="modal zoom" id="mZoom"><div class="zoombox">
+    <button class="btn sm zoom-close" data-close>✕ إغلاق</button>
+    <img id="zoomImg" alt="معاينة الإعلان">
+  </div></div>
+
+  <!-- دليل الاستخدام -->
+  <div class="modal" id="mHelp"><div class="box" style="width:min(680px,100%)">
+    <h2>دليل الاستخدام <button class="btn sm" data-close>✕</button></h2>
+    <div class="howto"><b>١) ندوة واحدة</b><ol>
+      <li>عبّئ «المحتوى» ثم «البرنامج». المعاينة تتحدث مباشرة، وكل شيء ينحفظ تلقائياً. لا توجد خانة إجبارية.</li>
+      <li>اختر المقاس من «المعاينة»، ثم «⬇️ تحميل التصميم الحالي» أو «💬 واتساب».</li>
+      <li>اضغط «🌐 نشر الندوات» لتظهر لكل الأجهزة ولشاشة البث في القاعة.</li></ol></div>
+    <div class="howto"><b>٢) جدول البيانات</b><ol>
+      <li>كل سطر = ندوة. عدّل العنوان والتاريخ والوقت والمكان مباشرة في الجدول.</li>
+      <li>👁 يفتح السطر في التصميم، ⧉ ينسخه لندوة مشابهة، 💬 يرسله بالواتساب.</li>
+      <li>حدد الأسطر واضغط «📦 تحميل المحدد».</li></ol></div>
+    <div class="howto"><b>٣) رابط البث</b><ol>
+      <li>في «المحتوى ← رابط البث» فعّل المربع، ويظهر رمز QR في الإعلان.</li></ol></div>
+  </div></div>
 
   <!-- إعداد النشر (للمدير، مرة واحدة على هذا الجهاز) -->
   <div class="modal" id="mSetup" role="dialog" aria-modal="true" aria-labelledby="setupH">
@@ -136,12 +282,21 @@
     </div>
   </div>
 
+  <div class="overlay" id="overlay"><div id="overlayText">جارٍ التجهيز...</div><div class="progress"><div id="overlayBar"></div></div></div>
+  <nav class="mnav" aria-label="تنقل سريع">
+    <button data-go="side">✏️<span>البيانات</span></button>
+    <button data-go="previewPanel">👁<span>المعاينة</span></button>
+    <button data-go="exportPanel">⬇️<span>التحميل</span></button>
+    <button data-go="dataSheet">📋<span>الجدول</span></button>
+  </nav>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
   <script src="assets/js/auth.js?v=202610170020"></script>
+  <script src="assets/vendor/xlsx.full.min.js?v=202610170020"></script>
+  <script src="assets/vendor/jszip.min.js?v=202610170020"></script>
   <script src="assets/vendor/html-to-image.js?v=202610170020"></script>
   <script src="assets/vendor/qrcode.js?v=202610170020"></script>
   <script src="assets/vendor/jspdf.umd.min.js?v=202610170020"></script>
-  <script src="assets/js/seminars.js?v=202611120004"></script>
+  <script src="assets/js/seminars.js?v=202611130001"></script>
 </body>
 </html>

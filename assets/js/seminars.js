@@ -43,6 +43,7 @@
   let local = loadLocal();                     // {items:{id:sem}, deleted:[id]}
   let current = null;                          // الندوة المفتوحة في النموذج
   let size = 'programme';
+  let sortAsc = false;                         // ترتيب الجدول: الأحدث أولاً (أو الأقدم)
 
   // ---------- أدوات ----------
   function toast(msg, err) {
@@ -78,7 +79,8 @@
     const map = new Map(published.seminars.map(s => [s.id, s]));
     Object.values(local.items).forEach(s => map.set(s.id, s));
     local.deleted.forEach(id => map.delete(id));
-    return Array.from(map.values()).sort((a, b) => (b.date + b.start).localeCompare(a.date + a.start));
+    const arr = Array.from(map.values()).sort((a, b) => (b.date + b.start).localeCompare(a.date + a.start));
+    return sortAsc ? arr.reverse() : arr;
   }
   const pendingCount = () => Object.keys(local.items).length + local.deleted.length;
 
@@ -151,24 +153,95 @@
     $('#btnPublish').disabled = !n;
   }
 
-  // ---------- القائمة ----------
-  function renderList() {
+  // ---------- جدول بيانات الندوات (مثل جدول المناقشات: كل سطر = ندوة، يُعدَّل مباشرة وينحفظ تلقائياً) ----------
+  const YT = 'https://www.youtube.com/@src.sds1';
+  const GCOLS = [   // [المفتاح, العنوان, نوع الخانة, صنف العرض]
+    ['date', 'التاريخ', 'date', 'w-sm'], ['start', 'من', 'time', 'w-sm'], ['end', 'إلى', 'time', 'w-sm'],
+    ['title', 'عنوان الندوة', 'text', 'w-title'], ['series', 'النوع', 'text', ''], ['department', 'القسم', 'text', ''],
+    ['place', 'المكان', 'text', ''], ['status', 'الحالة', 'status', 'w-sm'], ['link', 'رابط البث', 'url', 'w-link']];
+  const gridSel = new Set();
+  let rowsView = [];
+  const speakersOf = (s) => s.participants.filter(isSpeaker);
+  function missingOf(s) {
+    if (s.date && s.date < todayIso()) return [];
+    return [!s.title && 'العنوان', !s.date && 'التاريخ', !s.start && 'وقت البداية', !speakersOf(s).length && 'المتحدثون'].filter(Boolean);
+  }
+  const tmin = (hm) => /^\d{1,2}:\d{2}$/.test(hm || '') ? (+hm.split(':')[0]) * 60 + (+hm.split(':')[1]) : null;
+  // النهاية: بدونها ساعة؛ وإن كانت قبل البداية فالندوة تمتد لبعد منتصف الليل
+  const endMin = (end, start) => { const e = tmin(end); return e == null ? start + 60 : (e <= start ? e + 1440 : e); };
+  const remote = (p) => /عن\s*بعد|زوم|تيمز|zoom/i.test(p || '');
+  function conflictsOf(s, all) {
+    if (!s.date || s.status === 'cancelled' || remote(s.place) || !s.place) return [];
+    const a1 = tmin(s.start); if (a1 == null) return [];
+    const a2 = endMin(s.end, a1);
+    return all.filter(o => o.id !== s.id && o.date === s.date && o.status !== 'cancelled' && o.place && o.place.trim() === s.place.trim() && (() => {
+      const b1 = tmin(o.start); if (b1 == null) return false; const b2 = endMin(o.end, b1); return a1 < b2 && b1 < a2; })());
+  }
+  function renderList() { renderGrid(); }
+  function renderGrid() {
     const q = $('#search').value.trim();
-    const ol = $('#list'); ol.textContent = '';
-    const today = todayIso();
-    const all = merged().filter(s => !q || s.title.includes(q) || s.participants.some(p => p.name.includes(q)));
-    for (const s of all) {
-      const li = el('li'); if (current && current.id === s.id) li.classList.add('active');
-      const t = el('div', 't', s.title || '(بلا عنوان)');
-      if (local.items[s.id]) t.appendChild(el('span', 'tag draft', 'غير منشورة'));
-      if (s.status !== 'confirmed') t.appendChild(el('span', 'tag ' + s.status, STATUS_AR[s.status]));
-      else if (s.date && s.date < today) t.appendChild(el('span', 'tag past', 'منتهية'));
-      li.appendChild(t);
-      li.appendChild(el('div', 'd', [weekday(s.date), hijri(s.date), t12(s.start)].filter(Boolean).join(' · ') + (s.participants.filter(isSpeaker).length ? ` · ${s.participants.filter(isSpeaker).length} متحدثين` : '')));
-      li.onclick = () => openSem(s);
-      ol.appendChild(li);
-    }
-    $('#listEmpty').hidden = all.length > 0;
+    const all = merged();
+    rowsView = all.filter(s => !q || s.title.includes(q) || s.participants.some(p => (p.name || '').includes(q)));
+    const T = $('#sheet'); T.textContent = '';
+    const thead = el('thead'), hr = el('tr');
+    hr.appendChild(el('th', 'n', '#')); hr.appendChild(el('th', 'act', 'عرض / نسخ'));
+    GCOLS.forEach(c => hr.appendChild(el('th', null, c[1]))); hr.appendChild(el('th', null, 'المتحدثون'));
+    thead.appendChild(hr); T.appendChild(thead);
+    const tb = el('tbody'); let nConf = 0;
+    rowsView.forEach((s, i) => {
+      const miss = missingOf(s), conf = conflictsOf(s, all);
+      if (conf.length) nConf++;
+      const tr = el('tr'); tr.dataset.id = s.id;
+      if (gridSel.has(s.id)) tr.classList.add('sel');
+      if (current && current.id === s.id) tr.classList.add('active');
+      if (miss.length) tr.classList.add('incomplete');
+      if (conf.length) tr.classList.add('conflict');
+      if (s.date && s.date < todayIso()) tr.classList.add('past');
+      const n = el('td', 'n'); const lb = el('label'); const cb = el('input'); cb.type = 'checkbox'; cb.checked = gridSel.has(s.id);
+      cb.onchange = () => { cb.checked ? gridSel.add(s.id) : gridSel.delete(s.id); tr.classList.toggle('sel', cb.checked); updSel(); };
+      lb.appendChild(cb); lb.appendChild(document.createTextNode(i + 1)); n.appendChild(lb);
+      if (local.items[s.id]) n.appendChild(el('span', 'chip', 'غير منشورة'));
+      if (miss.length) { const w = el('button', 'chip warn', 'ناقص'); w.type = 'button'; w.onclick = () => toast('ناقص للإعلان: ' + miss.join('، ') + ' (تنبيه فقط)'); n.appendChild(w); }
+      if (conf.length) { const w = el('button', 'chip conf', 'تعارض'); w.type = 'button'; w.onclick = () => toast('بنفس القاعة والوقت مع: ' + conf.map(o => o.title || 'ندوة بلا عنوان').join('، '), true); n.appendChild(w); }
+      tr.appendChild(n);
+      const act = el('td', 'act');
+      const ab = (txt, title, fn, cls) => { const b = el('button', cls || null, txt); b.type = 'button'; b.title = title; b.onclick = fn; act.appendChild(b); };
+      ab('👁', 'عرض في التصميم', () => { openSem(s); $('#previewPanel').scrollIntoView({ behavior: 'smooth', block: 'start' }); });
+      ab('⧉', 'تكرار السطر لندوة مشابهة', () => duplicate(s));
+      ab('💬', 'إرسال بالواتساب', async () => { openSem(s); openSend(); }, 'wa-i');
+      tr.appendChild(act);
+      GCOLS.forEach(([k, , type, cls]) => {
+        const td = el('td'); let inp;
+        if (type === 'status') { inp = el('select'); [['confirmed', 'مؤكدة'], ['postponed', 'مؤجلة'], ['cancelled', 'ملغاة']].forEach(([v, t]) => { const o = el('option', null, t); o.value = v; inp.appendChild(o); }); }
+        else { inp = el('input'); inp.type = type === 'url' ? 'url' : type; if (type === 'url') { inp.dir = 'ltr'; inp.placeholder = 'بدون رابط'; } }
+        if (cls) inp.className = cls;
+        if (type === 'text') inp.type = 'text';
+        inp.value = s[k] || (k === 'status' ? 'confirmed' : '');
+        inp.addEventListener('change', () => {
+          const item = clean(local.items[s.id] || s); item[k] = inp.value; item.updated = new Date().toISOString();
+          local.items[item.id] = item; local.deleted = local.deleted.filter(x => x !== item.id); saveLocal();
+          if (current && current.id === item.id) openSem(item, true); else renderGrid();
+          renderPub(); flagSaved();
+        });
+        td.appendChild(inp); tr.appendChild(td);
+      });
+      const sp = speakersOf(s);
+      tr.appendChild(el('td', null, sp.length ? `${sp.length} — ${sp.slice(0, 2).map(p => p.name).join('، ')}${sp.length > 2 ? '…' : ''}` : '—'));
+      tb.appendChild(tr);
+    });
+    if (!rowsView.length) { const tr = el('tr'); const td = el('td', null, q ? 'لا نتائج للبحث' : 'لا توجد ندوات بعد. اضغط «➕ ندوة».'); td.colSpan = GCOLS.length + 3; tr.appendChild(td); tb.appendChild(tr); }
+    T.appendChild(tb);
+    $('#gridCount').textContent = `(${all.length})`;
+    const b = $('#gConflicts'); b.hidden = !nConf; b.textContent = `🔴 ${nConf} سطر فيه تعارض`;
+    updSel();
+  }
+  function updSel() {
+    [...gridSel].forEach(id => { if (!merged().some(s => s.id === id)) gridSel.delete(id); });
+    $('#gSelCount').textContent = gridSel.size ? `المحدد: ${gridSel.size}` : '';
+  }
+  function duplicate(s) {
+    const c = clean(s); c.id = newId(); c.updated = new Date().toISOString();
+    local.items[c.id] = c; saveLocal(); openSem(c); renderPub(); toast('تمت إضافة نسخة جديدة — عدّل التاريخ والعنوان');
   }
 
   // ---------- النموذج ----------
@@ -179,9 +252,9 @@
     head.appendChild(el('span', 'pk', K.label));
     const tools = el('span', 'ptools');
     const mk = (txt, title, fn) => { const b = el('button', 'pt', txt); b.type = 'button'; b.title = title; b.setAttribute('aria-label', title); b.onclick = fn; tools.appendChild(b); };
-    mk('↑', 'نقل لأعلى', () => { if (li.previousElementSibling) li.parentNode.insertBefore(li, li.previousElementSibling); readForm(); });
-    mk('↓', 'نقل لأسفل', () => { if (li.nextElementSibling) li.parentNode.insertBefore(li.nextElementSibling, li); readForm(); });
-    mk('✕', 'حذف البند', () => { li.remove(); readForm(); });
+    mk('↑', 'نقل لأعلى', () => { if (li.previousElementSibling) li.parentNode.insertBefore(li, li.previousElementSibling); readForm(true); });
+    mk('↓', 'نقل لأسفل', () => { if (li.nextElementSibling) li.parentNode.insertBefore(li.nextElementSibling, li); readForm(true); });
+    mk('✕', 'حذف البند', () => { li.remove(); readForm(true); });
     head.appendChild(tools); li.appendChild(head);
     const grid = el('div', 'pgrid');
     for (const f of K.fields) {
@@ -193,49 +266,75 @@
       w.appendChild(i); grid.appendChild(w);
     }
     li.appendChild(grid);
-    li.addEventListener('input', readForm);
+    li.addEventListener('input', () => readForm(true));
     return li;
   }
 
-  function openSem(s) {
+  // keepGrid: فتح من تعديل الجدول (لا نعيد رسم النموذج إن كان هو نفسه)
+  function openSem(s, fromGrid) {
     current = clean(s);
-    $$('[data-k]').forEach(i => { i.value = current[i.dataset.k] || ''; });
-    const parts = $('#parts'); parts.textContent = '';
-    current.participants.forEach(p => parts.appendChild(partRow(p)));
-    $('#formErr').textContent = '';
-    $('#btnDelete').hidden = !merged().some(x => x.id === current.id);
-    updateHijri(); renderList(); renderPoster();
+    $$('[data-k]').forEach(i => { i.value = current[i.dataset.k] || (i.dataset.k === 'status' ? 'confirmed' : ''); });
+    $('#qrOn').checked = !!current.link; $('#linkRow').hidden = !current.link;
+    syncSeriesChips();
+    if (!fromGrid || !$('#parts').children.length) {
+      const parts = $('#parts'); parts.textContent = '';
+      current.participants.forEach(p => parts.appendChild(partRow(p)));
+    }
+    const known = merged().some(x => x.id === current.id);
+    $('#btnDelete').hidden = !known; $('#btnDup').hidden = !known;
+    $('#editingLabel').textContent = known ? `تعدّل: ${current.title || 'ندوة بلا عنوان'}` : 'ندوة جديدة';
+    $('#savedFlag').textContent = '';
+    updateHijri(); renderGrid(); renderPoster(); formConflict();
   }
 
-  function readForm() {
+  // يقرأ النموذج؛ save=true عند تعديل المستخدم: ينحفظ تلقائياً على هذا الجهاز (لا خانة إجبارية)
+  function readForm(save) {
     if (!current) return;
     $$('[data-k]').forEach(i => { current[i.dataset.k] = i.value; });
     current.participants = $$('#parts .pitem').map(r => ({ kind: r.dataset.kind, role: KINDS[r.dataset.kind].role,
       ...Object.fromEntries($$('[data-p]', r).map(i => [i.dataset.p, i.value])) }));
     updateHijri(); renderPoster();
+    if (save) autosave();
   }
-  function updateHijri() { const d = $('#f_date').value; $('#hijri').textContent = d ? `${weekday(d)} — ${hijri(d)}` : ''; }
+  function updateHijri() { const d = $('#f_date').value; $('#hijri').textContent = d ? `${weekday(d)} — ${hijri(d)} — ${gdate(d)}` : ''; }
+  let saveT = 0;
+  function autosave() {
+    clearTimeout(saveT);
+    saveT = setTimeout(() => {
+      const s = clean(current);
+      const empty = !s.title && !s.subtitle && !s.date && !s.start && !s.participants.length && !s.notes;
+      if (empty && !local.items[s.id] && !published.seminars.some(x => x.id === s.id)) return;   // ندوة جديدة فاضية: لا تُحفظ
+      s.updated = new Date().toISOString();
+      local.items[s.id] = s; local.deleted = local.deleted.filter(x => x !== s.id); saveLocal();
+      current = s;
+      $('#btnDelete').hidden = false; $('#btnDup').hidden = false;
+      $('#editingLabel').textContent = `تعدّل: ${s.title || 'ندوة بلا عنوان'}`;
+      renderGrid(); renderPub(); flagSaved(); formConflict();
+    }, 350);
+  }
+  function flagSaved() { $('#savedFlag').classList.add('show'); $('#savedFlag').textContent = token() ? '✓ محفوظة على هذا الجهاز — «نشر الندوات» لتظهر للجميع' : '✓ محفوظة على هذا الجهاز'; }
+  function formConflict() {
+    const box = $('#formConflict'); const c = current ? conflictsOf(clean(current), merged()) : [];
+    box.hidden = !c.length; box.textContent = c.length ? '🔴 تعارض: بنفس القاعة والوقت مع «' + c.map(o => o.title || 'ندوة بلا عنوان').join('»، «') + '»' : '';
+  }
+  function syncSeriesChips() { const v = ($('#f_series').value || '').trim(); $$('#seriesChips .chip').forEach(b => b.classList.toggle('active', !!v && v === b.dataset.series)); }
 
-  function save() {
-    readForm();
-    const s = clean(current);
-    const missing = [!s.title && 'العنوان', !s.date && 'التاريخ', !s.start && 'وقت البداية'].filter(Boolean);
-    if (missing.length) { $('#formErr').textContent = 'أكمل: ' + missing.join('، '); return; }
-    if (s.end && s.end <= s.start && !confirm('وقت النهاية قبل البداية — هل تمتد الندوة لبعد منتصف الليل؟')) return;
-    s.updated = new Date().toISOString();
-    local.items[s.id] = s; local.deleted = local.deleted.filter(x => x !== s.id); saveLocal();
-    current = s; $('#formErr').textContent = ''; $('#btnDelete').hidden = false;
-    renderList(); renderPub();
-    toast(token() ? 'حُفظت ✓ — اضغط «نشر الندوات» لتظهر للجميع ولشاشة OBS' : 'حُفظت على هذا الجهاز ✓');
-  }
+  function save() { readForm(); autosave(); }
 
   function del() {
     if (!current || !confirm(`حذف ندوة «${current.title || 'بلا عنوان'}»؟ تُحذف من الجميع بعد النشر.`)) return;
     delete local.items[current.id];
     if (published.seminars.some(x => x.id === current.id) && !local.deleted.includes(current.id)) local.deleted.push(current.id);
+    gridSel.delete(current.id);
     saveLocal(); openSem(blank()); renderPub(); toast('حُذفت — اضغط «نشر الندوات» لتطبيق الحذف على الجميع');
   }
-
+  function delSelected() {
+    if (!gridSel.size) return toast('حدد الأسطر أولاً من مربعات الجدول', true);
+    if (!confirm(`حذف ${gridSel.size} ندوة؟ تُحذف من الجميع بعد النشر.`)) return;
+    gridSel.forEach(id => { delete local.items[id]; if (published.seminars.some(x => x.id === id) && !local.deleted.includes(id)) local.deleted.push(id); });
+    if (current && gridSel.has(current.id)) current = blank();
+    gridSel.clear(); saveLocal(); openSem(current || blank()); renderPub(); toast('حُذفت — اضغط «نشر الندوات» لتطبيق الحذف على الجميع');
+  }
   // ---------- الإعلان ----------
   function renderPoster() {
     const s = clean(current || blank());
@@ -433,58 +532,140 @@
     st.style.height = Math.ceil(H * scale + 20) + 'px';
   }
 
-  async function renderBlob() {
+  // ---------- التحميل والمشاركة (مثل صفحة المناقشات) ----------
+  const exScale = () => +($('#exScale').value || 2);
+  async function renderBlob(scale) {
     const P = $('#poster'), H = posterH();
-    const canvas = await htmlToImage.toCanvas(P, { width: 1080, height: H, pixelRatio: 2, style: { transform: 'none' }, cacheBust: true });
+    const canvas = await htmlToImage.toCanvas(P, { width: 1080, height: H, pixelRatio: scale || exScale(), style: { transform: 'none' }, cacheBust: true });
     return { canvas, H };
   }
-  const fileBase = () => `${size === 'programme' ? 'برنامج' : 'اعلان'}-ندوة-${(current && current.date) || 'جديدة'}`;
+  const safe = (t) => String(t || '').replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 50);
+  const fileBase = (s) => { s = s || current || {}; return `${size === 'programme' ? 'برنامج' : 'اعلان'}-${safe(s.title) || 'ندوة'}-${s.date || 'جديدة'}`; };
   function saveBlob(blob, name) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); }
-  async function downloadPng() {
-    try { const { canvas } = await renderBlob(); canvas.toBlob(b => saveBlob(b, fileBase() + '.png'), 'image/png'); }
-    catch (e) { toast('تعذر إنشاء الصورة', true); }
-  }
-  async function downloadPdf() {
-    try {
-      const { canvas, H } = await renderBlob();
+  const toBlob = (canvas, type, q) => new Promise(r => canvas.toBlob(r, type, q));
+  // ملف واحد بالنوع المختار (PNG / JPG / PDF)
+  async function fileOf(type) {
+    const { canvas, H } = await renderBlob();
+    if (type === 'pdf') {
       const w = 1080 * 0.75, h = H * 0.75;          // بكسل CSS → نقاط PDF
       const doc = new window.jspdf.jsPDF({ unit: 'pt', format: [w, h], orientation: 'portrait', compress: true });
       doc.addImage(canvas.toDataURL('image/jpeg', 0.94), 'JPEG', 0, 0, w, h, undefined, 'FAST');
-      saveBlob(doc.output('blob'), fileBase() + '.pdf');
-    } catch (e) { toast('تعذر إنشاء ملف PDF', true); }
+      return { blob: doc.output('blob'), ext: 'pdf' };
+    }
+    return type === 'jpg' ? { blob: await toBlob(canvas, 'image/jpeg', 0.92), ext: 'jpg' } : { blob: await toBlob(canvas, 'image/png'), ext: 'png' };
   }
-  // واتساب: الجوال/الآيباد يفتح المشاركة بالصورة والنص؛ الكمبيوتر ينسخ الصورة ويفتح واتساب ويب
-  async function shareWa() {
-    const text = shareText();
-    const w = (navigator.canShare ? null : window.open('about:blank', '_blank'));
+  function busy(on, text, frac) { const o = $('#overlay'); o.classList.toggle('open', !!on); if (text) $('#overlayText').textContent = text; $('#overlayBar').style.width = Math.round((frac || 0) * 100) + '%'; }
+  async function downloadCurrent() {
+    try { busy(true, 'جارٍ تجهيز الملف...'); const f = await fileOf($('#exType').value); saveBlob(f.blob, fileBase() + '.' + f.ext); }
+    catch (e) { toast('تعذر إنشاء الملف', true); } finally { busy(false); }
+  }
+  async function downloadSelected() {
+    const ids = merged().filter(s => gridSel.has(s.id)).map(s => s.id);
+    if (!ids.length) return toast('حدد الندوات من مربعات الجدول أولاً', true);
+    const keep = current, type = $('#exType').value, zip = new JSZip(), all = merged();
     try {
-      const { canvas } = await renderBlob();
-      const blob = await new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.92));
-      const file = new File([blob], fileBase() + '.jpg', { type: 'image/jpeg' });
-      if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], text }); return; }
-      let copied = false;
-      try { const png = await new Promise(r => canvas.toBlob(r, 'image/png')); await navigator.clipboard.write([new ClipboardItem({ 'image/png': png })]); copied = true; } catch (e) { copied = false; }
-      const url = `https://web.whatsapp.com/send?text=${encodeURIComponent(text)}`;
-      const win = w || window.open('about:blank', '_blank'); if (win) win.location.href = url; else location.href = url;
-      toast(copied ? '✓ الصورة منسوخة — اختر المحادثة والصقها (Ctrl+V) ثم أرسل' : 'افتح المحادثة وأرفق الصورة من «تحميل PNG»', !copied);
-    } catch (e) { if (w) w.close(); if (e.name !== 'AbortError') toast('تعذر فتح المشاركة — حمّل الصورة وأرسلها', true); }
+      for (let i = 0; i < ids.length; i++) {
+        busy(true, `جارٍ تجهيز ${i + 1} من ${ids.length}...`, i / ids.length);
+        current = clean(all.find(s => s.id === ids[i])); renderPoster();
+        await new Promise(r => setTimeout(r, 60));
+        const f = await fileOf(type); zip.file(`${String(i + 1).padStart(2, '0')}-${fileBase(current)}.${f.ext}`, f.blob);
+      }
+      busy(true, 'جارٍ ضغط الملفات...', 1);
+      saveBlob(await zip.generateAsync({ type: 'blob' }), `اعلانات-الندوات-${todayIso()}.zip`);
+    } catch (e) { toast('تعذر تجهيز الملفات', true); }
+    finally { current = keep; renderPoster(); busy(false); }
+  }
+  async function printCurrent() {
+    const w = window.open('', '_blank'); if (!w) return toast('اسمح بالنوافذ المنبثقة للطباعة', true);
+    try {
+      const { canvas } = await renderBlob(2);
+      const doc = w.document; doc.title = fileBase();
+      const img = doc.createElement('img'); img.src = canvas.toDataURL('image/png'); img.style.cssText = 'width:100%;display:block';
+      doc.body.style.margin = '0'; doc.body.appendChild(img);
+      img.onload = () => { w.focus(); w.print(); };
+    } catch (e) { w.close(); toast('تعذر تجهيز الطباعة', true); }
+  }
+  async function shareImage() {
+    try {
+      const { canvas } = await renderBlob(2);
+      const file = new File([await toBlob(canvas, 'image/jpeg', 0.92)], fileBase() + '.jpg', { type: 'image/jpeg' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file] }); return; }
+      saveBlob(file, file.name); toast('المشاركة غير مدعومة في هذا المتصفح — حُمّلت الصورة');
+    } catch (e) { if (e.name !== 'AbortError') toast('تعذرت المشاركة', true); }
+  }
+  async function copyImage() {
+    try { const { canvas } = await renderBlob(2); await navigator.clipboard.write([new ClipboardItem({ 'image/png': await toBlob(canvas, 'image/png') })]); toast('نُسخت الصورة ✓ — الصقها في المحادثة (Ctrl+V)'); }
+    catch (e) { toast('المتصفح منع نسخ الصورة — استعمل «تحميل»', true); }
+  }
+  async function zoom() {
+    try { busy(true, 'جارٍ التجهيز...'); const { canvas } = await renderBlob(1); $('#zoomImg').src = canvas.toDataURL('image/png'); $('#mZoom').classList.add('open'); }
+    catch (e) { toast('تعذر العرض', true); } finally { busy(false); }
   }
 
+  // نص الإعلان (رسالة الدعوة للواتساب / نص النشر)
   function shareText() {
     const s = clean(current || blank());
-    const lines = [`تقيم ${s.organizer || 'كلية الشريعة'}${s.department ? ' ممثلة ب' + s.department : ''} ${s.series || 'ندوة'} بعنوان:`, (/[«»""]/.test(s.title) ? s.title : `«${s.title}»`)];
+    const lines = [`تقيم ${s.organizer || 'كلية الشريعة'}${s.department ? ' ممثلة ب' + s.department : ''} ${s.series || 'ندوة'} بعنوان:`, s.title ? (/[«»""]/.test(s.title) ? s.title : `«${s.title}»`) : '«عنوان الندوة»'];
     if (s.subtitle) lines.push(s.subtitle);
-    const sp = s.participants.filter(isSpeaker);
+    if (STATUS_AR[s.status]) lines.push(`(${STATUS_AR[s.status]})`);
+    const sp = speakersOf(s);
     if (sp.length) { lines.push('', 'المتحدثون:'); sp.forEach(p => lines.push(`• ${p.name}${p.topic ? ' — ' + p.topic : ''}${p.start ? ' (' + t12(p.start) + ')' : ''}`)); }
-    lines.push('', `📅 ${weekday(s.date)} ${hijri(s.date)} الموافق ${gdate(s.date)}`, `⏰ ${[t12(s.start), t12(s.end)].filter(Boolean).join(' – ')}`, `📍 ${[s.place, s.place_note].filter(Boolean).join(' ')}`);
-    if (s.link) lines.push(`🔗 ${s.link}`);
+    lines.push('');
+    if (s.date) lines.push(`📅 ${weekday(s.date)} ${hijri(s.date)} الموافق ${gdate(s.date)}`);
+    const tm = [t12(s.start), t12(s.end)].filter(Boolean).join(' – '); if (tm) lines.push(`⏰ ${tm}`);
+    const pl = [s.place, s.place_note].filter(Boolean).join(' '); if (pl) lines.push(`📍 ${pl}`);
+    if (s.link) lines.push(`🔗 البث المباشر: ${s.link}`);
     if (s.public_note) lines.push(s.public_note);
     return lines.join('\n');
   }
-  function copyText() {
-    navigator.clipboard.writeText(shareText()).then(() => toast('نُسخ نص النشر ✓'), () => toast('تعذر النسخ', true));
+  function copyText(t) { navigator.clipboard.writeText(t).then(() => toast('نُسخت الرسالة ✓'), () => toast('تعذر النسخ', true)); }
+  function openCaption() {
+    const tags = '\n\n#جامعة_القصيم #كلية_الشريعة';
+    const fill = () => { $('#captionText').value = shareText() + ($('#capTags').checked ? tags : ''); links(); };
+    const links = () => { const t = $('#captionText').value; $('#capWa').href = 'https://wa.me/?text=' + encodeURIComponent(t); $('#capX').href = 'https://twitter.com/intent/tweet?text=' + encodeURIComponent(t); };
+    $('#capTags').onchange = fill; $('#captionText').oninput = links; $('#capCopy').onclick = () => copyText($('#captionText').value);
+    fill(); $('#mCaption').classList.add('open');
   }
+  // واتساب: الصورة الأصلية + الرسالة (الجوال: مشاركة مباشرة، الكمبيوتر: واتساب ويب + نسخ الصورة)
+  let sendFile = null;
+  async function openSend() {
+    $('#sendText').value = shareText(); $('#sendImg').removeAttribute('src'); $('#sendImgNote').hidden = false; $('#sendHint').textContent = '';
+    $('#mSend').classList.add('open');
+    try {
+      const { canvas } = await renderBlob(2);
+      sendFile = new File([await toBlob(canvas, 'image/jpeg', 0.92)], fileBase() + '.jpg', { type: 'image/jpeg' });
+      $('#sendImg').src = URL.createObjectURL(sendFile); $('#sendImgNote').hidden = true;
+    } catch (e) { $('#sendImgNote').textContent = 'تعذر تجهيز الصورة'; }
+  }
+  $('#sendShare').onclick = async () => {
+    const text = $('#sendText').value;
+    if (sendFile && navigator.canShare && navigator.canShare({ files: [sendFile] })) { try { await navigator.share({ files: [sendFile], text }); } catch (e) { /* أُلغي */ } return; }
+    $('#sendHint').textContent = 'هذا المتصفح ما يدعم إرسال الصورة مباشرة — استعمل «واتساب ويب» تحت.';
+  };
+  $('#sendWeb').onclick = async () => {
+    const w = window.open('about:blank', '_blank');
+    let copied = false;
+    try { if (sendFile) { const bmp = await createImageBitmap(sendFile); const c = document.createElement('canvas'); c.width = bmp.width; c.height = bmp.height; c.getContext('2d').drawImage(bmp, 0, 0); await navigator.clipboard.write([new ClipboardItem({ 'image/png': await toBlob(c, 'image/png') })]); copied = true; } } catch (e) { copied = false; }
+    const url = 'https://web.whatsapp.com/send?text=' + encodeURIComponent($('#sendText').value);
+    if (w) w.location.href = url; else location.href = url;
+    $('#sendHint').textContent = copied ? '✓ الصورة منسوخة — اختر المحادثة والصقها (Ctrl+V) ثم أرسل.' : 'أرفق الصورة من «تحميل الصورة».';
+  };
+  $('#sendCopy').onclick = () => copyText($('#sendText').value);
+  $('#sendDl').onclick = () => { if (sendFile) saveBlob(sendFile, sendFile.name); };
 
+  // جدول ← Excel / CSV
+  function sheetRows() {
+    return merged().map(s => ({ 'التاريخ': s.date, 'اليوم': weekday(s.date), 'الهجري': hijri(s.date), 'من': s.start, 'إلى': s.end, 'العنوان': s.title, 'العنوان الفرعي': s.subtitle,
+      'النوع': s.series, 'القسم': s.department, 'الجهة': s.organizer, 'المكان': s.place, 'ملاحظة المكان': s.place_note, 'الحالة': STATUS_AR[s.status] || 'مؤكدة',
+      'رابط البث': s.link, 'المتحدثون': speakersOf(s).map(p => p.name).join('، '), 'منشورة': local.items[s.id] ? 'لا' : 'نعم' }));
+  }
+  function exportSheet(csv) {
+    const rows = sheetRows(); if (!rows.length) return toast('الجدول فاضي', true);
+    const ws = XLSX.utils.json_to_sheet(rows); ws['!rtl'] = true;
+    if (csv) { saveBlob(new Blob(['﻿' + XLSX.utils.sheet_to_csv(ws)], { type: 'text/csv;charset=utf-8' }), `الندوات-${todayIso()}.csv`); return; }
+    const wb = XLSX.utils.book_new(); wb.Workbook = { Views: [{ RTL: true }] }; XLSX.utils.book_append_sheet(wb, ws, 'الندوات');
+    XLSX.writeFile(wb, `الندوات-${todayIso()}.xlsx`);
+  }
   // ---------- إعداد النشر ----------
   function openSetup() { $('#repoName').textContent = `${REPO.owner}/${REPO.repo}`; $('#tok').value = token(); $('#branch').value = branch(); $('#setupErr').textContent = ''; $('#mSetup').classList.add('open'); }
   $('#saveTok').onclick = async () => {
@@ -507,23 +688,61 @@
   if (session.role === 'admin') $('#btnSetup').hidden = false;
   $('#btnSetup').onclick = openSetup;
   $('#btnLogout').onclick = () => QAuth.logout();
-  $('#btnNew').onclick = () => { openSem(blank()); $('#f_title').focus(); };
-  $('#btnSave').onclick = save;
+  $('#btnHelp').onclick = () => $('#mHelp').classList.add('open');
+  $('#btnSheet').onclick = () => $('#dataSheet').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  // التبويبات
+  $$('.tabs button').forEach(b => b.onclick = () => {
+    $$('.tabs button').forEach(x => x.classList.toggle('active', x === b));
+    $$('.tab-pane').forEach(p => p.classList.toggle('active', p.dataset.pane === b.dataset.tab));
+  });
+  const newSem = () => { openSem(blank()); $$('.tabs button')[0].click(); $('#f_title').focus(); };
+  $('#btnNew').onclick = newSem;
+  $('#gAdd').onclick = () => { newSem(); $('.side').scrollIntoView({ behavior: 'smooth', block: 'start' }); };
+  $('#btnDup').onclick = () => current && duplicate(current);
   $('#btnDelete').onclick = del;
   $('#btnPublish').onclick = publish;
   $$('[data-add]').forEach(b => b.onclick = () => {
     const kind = b.dataset.add, p = { kind };
     if (kind === 'session') p.name = SESSION_NAMES[Math.min($$('#parts .k-session').length, SESSION_NAMES.length - 1)];
-    const r = partRow(p); $('#parts').appendChild(r); r.scrollIntoView({ block: 'nearest' }); (r.querySelector('input') || r).focus(); readForm();
+    const r = partRow(p); $('#parts').appendChild(r); r.scrollIntoView({ block: 'nearest' }); (r.querySelector('input') || r).focus(); readForm(true);
   });
   { const dl = el('datalist'); dl.id = 'sessNames'; SESSION_NAMES.forEach(n => { const o = el('option'); o.value = n; dl.appendChild(o); }); document.body.appendChild(dl); }
-  $('#btnPdf').onclick = downloadPdf;
-  $('#btnWa').onclick = shareWa;
-  $('#search').addEventListener('input', renderList);
-  $$('[data-k]').forEach(i => i.addEventListener('input', readForm));
+  $$('[data-k]').forEach(i => i.addEventListener('input', () => { if (i.dataset.k === 'series') syncSeriesChips(); readForm(true); }));
+  $$('#seriesChips .chip').forEach(b => b.onclick = () => { $('#f_series').value = b.dataset.series; syncSeriesChips(); readForm(true); });
+  // رابط البث / QR
+  $('#qrOn').onchange = () => {
+    $('#linkRow').hidden = !$('#qrOn').checked;
+    if ($('#qrOn').checked && !$('#f_link').value) $('#f_link').value = YT;
+    if (!$('#qrOn').checked) $('#f_link').value = '';
+    readForm(true);
+  };
+  $('#linkDefault').onclick = () => { $('#f_link').value = YT; readForm(true); };
+  // المعاينة
   $$('[data-size]').forEach(b => b.onclick = () => { $$('[data-size]').forEach(x => x.classList.toggle('active', x === b)); size = b.dataset.size; renderPoster(); });
-  $('#btnPng').onclick = downloadPng;
-  $('#btnCopyText').onclick = copyText;
+  $('#stage').onclick = zoom;
+  // التحميل والمشاركة
+  $('#exCurrent').onclick = downloadCurrent;
+  $('#exRows').onclick = downloadSelected;
+  $('#gDl').onclick = downloadSelected;
+  $('#printBtn').onclick = printCurrent;
+  $('#shareBtn').onclick = shareImage;
+  $('#copyImgBtn').onclick = copyImage;
+  $('#captionBtn').onclick = openCaption;
+  $('#zoomBtn').onclick = zoom;
+  $('#btnWa').onclick = openSend;
+  $('#waInvite').onclick = openSend;
+  $('#copyInvite').onclick = () => copyText(shareText());
+  // الجدول
+  $('#search').addEventListener('input', renderGrid);
+  $('#gSort').onclick = () => { sortAsc = !sortAsc; renderGrid(); toast(sortAsc ? 'الترتيب: الأقدم أولاً' : 'الترتيب: الأحدث أولاً'); };
+  $('#gDel').onclick = delSelected;
+  $('#gSelAll').onclick = () => { rowsView.forEach(s => gridSel.add(s.id)); renderGrid(); };
+  $('#gSelNone').onclick = () => { gridSel.clear(); renderGrid(); };
+  $('#gExport').onclick = () => exportSheet(false);
+  $('#gExportCsv').onclick = () => exportSheet(true);
+  $('#gConflicts').onclick = () => { const r = $('#sheet tr.conflict'); if (r) r.scrollIntoView({ behavior: 'smooth', block: 'center' }); };
+  // تنقل الجوال
+  $$('.mnav [data-go]').forEach(b => b.onclick = () => { const t = b.dataset.go === 'side' ? $('.side') : $('#' + b.dataset.go); if (t) t.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
   window.addEventListener('resize', fitStage);
   document.addEventListener('keydown', e => { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); save(); } });
   window.addEventListener('beforeunload', e => { if (pendingCount() && token()) { e.preventDefault(); e.returnValue = ''; } });
