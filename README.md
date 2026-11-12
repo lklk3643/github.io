@@ -52,3 +52,12 @@
 - `index.html` صفحة الدخول — `app.html` المحرر — `users.json` حسابات الموظفين
 - `assets/js/poster.js` التصميم والرسومات — `assets/js/app.js` الواجهة — `assets/js/auth.js` الدخول
 - `assets/vendor` المكتبات (SheetJS، JSZip، jsPDF، html-to-image، qrcode-generator) و`assets/fonts` الخطوط محلياً.
+
+## الندوات (`seminars.html`)
+- زر «🎤 الندوات» في أعلى صفحة المناقشات. لكل ندوة: العنوان، التاريخ والوقت، المكان، رابط البث، الحالة، وجدول المشاركين (الاسم، الصفة، الدور، المحور، من/إلى).
+- **إعلان مخصص للندوة** بهوية الكلية (منشور 1080×1350 أو ستوري 1080×1920) يتسع تلقائيًا لعدد المشاركين، مع رمز QR لرابط البث.
+- الحفظ على الجهاز، ثم **«🌐 نشر الندوات»** يكتب `assets/data/seminars.json` في هذا المستودع فتظهر لكل الأجهزة ولشاشة OBS.
+- النشر يحتاج «رمز وصول» من GitHub يُعدّه المدير مرة واحدة على جهازه من «⚙️ إعداد النشر» (Fine-grained token لهذا المستودع فقط، صلاحية Contents: Read and write). يُحفظ على ذلك الجهاز فقط.
+
+### صيغة `assets/data/seminars.json` (ثابتة؛ تقرؤها لوحة OBS)
+`{"v", "source", "seminars": [{"id", "title", "subtitle", "organizer", "date": "YYYY-MM-DD" (ميلادي), "start": "HH:MM", "end": "HH:MM" (24 ساعة، توقيت الرياض), "place", "place_note", "link", "status": "confirmed|postponed|cancelled", "notes" (داخلية لا تُعرض), "participants": [{"name", "title", "role", "topic", "start", "end"}], "updated"}]}`

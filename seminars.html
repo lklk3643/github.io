@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>الندوات – مصمم الإعلانات</title>
+  <script>
+    // حماية الصفحة: يجب تسجيل الدخول أولاً (مثل صفحة المناقشات)
+    if (!(sessionStorage.getItem('qu_session') || localStorage.getItem('qu_session'))) location.replace('index.html');
+  </script>
+  <link rel="stylesheet" href="assets/fonts/fonts.css?v=202611120001">
+  <link rel="stylesheet" href="assets/css/app.css?v=202611120001">
+  <link rel="stylesheet" href="assets/css/seminars.css?v=202611120001">
+</head>
+<body>
+  <div class="topbar">
+    <div class="brand"><img class="brand-logo" src="assets/img/logo.png?v=202610170020" alt=""><span class="brand-title">ندوات كلية الشريعة</span></div>
+    <div class="spacer"></div>
+    <span class="who" id="who"></span>
+    <div class="tb-actions">
+      <a class="btn sm" href="app.html?v=202610170020" title="إعلانات المناقشات">📢<span class="lbl"> المناقشات</span></a>
+      <button class="btn sm" id="btnSetup" title="إعداد النشر" hidden>⚙️<span class="lbl"> إعداد النشر</span></button>
+      <button class="btn sm" id="btnLogout" title="خروج">⏻<span class="lbl"> خروج</span></button>
+    </div>
+  </div>
+
+  <div class="pubbar" id="pubbar">
+    <span id="pubState">…</span>
+    <button class="btn primary" id="btnPublish">🌐 نشر الندوات</button>
+  </div>
+
+  <div class="sem-layout">
+    <!-- قائمة الندوات -->
+    <aside class="panel sem-list">
+      <button class="btn primary sem-new" id="btnNew">➕ ندوة جديدة</button>
+      <input type="search" id="search" class="sem-search" placeholder="بحث بالعنوان أو اسم مشارك" aria-label="بحث">
+      <ol id="list" class="sem-items"></ol>
+      <p id="listEmpty" class="sem-empty" hidden>لا توجد ندوات بعد. اضغط «ندوة جديدة».</p>
+    </aside>
+
+    <!-- النموذج -->
+    <section class="panel sem-form" aria-labelledby="formTitle">
+      <h2 id="formTitle" class="group-title">بيانات الندوة</h2>
+      <div class="field"><label for="f_title">عنوان الندوة *</label><input type="text" id="f_title" data-k="title" required></div>
+      <div class="field"><label for="f_subtitle">عنوان فرعي (اختياري)</label><input type="text" id="f_subtitle" data-k="subtitle"></div>
+      <div class="field"><label for="f_org">الجهة المنظِّمة</label><input type="text" id="f_org" data-k="organizer"></div>
+      <div class="row3">
+        <div class="field"><label for="f_date">التاريخ *</label><input type="date" id="f_date" data-k="date" required><small id="hijri" class="hint"></small></div>
+        <div class="field"><label for="f_start">من الساعة *</label><input type="time" id="f_start" data-k="start" required></div>
+        <div class="field"><label for="f_end">إلى الساعة</label><input type="time" id="f_end" data-k="end"></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label for="f_place">المكان</label><input type="text" id="f_place" data-k="place" list="places"></div>
+        <div class="field"><label for="f_pnote">ملاحظة المكان</label><input type="text" id="f_pnote" data-k="place_note" list="pnotes"></div>
+      </div>
+      <datalist id="places"><option value="قاعة ابن عثيمين"><option value="عن بعد"></datalist>
+      <datalist id="pnotes"><option value="(والبث عبر الإنترنت)"><option value="(عبر الإنترنت)"></datalist>
+      <div class="row2">
+        <div class="field"><label for="f_link">رابط البث (يظهر كرمز QR)</label><input type="url" id="f_link" data-k="link" dir="ltr" placeholder="https://"></div>
+        <div class="field"><label for="f_status">الحالة</label>
+          <select id="f_status" data-k="status"><option value="confirmed">مؤكدة</option><option value="postponed">مؤجلة</option><option value="cancelled">ملغاة</option></select></div>
+      </div>
+
+      <h3 class="group-title">المشاركون وأوقاتهم</h3>
+      <div class="ptable" role="table" aria-label="المشاركون">
+        <div class="prow phead" role="row"><span>الاسم</span><span>الصفة</span><span>الدور</span><span>المحور</span><span>من</span><span>إلى</span><span></span></div>
+        <div id="parts"></div>
+      </div>
+      <button class="btn" id="addPart">➕ إضافة مشارك</button>
+
+      <div class="field" style="margin-top:12px"><label for="f_notes">ملاحظات داخلية (لا تظهر في الإعلان)</label><textarea id="f_notes" data-k="notes"></textarea></div>
+
+      <div class="form-actions">
+        <button class="btn primary" id="btnSave">💾 حفظ</button>
+        <button class="btn danger" id="btnDelete">🗑️ حذف الندوة</button>
+      </div>
+      <p class="err" id="formErr" role="alert"></p>
+    </section>
+
+    <!-- الإعلان -->
+    <section class="panel sem-preview" aria-label="إعلان الندوة">
+      <div class="prev-bar">
+        <span>الإعلان:</span>
+        <button class="chip active" data-size="post">منشور 1080×1350</button>
+        <button class="chip" data-size="story">ستوري 1080×1920</button>
+      </div>
+      <div class="prev-stage" id="stage"><div id="poster" class="qs" data-size="post"></div></div>
+      <div class="prev-actions">
+        <button class="btn primary" id="btnPng">⬇️ تحميل الإعلان (PNG)</button>
+        <button class="btn" id="btnCopyText">📝 نسخ نص للنشر</button>
+      </div>
+    </section>
+  </div>
+
+  <!-- إعداد النشر (للمدير، مرة واحدة على هذا الجهاز) -->
+  <div class="modal" id="mSetup" role="dialog" aria-modal="true" aria-labelledby="setupH">
+    <div class="box">
+      <h3 id="setupH">إعداد النشر على هذا الجهاز</h3>
+      <p class="hint">النشر يحفظ الندوات في الموقع نفسه فتظهر لكل الموظفين ولشاشة OBS. يحتاج «رمز وصول» من GitHub خاص بهذا المستودع فقط. يُحفظ على هذا الجهاز فقط ولا يُرسل لأي جهة أخرى غير GitHub.</p>
+      <ol class="hint steps">
+        <li>افتح <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">إنشاء رمز في GitHub</a>.</li>
+        <li>اختر المستودع <b dir="ltr" id="repoName"></b> فقط، وصلاحية <b>Contents: Read and write</b>، ومدة سنة.</li>
+        <li>انسخ الرمز والصقه هنا.</li>
+      </ol>
+      <div class="field"><label for="tok">رمز الوصول</label><input type="password" id="tok" dir="ltr" autocomplete="off"></div>
+      <div class="field"><label for="branch">الفرع المنشور</label><input type="text" id="branch" dir="ltr"></div>
+      <div class="form-actions">
+        <button class="btn primary" id="saveTok">حفظ واختبار</button>
+        <button class="btn danger" id="clearTok">حذف الرمز من هذا الجهاز</button>
+        <button class="btn" data-close>إغلاق</button>
+      </div>
+      <p class="err" id="setupErr" role="alert"></p>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script src="assets/js/auth.js?v=202610170020"></script>
+  <script src="assets/vendor/html-to-image.js?v=202610170020"></script>
+  <script src="assets/vendor/qrcode.js?v=202610170020"></script>
+  <script src="assets/js/seminars.js?v=202611120001"></script>
+</body>
+</html>
