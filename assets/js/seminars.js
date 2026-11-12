@@ -318,7 +318,7 @@
     const intro = el('section', 'qp2-intro');
     intro.appendChild(el('p', 'qp2-lead', `تقيم ${s.organizer || 'كلية الشريعة'}${s.department ? ' ممثلة ب' + s.department : ''}`));
     intro.appendChild(el('p', 'qp2-lead', `${s.series || 'ندوة'} بعنوان:`));
-    intro.appendChild(el('h1', 'qp2-title', s.title ? `«${s.title}»` : '«عنوان الندوة»'));
+    intro.appendChild(el('h1', 'qp2-title', s.title ? (/[«»"]/.test(s.title) ? s.title : `«${s.title}»`) : '«عنوان الندوة»'));   // لا أقواس مكررة إن كتبها الموظف
     if (s.subtitle) intro.appendChild(el('p', 'qp2-sub', s.subtitle));
     if (STATUS_AR[s.status]) intro.appendChild(el('div', 'qs-status ' + s.status, STATUS_AR[s.status]));
     intro.appendChild(el('div', 'qp2-rule'));
@@ -472,7 +472,7 @@
 
   function shareText() {
     const s = clean(current || blank());
-    const lines = [`تقيم ${s.organizer || 'كلية الشريعة'}${s.department ? ' ممثلة ب' + s.department : ''} ${s.series || 'ندوة'} بعنوان:`, `«${s.title}»`];
+    const lines = [`تقيم ${s.organizer || 'كلية الشريعة'}${s.department ? ' ممثلة ب' + s.department : ''} ${s.series || 'ندوة'} بعنوان:`, (/[«»""]/.test(s.title) ? s.title : `«${s.title}»`)];
     if (s.subtitle) lines.push(s.subtitle);
     const sp = s.participants.filter(isSpeaker);
     if (sp.length) { lines.push('', 'المتحدثون:'); sp.forEach(p => lines.push(`• ${p.name}${p.topic ? ' — ' + p.topic : ''}${p.start ? ' (' + t12(p.start) + ')' : ''}`)); }
