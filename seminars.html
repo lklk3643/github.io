@@ -10,7 +10,7 @@
   </script>
   <link rel="stylesheet" href="assets/fonts/fonts.css?v=202611120001">
   <link rel="stylesheet" href="assets/css/app.css?v=202611120001">
-  <link rel="stylesheet" href="assets/css/seminars.css?v=202611120001">
+  <link rel="stylesheet" href="assets/css/seminars.css?v=202611120005">
 </head>
 <body>
   <div class="topbar">
@@ -43,7 +43,13 @@
       <h2 id="formTitle" class="group-title">بيانات الندوة</h2>
       <div class="field"><label for="f_title">عنوان الندوة *</label><input type="text" id="f_title" data-k="title" required></div>
       <div class="field"><label for="f_subtitle">عنوان فرعي (اختياري)</label><input type="text" id="f_subtitle" data-k="subtitle"></div>
-      <div class="field"><label for="f_org">الجهة المنظِّمة</label><input type="text" id="f_org" data-k="organizer"></div>
+      <div class="row3">
+        <div class="field"><label for="f_series">النوع / الاسم (مثال: الملتقى العلمي الرابع)</label><input type="text" id="f_series" data-k="series" list="series" placeholder="ندوة"></div>
+        <div class="field"><label for="f_dept">القسم المنظِّم</label><input type="text" id="f_dept" data-k="department" list="depts" placeholder="قسم الفقه"></div>
+        <div class="field"><label for="f_org">الجهة</label><input type="text" id="f_org" data-k="organizer"></div>
+      </div>
+      <datalist id="series"><option value="ندوة"><option value="الملتقى العلمي"><option value="حلقة نقاش"><option value="لقاء علمي"></datalist>
+      <datalist id="depts"><option value="قسم الفقه"><option value="قسم أصول الفقه"><option value="قسم العقيدة والمذاهب المعاصرة"><option value="قسم القرآن وعلومه"><option value="قسم السنة وعلومها"></datalist>
       <div class="row3">
         <div class="field"><label for="f_date">التاريخ *</label><input type="date" id="f_date" data-k="date" required><small id="hijri" class="hint"></small></div>
         <div class="field"><label for="f_start">من الساعة *</label><input type="time" id="f_start" data-k="start" required></div>
@@ -61,12 +67,26 @@
           <select id="f_status" data-k="status"><option value="confirmed">مؤكدة</option><option value="postponed">مؤجلة</option><option value="cancelled">ملغاة</option></select></div>
       </div>
 
-      <h3 class="group-title">المشاركون وأوقاتهم</h3>
-      <div class="ptable" role="table" aria-label="المشاركون">
-        <div class="prow phead" role="row"><span>الاسم</span><span>الصفة</span><span>الدور</span><span>المحور</span><span>من</span><span>إلى</span><span></span></div>
-        <div id="parts"></div>
+      <h3 class="group-title">برنامج الندوة (بالترتيب)</h3>
+      <p class="hint">أضف البنود بالترتيب: افتتاح، ثم جلسة وتحتها أوراقها، ثم استراحة… استخدم ↑↓ لتغيير الترتيب.</p>
+      <ol id="parts" class="prog"></ol>
+      <div class="add-row" role="group" aria-label="إضافة بند">
+        <button class="btn" data-add="opening">➕ افتتاح</button>
+        <button class="btn" data-add="session">➕ جلسة</button>
+        <button class="btn primary" data-add="paper">➕ ورقة / متحدث</button>
+        <button class="btn" data-add="discussion">➕ مداخلات</button>
+        <button class="btn" data-add="break">➕ استراحة</button>
+        <button class="btn" data-add="closing">➕ ختام</button>
       </div>
-      <button class="btn" id="addPart">➕ إضافة مشارك</button>
+
+      <h3 class="group-title">إعدادات الإعلان</h3>
+      <div class="row2">
+        <div class="field"><label for="f_hdr">الترويسة</label>
+          <select id="f_hdr" data-k="poster_header"><option value="simple">الشعار في الوسط</option><option value="official">ترويسة رسمية (المملكة / الوزارة / الجامعة)</option></select></div>
+        <div class="field"><label for="f_lay">شكل البرنامج</label>
+          <select id="f_lay" data-k="programme_layout"><option value="cells">خلايا ملوّنة</option><option value="table">جدول مرقّم</option></select></div>
+      </div>
+      <div class="field"><label for="f_pub">ملاحظة تظهر في الإعلان (اختياري)</label><input type="text" id="f_pub" data-k="public_note" placeholder="مثال: الطالبات: قاعة الاجتماعات / شطر الطالبات"></div>
 
       <div class="field" style="margin-top:12px"><label for="f_notes">ملاحظات داخلية (لا تظهر في الإعلان)</label><textarea id="f_notes" data-k="notes"></textarea></div>
 
@@ -81,12 +101,15 @@
     <section class="panel sem-preview" aria-label="إعلان الندوة">
       <div class="prev-bar">
         <span>الإعلان:</span>
-        <button class="chip active" data-size="post">منشور 1080×1350</button>
+        <button class="chip active" data-size="programme">برنامج الندوة</button>
+        <button class="chip" data-size="post">منشور 1080×1350</button>
         <button class="chip" data-size="story">ستوري 1080×1920</button>
       </div>
-      <div class="prev-stage" id="stage"><div id="poster" class="qs" data-size="post"></div></div>
+      <div class="prev-stage" id="stage"><div id="poster" class="qs" data-size="programme"></div></div>
       <div class="prev-actions">
-        <button class="btn primary" id="btnPng">⬇️ تحميل الإعلان (PNG)</button>
+        <button class="btn primary" id="btnPng">⬇️ تحميل PNG</button>
+        <button class="btn" id="btnPdf">📄 تحميل PDF</button>
+        <button class="btn wa" id="btnWa">💬 واتساب</button>
         <button class="btn" id="btnCopyText">📝 نسخ نص للنشر</button>
       </div>
     </section>
@@ -118,6 +141,7 @@
   <script src="assets/js/auth.js?v=202610170020"></script>
   <script src="assets/vendor/html-to-image.js?v=202610170020"></script>
   <script src="assets/vendor/qrcode.js?v=202610170020"></script>
-  <script src="assets/js/seminars.js?v=202611120001"></script>
+  <script src="assets/vendor/jspdf.umd.min.js?v=202610170020"></script>
+  <script src="assets/js/seminars.js?v=202611120003"></script>
 </body>
 </html>

@@ -17,7 +17,19 @@
   const DATA_PATH = 'assets/data/seminars.json';
   const LOGO = 'assets/img/logo.png?v=202610170020';
   const BUILDING = 'assets/img/building.jpg?v=202610170020';
-  const ROLES = ['متحدث', 'مدير الجلسة', 'معقّب', 'ضيف شرف', 'مقدّم'];
+  // بنود البرنامج (participants[].kind) — الصيغة ثابتة وتقرؤها لوحة OBS
+  const KINDS = {
+    opening:    { label: 'افتتاح', topic: 'افتتاح الملتقى', role: 'مقدّم', fields: ['topic', 'name', 'title', 'start', 'end'] },
+    session:    { label: 'جلسة', name: 'الجلسة الأولى', role: 'مدير الجلسة', fields: ['name', 'moderator', 'moderator_title'] },
+    paper:      { label: 'ورقة / متحدث', role: 'متحدث', fields: ['topic', 'name', 'title', 'specialty', 'start', 'end'] },
+    discussion: { label: 'مداخلات', topic: 'المداخلات والتعقيبات', role: '', fields: ['topic', 'start', 'end'] },
+    break:      { label: 'استراحة', topic: 'استراحة', role: '', fields: ['topic', 'start', 'end'] },
+    closing:    { label: 'ختام', topic: 'ختام الملتقى والتوصيات', role: '', fields: ['topic', 'start', 'end'] },
+  };
+  const FIELD_LABEL = { topic: 'العنوان / البند', name: 'الاسم', title: 'الصفة (مثال: الأستاذ المشارك في قسم الفقه)', specialty: 'التخصص',
+    start: 'من', end: 'إلى', moderator: 'يديرها', moderator_title: 'صفة مدير الجلسة' };
+  const SESSION_NAMES = ['الجلسة الأولى', 'الجلسة الثانية', 'الجلسة الثالثة', 'الجلسة الرابعة'];
+  const isSpeaker = (p) => (!p.kind || p.kind === 'paper' || p.kind === 'opening') && p.name;
   const STATUS_AR = { confirmed: '', postponed: 'مؤجلة', cancelled: 'ملغاة' };
 
   // المستودع: من رابط GitHub Pages (owner.github.io/repo/)، وإلا القيم المعروفة
@@ -30,7 +42,7 @@
   let published = { v: '', seminars: [] };   // آخر نسخة منشورة معروفة
   let local = loadLocal();                     // {items:{id:sem}, deleted:[id]}
   let current = null;                          // الندوة المفتوحة في النموذج
-  let size = 'post';
+  let size = 'programme';
 
   // ---------- أدوات ----------
   function toast(msg, err) {
@@ -46,12 +58,21 @@
   const gdate = (iso) => iso ? new Intl.DateTimeFormat('ar-SA-u-ca-gregory-nu-latn', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(iso + 'T12:00:00Z')) : '';
   function t12(hm) { if (!/^\d{1,2}:\d{2}$/.test(hm || '')) return ''; let [h, m] = hm.split(':').map(Number); const s = h < 12 ? 'صباحاً' : (h < 15 && h >= 12 ? 'ظهراً' : 'مساءً'); h = h % 12 || 12; return (m ? `${h}:${String(m).padStart(2, '0')}` : `${h}`) + ' ' + s; }
   const todayIso = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Riyadh' }).format(new Date());
-  const blank = () => ({ id: newId(), title: '', subtitle: '', organizer: 'كلية الشريعة', date: '', start: '', end: '', place: 'قاعة ابن عثيمين', place_note: '(والبث عبر الإنترنت)', link: '', status: 'confirmed', notes: '', participants: [] });
+  const blank = () => ({ id: newId(), title: '', subtitle: '', organizer: 'كلية الشريعة', date: '', start: '', end: '', place: 'قاعة ابن عثيمين', place_note: '(والبث عبر الإنترنت)', link: '', status: 'confirmed', notes: '', participants: [],
+    series: '', department: '', public_note: '', poster_header: 'simple', programme_layout: 'cells' });
   const clean = (s) => ({ id: String(s.id), title: String(s.title || '').trim(), subtitle: String(s.subtitle || '').trim(), organizer: String(s.organizer || '').trim(),
     date: String(s.date || ''), start: String(s.start || ''), end: String(s.end || ''), place: String(s.place || '').trim(), place_note: String(s.place_note || '').trim(),
     link: String(s.link || '').trim(), status: ['confirmed', 'postponed', 'cancelled'].includes(s.status) ? s.status : 'confirmed', notes: String(s.notes || '').trim(),
-    participants: (s.participants || []).map(p => ({ name: String(p.name || '').trim(), title: String(p.title || '').trim(), role: String(p.role || '').trim(),
-      topic: String(p.topic || '').trim(), start: String(p.start || ''), end: String(p.end || '') })).filter(p => p.name), updated: s.updated || '' });
+    series: String(s.series || '').trim(), department: String(s.department || '').trim(), public_note: String(s.public_note || '').trim(),
+    poster_header: s.poster_header === 'official' ? 'official' : 'simple', programme_layout: s.programme_layout === 'table' ? 'table' : 'cells',
+    participants: (s.participants || []).map(p => {
+      const kind = KINDS[p.kind] ? p.kind : 'paper';
+      const o = { kind, name: String(p.name || '').trim(), title: String(p.title || '').trim(), role: String(p.role || KINDS[kind].role || '').trim(),
+        topic: String(p.topic || '').trim(), start: String(p.start || ''), end: String(p.end || '') };
+      if (p.specialty) o.specialty = String(p.specialty).trim();
+      if (kind === 'session') { o.moderator = String(p.moderator || '').trim(); o.moderator_title = String(p.moderator_title || '').trim(); }
+      return o;
+    }).filter(p => p.name || p.topic || p.moderator), updated: s.updated || '' });
 
   function merged() {
     const map = new Map(published.seminars.map(s => [s.id, s]));
@@ -143,7 +164,7 @@
       if (s.status !== 'confirmed') t.appendChild(el('span', 'tag ' + s.status, STATUS_AR[s.status]));
       else if (s.date && s.date < today) t.appendChild(el('span', 'tag past', 'منتهية'));
       li.appendChild(t);
-      li.appendChild(el('div', 'd', [weekday(s.date), hijri(s.date), t12(s.start)].filter(Boolean).join(' · ') + (s.participants.length ? ` · ${s.participants.length} مشاركين` : '')));
+      li.appendChild(el('div', 'd', [weekday(s.date), hijri(s.date), t12(s.start)].filter(Boolean).join(' · ') + (s.participants.filter(isSpeaker).length ? ` · ${s.participants.filter(isSpeaker).length} متحدثين` : '')));
       li.onclick = () => openSem(s);
       ol.appendChild(li);
     }
@@ -152,22 +173,28 @@
 
   // ---------- النموذج ----------
   function partRow(p = {}) {
-    const row = el('div', 'prow'); row.setAttribute('role', 'row');
-    const inp = (k, ph, type = 'text') => { const i = el('input'); i.type = type; i.dataset.p = k; i.value = p[k] || ''; if (ph) i.placeholder = ph; i.setAttribute('aria-label', ph || k); return i; };
-    row.appendChild(inp('name', 'الاسم'));
-    row.appendChild(inp('title', 'مثال: أ.د. / أستاذ الفقه'));
-    const sel = el('select'); sel.dataset.p = 'role'; sel.setAttribute('aria-label', 'الدور');
-    ROLES.forEach(r => { const o = el('option', null, r); o.value = r; sel.appendChild(o); });
-    if (p.role && !ROLES.includes(p.role)) { const o = el('option', null, p.role); o.value = p.role; sel.appendChild(o); }
-    sel.value = p.role || 'متحدث'; row.appendChild(sel);
-    row.appendChild(inp('topic', 'المحور'));
-    row.appendChild(inp('start', 'من', 'time'));
-    row.appendChild(inp('end', 'إلى', 'time'));
-    const rm = el('button', 'rm', '✕'); rm.type = 'button'; rm.title = 'حذف المشارك'; rm.setAttribute('aria-label', 'حذف المشارك');
-    rm.onclick = () => { row.remove(); readForm(); };
-    row.appendChild(rm);
-    row.addEventListener('input', readForm);
-    return row;
+    const kind = KINDS[p.kind] ? p.kind : 'paper', K = KINDS[kind];
+    const li = el('li', 'pitem k-' + kind); li.dataset.kind = kind;
+    const head = el('div', 'phead2');
+    head.appendChild(el('span', 'pk', K.label));
+    const tools = el('span', 'ptools');
+    const mk = (txt, title, fn) => { const b = el('button', 'pt', txt); b.type = 'button'; b.title = title; b.setAttribute('aria-label', title); b.onclick = fn; tools.appendChild(b); };
+    mk('↑', 'نقل لأعلى', () => { if (li.previousElementSibling) li.parentNode.insertBefore(li, li.previousElementSibling); readForm(); });
+    mk('↓', 'نقل لأسفل', () => { if (li.nextElementSibling) li.parentNode.insertBefore(li.nextElementSibling, li); readForm(); });
+    mk('✕', 'حذف البند', () => { li.remove(); readForm(); });
+    head.appendChild(tools); li.appendChild(head);
+    const grid = el('div', 'pgrid');
+    for (const f of K.fields) {
+      const w = el('label', 'pf pf-' + f);
+      w.appendChild(el('span', null, kind === 'session' && f === 'name' ? 'اسم الجلسة' : kind === 'paper' && f === 'topic' ? 'عنوان الورقة' : FIELD_LABEL[f]));
+      const i = el('input'); i.type = (f === 'start' || f === 'end') ? 'time' : 'text'; i.dataset.p = f;
+      i.value = p[f] != null && p[f] !== '' ? p[f] : (K[f] || '');
+      if (kind === 'session' && f === 'name') i.setAttribute('list', 'sessNames');
+      w.appendChild(i); grid.appendChild(w);
+    }
+    li.appendChild(grid);
+    li.addEventListener('input', readForm);
+    return li;
   }
 
   function openSem(s) {
@@ -183,7 +210,8 @@
   function readForm() {
     if (!current) return;
     $$('[data-k]').forEach(i => { current[i.dataset.k] = i.value; });
-    current.participants = $$('#parts .prow').map(r => Object.fromEntries($$('[data-p]', r).map(i => [i.dataset.p, i.value])));
+    current.participants = $$('#parts .pitem').map(r => ({ kind: r.dataset.kind, role: KINDS[r.dataset.kind].role,
+      ...Object.fromEntries($$('[data-p]', r).map(i => [i.dataset.p, i.value])) }));
     updateHijri(); renderPoster();
   }
   function updateHijri() { const d = $('#f_date').value; $('#hijri').textContent = d ? `${weekday(d)} — ${hijri(d)}` : ''; }
@@ -212,6 +240,7 @@
   function renderPoster() {
     const s = clean(current || blank());
     const P = $('#poster'); P.textContent = ''; P.dataset.size = size;
+    if (size === 'programme') { renderProgramme(P, s); fitStage(); return; }
     P.appendChild(el('div', 'qs-callig', 'ندوة'));
     const inner = el('div', 'qs-inner');
     const logo = el('img', 'qs-logo'); logo.src = LOGO; logo.alt = ''; inner.appendChild(logo);
@@ -220,11 +249,12 @@
     inner.appendChild(el('h1', 'qs-title', s.title || 'عنوان الندوة'));
     if (s.subtitle) inner.appendChild(el('p', 'qs-sub', s.subtitle));
     if (STATUS_AR[s.status]) inner.appendChild(el('div', 'qs-status ' + s.status, STATUS_AR[s.status]));
-    if (s.participants.length) {
+    const speakers = s.participants.filter(isSpeaker);
+    if (speakers.length) {
       const box = el('div', 'qs-people');
       box.appendChild(el('h3', null, 'المشاركون'));
       const max = size === 'story' ? 8 : 5;
-      s.participants.slice(0, max).forEach(p => {
+      speakers.slice(0, max).forEach(p => {
         const r = el('div', 'qs-person');
         r.appendChild(el('div', 'n', p.name));
         const tm = [t12(p.start), t12(p.end)].filter(Boolean).join(' – ');
@@ -234,7 +264,7 @@
         if (p.topic) r.appendChild(el('div', 'tp', p.topic));
         box.appendChild(r);
       });
-      if (s.participants.length > max) box.appendChild(el('div', 'qs-person', `و${s.participants.length - max} مشاركين آخرين`));
+      if (speakers.length > max) box.appendChild(el('div', 'qs-person', `و${speakers.length - max} متحدثين آخرين`));
       inner.appendChild(box);
     }
     const facts = el('div', 'qs-facts');
@@ -260,6 +290,129 @@
     fitContent(inner, size === 'story' ? 1920 : 1350);
     fitStage();
   }
+  // ---------- إعلان برنامج الندوة (الطول يزيد مع عدد البنود) ----------
+  const ICON = {
+    cal: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>',
+    pin: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="10" r="2.6"/></svg>',
+  };
+  const timeRange = (p) => { const a = t12s(p.start), b = t12s(p.end); return a && b ? `${a} - ${b}` : (a || b); };
+  function t12s(hm) { if (!/^\d{1,2}:\d{2}$/.test(hm || '')) return ''; let [h, m] = hm.split(':').map(Number); const suf = h < 12 ? 'ص' : 'م'; h = h % 12 || 12; return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')} ${suf}`; }
+  function hijriLong(iso) { try { return new Intl.DateTimeFormat('ar-SA-u-ca-islamic-umalqura-nu-latn', { day: '2-digit', month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(iso + 'T12:00:00Z')).replace(/[\u200e\u200f]/g, '').replace(/\s*هـ$/, '') + 'هـ'; } catch (e) { return ''; } }
+  function gLong(iso) { try { return new Intl.DateTimeFormat('ar-SA-u-ca-gregory-nu-latn', { day: '2-digit', month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(iso + 'T12:00:00Z')).replace(/[\u200e\u200f]/g, '') + 'م'; } catch (e) { return ''; } }
+  function person(name, title) { const d = el('div', 'pp'); d.appendChild(el('b', null, name)); if (title) d.appendChild(el('small', null, title)); return d; }
+
+  function renderProgramme(P, s) {
+    P.classList.add('qp2');
+    const pat = el('div', 'qp2-pattern'); P.appendChild(pat);
+    // الترويسة
+    const head = el('header', 'qp2-head ' + s.poster_header);
+    if (s.poster_header === 'official') {
+      const blk = el('div', 'qp2-official');
+      ['المملكة العربية السعودية', 'وزارة التعليم - جامعة القصيم', 'كلية الشريعة', s.department].filter(Boolean).forEach(t => blk.appendChild(el('div', null, t)));
+      head.appendChild(blk);
+    }
+    const logo = el('img', 'qp2-logo'); logo.src = LOGO; logo.alt = ''; head.appendChild(logo);
+    if (s.poster_header !== 'official') head.appendChild(el('div', 'qp2-college', 'كلية الشريعة'));
+    P.appendChild(head);
+    // المقدمة
+    const intro = el('section', 'qp2-intro');
+    intro.appendChild(el('p', 'qp2-lead', `تقيم ${s.organizer || 'كلية الشريعة'}${s.department ? ' ممثلة ب' + s.department : ''}`));
+    intro.appendChild(el('p', 'qp2-lead', `${s.series || 'ندوة'} بعنوان:`));
+    intro.appendChild(el('h1', 'qp2-title', s.title ? `«${s.title}»` : '«عنوان الندوة»'));
+    if (s.subtitle) intro.appendChild(el('p', 'qp2-sub', s.subtitle));
+    if (STATUS_AR[s.status]) intro.appendChild(el('div', 'qs-status ' + s.status, STATUS_AR[s.status]));
+    intro.appendChild(el('div', 'qp2-rule'));
+    P.appendChild(intro);
+    // البرنامج
+    const band = el('section', 'qp2-band');
+    if (s.programme_layout === 'table') renderTable(band, s.participants); else renderCells(band, s.participants);
+    if (!s.participants.length) band.appendChild(el('p', 'qp2-empty', 'أضف بنود البرنامج من النموذج'));
+    P.appendChild(band);
+    // التذييل
+    const foot = el('section', 'qp2-foot');
+    const info = el('div', 'qp2-info');
+    const line = (icon, a, b) => { const r = el('div', 'qp2-line'); const ic = el('span', 'qp2-ic'); ic.innerHTML = ICON[icon]; r.appendChild(ic); const t = el('div'); t.appendChild(el('b', null, a)); if (b) t.appendChild(el('span', null, b)); r.appendChild(t); info.appendChild(r); };
+    if (s.date) line('cal', `يوم ${weekday(s.date)}، ${hijriLong(s.date)}`, `الموافق ${gLong(s.date)}`);
+    line('pin', s.place || 'المكان', [s.place_note, 'كلية الشريعة'].filter(Boolean).join(' / '));
+    if (s.public_note) info.appendChild(el('p', 'qp2-note', s.public_note));
+    foot.appendChild(info);
+    if (s.link && /^https?:\/\//i.test(s.link) && window.qrcode) {
+      try {
+        const q = window.qrcode(0, 'M'); q.addData(s.link); q.make();
+        const box = el('div', 'qp2-qr');
+        box.innerHTML = q.createSvgTag({ cellSize: 4, margin: 0, scalable: true });   // SVG من مكتبة QR
+        box.appendChild(el('div', null, 'البث المباشر عبر مسح رمز QR'));
+        foot.appendChild(box);
+      } catch (e) { /* رابط طويل جداً */ }
+    }
+    P.appendChild(foot);
+    const bottom = el('div', 'qp2-bottom'); const bi = el('img'); bi.src = BUILDING; bi.alt = ''; bottom.appendChild(bi); P.appendChild(bottom);
+  }
+
+  function renderCells(band, items) {
+    for (const p of items) {
+      const row = el('div', 'qc-row k-' + p.kind);
+      if (p.kind === 'session') {
+        row.classList.add('qc-session');
+        row.appendChild(el('div', 'qc-sname', p.name || 'الجلسة'));
+        if (p.moderator) { const m = el('div', 'qc-mod'); m.appendChild(el('b', null, 'إدارة: ' + p.moderator)); if (p.moderator_title) m.appendChild(el('small', null, p.moderator_title)); row.appendChild(m); }
+      } else if (p.kind === 'paper') {
+        row.appendChild(el('div', 'qc qc-topic', p.topic || '—'));
+        const c = el('div', 'qc qc-person'); c.appendChild(person(p.name, p.title)); row.appendChild(c);
+        row.appendChild(el('div', 'qc qc-time', timeRange(p)));
+      } else if (p.kind === 'opening') {
+        row.appendChild(el('div', 'qc qc-grad', p.topic || 'الافتتاح'));
+        const c = el('div', 'qc qc-person'); if (p.name) c.appendChild(person(p.name, p.title)); row.appendChild(c);
+        row.appendChild(el('div', 'qc qc-time', timeRange(p)));
+      } else if (p.kind === 'discussion') {
+        row.appendChild(el('div', 'qc qc-wide', p.topic || 'المداخلات والتعقيبات'));
+        row.appendChild(el('div', 'qc qc-time', timeRange(p)));
+      } else { // break / closing
+        row.appendChild(el('div', 'qc qc-grad qc-wide', p.topic || KINDS[p.kind].topic));
+        row.appendChild(el('div', 'qc qc-grad qc-time', timeRange(p)));
+      }
+      band.appendChild(row);
+    }
+  }
+
+  function renderTable(band, items) {
+    let table = null, n = 0;
+    const newTable = () => {
+      table = el('table', 'qt');
+      const tr = el('tr'); ['م', 'عنوان الورقة البحثية', 'الأستاذ الملقي', 'التخصص', 'الوقت'].forEach(h => tr.appendChild(el('th', null, h)));
+      const th = el('thead'); th.appendChild(tr); table.appendChild(th); table.appendChild(el('tbody'));
+      band.appendChild(table); n = 0;
+    };
+    for (const p of items) {
+      if (p.kind === 'session') {
+        const cap = el('p', 'qt-cap'); cap.appendChild(el('b', null, (p.name || 'الجلسة') + ': '));
+        cap.appendChild(document.createTextNode(p.moderator ? 'ويديرها ' + p.moderator : ''));
+        if (p.moderator_title) cap.appendChild(el('small', null, ' — ' + p.moderator_title));
+        band.appendChild(cap); table = null; continue;
+      }
+      if (!table && p.kind !== 'paper') {          // افتتاح/استراحة/ختام خارج الجداول: شريط مستقل
+        const row = el('div', 'qc-row qt-bar');
+        row.appendChild(el('div', 'qc qc-grad qc-wide', [p.topic || KINDS[p.kind].topic, p.kind === 'opening' && p.name ? '— ' + p.name : ''].filter(Boolean).join(' ')));
+        row.appendChild(el('div', 'qc qc-time' + (p.kind === 'discussion' ? '' : ' qc-grad'), timeRange(p)));
+        band.appendChild(row); continue;
+      }
+      if (!table) newTable();
+      const tr = el('tr', 'k-' + p.kind);
+      if (p.kind === 'paper') {
+        n++; const num = el('td', 'qt-n'); num.appendChild(el('span', null, n)); tr.appendChild(num);
+        tr.appendChild(el('td', 'qt-topic', p.topic));
+        const c = el('td'); c.appendChild(person(p.name, p.title)); tr.appendChild(c);
+        tr.appendChild(el('td', 'qt-spec', p.specialty || ''));
+      } else {
+        const td = el('td', 'qt-span'); td.colSpan = 4;
+        td.textContent = [p.topic || KINDS[p.kind].topic, p.kind === 'opening' && p.name ? '— ' + p.name : ''].filter(Boolean).join(' ');
+        tr.appendChild(td);
+      }
+      tr.appendChild(el('td', 'qt-time', timeRange(p)));
+      table.querySelector('tbody').appendChild(tr);
+    }
+  }
+
   // يصغّر المحتوى ليتسع فوق التذييل مهما زاد عدد المشاركين (مثل تصميم المناقشات)
   function fitContent(inner, H) {
     inner.style.transform = ''; inner.style.width = ''; inner.style.bottom = 'auto';
@@ -271,31 +424,65 @@
       inner.style.transform = `scale(${k})`;
     }
   }
+  const posterH = () => size === 'programme' ? Math.ceil($('#poster').scrollHeight) : (size === 'story' ? 1920 : 1350);
   function fitStage() {
     const st = $('#stage'), P = $('#poster');
-    const H = size === 'story' ? 1920 : 1350;
+    const H = posterH();
     const scale = Math.min(1, (st.clientWidth - 20) / 1080);
     P.style.transform = `scale(${scale})`;
     st.style.height = Math.ceil(H * scale + 20) + 'px';
   }
 
-  async function downloadPng() {
-    const P = $('#poster'); const H = size === 'story' ? 1920 : 1350;
-    try {
-      const url = await htmlToImage.toPng(P, { width: 1080, height: H, pixelRatio: 1, style: { transform: 'none' }, cacheBust: true });
-      const a = document.createElement('a'); a.href = url;
-      a.download = `اعلان-ندوة-${(current && current.date) || 'جديدة'}-${size}.png`;
-      document.body.appendChild(a); a.click(); a.remove();
-    } catch (e) { toast('تعذر إنشاء الصورة', true); }
+  async function renderBlob() {
+    const P = $('#poster'), H = posterH();
+    const canvas = await htmlToImage.toCanvas(P, { width: 1080, height: H, pixelRatio: 2, style: { transform: 'none' }, cacheBust: true });
+    return { canvas, H };
   }
-  function copyText() {
+  const fileBase = () => `${size === 'programme' ? 'برنامج' : 'اعلان'}-ندوة-${(current && current.date) || 'جديدة'}`;
+  function saveBlob(blob, name) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); }
+  async function downloadPng() {
+    try { const { canvas } = await renderBlob(); canvas.toBlob(b => saveBlob(b, fileBase() + '.png'), 'image/png'); }
+    catch (e) { toast('تعذر إنشاء الصورة', true); }
+  }
+  async function downloadPdf() {
+    try {
+      const { canvas, H } = await renderBlob();
+      const w = 1080 * 0.75, h = H * 0.75;          // بكسل CSS → نقاط PDF
+      const doc = new window.jspdf.jsPDF({ unit: 'pt', format: [w, h], orientation: 'portrait', compress: true });
+      doc.addImage(canvas.toDataURL('image/jpeg', 0.94), 'JPEG', 0, 0, w, h, undefined, 'FAST');
+      saveBlob(doc.output('blob'), fileBase() + '.pdf');
+    } catch (e) { toast('تعذر إنشاء ملف PDF', true); }
+  }
+  // واتساب: الجوال/الآيباد يفتح المشاركة بالصورة والنص؛ الكمبيوتر ينسخ الصورة ويفتح واتساب ويب
+  async function shareWa() {
+    const text = shareText();
+    const w = (navigator.canShare ? null : window.open('about:blank', '_blank'));
+    try {
+      const { canvas } = await renderBlob();
+      const blob = await new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.92));
+      const file = new File([blob], fileBase() + '.jpg', { type: 'image/jpeg' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], text }); return; }
+      let copied = false;
+      try { const png = await new Promise(r => canvas.toBlob(r, 'image/png')); await navigator.clipboard.write([new ClipboardItem({ 'image/png': png })]); copied = true; } catch (e) { copied = false; }
+      const url = `https://web.whatsapp.com/send?text=${encodeURIComponent(text)}`;
+      const win = w || window.open('about:blank', '_blank'); if (win) win.location.href = url; else location.href = url;
+      toast(copied ? '✓ الصورة منسوخة — اختر المحادثة والصقها (Ctrl+V) ثم أرسل' : 'افتح المحادثة وأرفق الصورة من «تحميل PNG»', !copied);
+    } catch (e) { if (w) w.close(); if (e.name !== 'AbortError') toast('تعذر فتح المشاركة — حمّل الصورة وأرسلها', true); }
+  }
+
+  function shareText() {
     const s = clean(current || blank());
-    const lines = [`تُقيم ${s.organizer || 'كلية الشريعة'} ندوة علمية بعنوان:`, `«${s.title}»`];
+    const lines = [`تقيم ${s.organizer || 'كلية الشريعة'}${s.department ? ' ممثلة ب' + s.department : ''} ${s.series || 'ندوة'} بعنوان:`, `«${s.title}»`];
     if (s.subtitle) lines.push(s.subtitle);
-    if (s.participants.length) { lines.push('', 'المشاركون:'); s.participants.forEach(p => lines.push(`• ${p.name}${p.topic ? ' — ' + p.topic : ''}${p.start ? ' (' + t12(p.start) + ')' : ''}`)); }
+    const sp = s.participants.filter(isSpeaker);
+    if (sp.length) { lines.push('', 'المتحدثون:'); sp.forEach(p => lines.push(`• ${p.name}${p.topic ? ' — ' + p.topic : ''}${p.start ? ' (' + t12(p.start) + ')' : ''}`)); }
     lines.push('', `📅 ${weekday(s.date)} ${hijri(s.date)} الموافق ${gdate(s.date)}`, `⏰ ${[t12(s.start), t12(s.end)].filter(Boolean).join(' – ')}`, `📍 ${[s.place, s.place_note].filter(Boolean).join(' ')}`);
     if (s.link) lines.push(`🔗 ${s.link}`);
-    navigator.clipboard.writeText(lines.join('\n')).then(() => toast('نُسخ نص النشر ✓'), () => toast('تعذر النسخ', true));
+    if (s.public_note) lines.push(s.public_note);
+    return lines.join('\n');
+  }
+  function copyText() {
+    navigator.clipboard.writeText(shareText()).then(() => toast('نُسخ نص النشر ✓'), () => toast('تعذر النسخ', true));
   }
 
   // ---------- إعداد النشر ----------
@@ -324,7 +511,14 @@
   $('#btnSave').onclick = save;
   $('#btnDelete').onclick = del;
   $('#btnPublish').onclick = publish;
-  $('#addPart').onclick = () => { const r = partRow({}); $('#parts').appendChild(r); r.querySelector('input').focus(); readForm(); };
+  $$('[data-add]').forEach(b => b.onclick = () => {
+    const kind = b.dataset.add, p = { kind };
+    if (kind === 'session') p.name = SESSION_NAMES[Math.min($$('#parts .k-session').length, SESSION_NAMES.length - 1)];
+    const r = partRow(p); $('#parts').appendChild(r); r.scrollIntoView({ block: 'nearest' }); (r.querySelector('input') || r).focus(); readForm();
+  });
+  { const dl = el('datalist'); dl.id = 'sessNames'; SESSION_NAMES.forEach(n => { const o = el('option'); o.value = n; dl.appendChild(o); }); document.body.appendChild(dl); }
+  $('#btnPdf').onclick = downloadPdf;
+  $('#btnWa').onclick = shareWa;
   $('#search').addEventListener('input', renderList);
   $$('[data-k]').forEach(i => i.addEventListener('input', readForm));
   $$('[data-size]').forEach(b => b.onclick = () => { $$('[data-size]').forEach(x => x.classList.toggle('active', x === b)); size = b.dataset.size; renderPoster(); });
