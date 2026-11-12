@@ -347,3 +347,25 @@ a.btn { text-decoration: none; }
 @media (max-width: 980px) { .grid-jump { bottom: calc(84px + env(safe-area-inset-bottom)); } } /* فوق شريط التنقل السفلي */
 @media (max-width: 760px) { .grid-jump button span { display: none; } .grid-jump button { padding: 9px 12px; font-size: 16px; } }
 .past-chk { background: #fff7e0; border-color: #f0dca0; }
+
+/* ===== تنقل واضح لكل الأجهزة (nav.js) ===== */
+.sec-nav { display: flex; gap: 8px; padding: 8px 18px; background: #fff; border-bottom: 1px solid var(--line); position: sticky; top: var(--tb-h, 58px); z-index: 19; }
+.sec-btn { flex: 1; max-width: 260px; display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; padding: 8px 14px;
+  border: 1.5px solid var(--line); border-radius: 12px; background: #fff; color: var(--brand-d); font-weight: 700; font-size: 15px; text-decoration: none; }
+.sec-btn:hover { border-color: var(--brand); }
+.sec-btn.active { background: var(--brand); border-color: var(--brand); color: #fff; }
+.tb-menu { display: none; }
+@media (max-width: 1024px) {
+  .sec-nav { padding: 8px 10px; top: var(--tb-h, 52px); justify-content: center; }
+  .sec-btn { max-width: 340px; font-size: 16px; }
+  /* الجوال والآيباد: لا أيقونات متلاصقة ولا صفوف مزدحمة؛ زر «القائمة» يفتح الأدوات بأسمائها */
+  .topbar .spacer { display: none; }
+  .topbar { position: sticky; }
+  .topbar .tb-menu { display: inline-flex; margin-inline-start: auto; font-size: 15px; padding: 8px 12px; min-height: 40px; }
+  .topbar .tb-actions { display: none; }
+  .topbar.menu-open .tb-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; position: absolute; top: 100%; inset-inline: 0;
+    padding: 12px; background: var(--brand-d); box-shadow: 0 12px 24px rgba(0,0,0,.25); overflow: visible; }
+  .topbar.menu-open .tb-actions .btn { justify-content: flex-start; font-size: 15px; padding: 11px 12px; min-height: 46px; white-space: nowrap; }
+  .topbar.menu-open .lbl { display: inline !important; }
+  .topbar .tb-actions a[href^="app.html"], .topbar .tb-actions a[href^="seminars.html"] { display: none; }   /* موجودة في شريط الأقسام */
+}@media (min-width: 761px) and (max-width: 1024px) { .topbar.menu-open .tb-actions { grid-template-columns: repeat(3, 1fr); } }
