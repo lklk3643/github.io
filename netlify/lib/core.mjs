@@ -28,7 +28,8 @@ const STAFF = [
   ['ssshaiea', 'صالح سليمان محمد الشايع', 'admin'],
   ['ma.hrby', 'محمد عايد الحميدي الحربي', 'admin'],
   ['an.alwasel', 'أنس خالد إبراهيم الواصل', 'super'],
-  ['samtrody', 'سليمان عبدالله سليمان المطرودى', 'admin']
+  ['samtrody', 'سليمان عبدالله سليمان المطرودى', 'admin'],
+  ['h.alnasser', 'حسين بن علي بن محمد النصير', 'admin']
 ].map(([u, name, role]) => ({ u, name, role }));
 export const hashPassword = (u, p) => sha(String(u).trim().toLowerCase() + ':' + p);
 const lower = (u) => String(u || '').trim().toLowerCase();
@@ -69,9 +70,13 @@ async function users(store, origin) {
     if (a) { a.role = 'super'; dirty = true; }
   }
   // حسابات الموظفين مرة واحدة: كلمة المرور الأولى = اسم المستخدم (يغيّرها صاحبها من «كلمة المرور» إن شاء)
-  if (!(await getJSON(store, STAFF_FLAG))) {
-    for (const s of STAFF) if (!list.some(x => lower(x.u) === lower(s.u))) { list.push({ u: s.u, name: s.name, role: s.role, h: hashPassword(s.u, s.u) }); dirty = true; }
-    await setJSON(store, STAFF_FLAG, { at: new Date().toISOString() });
+  // كل حساب يُضاف مرة واحدة فقط (إن حذفه المدير العام لا يرجع). العلامة القديمة بلا قائمة = التسعة الأوائل أُضيفوا
+  const flag = await getJSON(store, STAFF_FLAG);
+  const seeded = flag ? (flag.seeded || STAFF.slice(0, 9).map(s => s.u)) : [];
+  const todo = STAFF.filter(s => !seeded.includes(s.u));
+  if (todo.length) {
+    for (const s of todo) if (!list.some(x => lower(x.u) === lower(s.u))) { list.push({ u: s.u, name: s.name, role: s.role, h: hashPassword(s.u, s.u) }); dirty = true; }
+    await setJSON(store, STAFF_FLAG, { at: new Date().toISOString(), seeded: [...seeded, ...todo.map(s => s.u)] });
   }
   if (dirty) await setJSON(store, 'users', list);
   return list;
