@@ -18,6 +18,18 @@ import { DEMO_FLAG, demoRows, demoGrid, demoSeminars } from './demo.mjs';
 const DAY = 864e5;
 const SESSION_DAYS = 30;
 const sha = (s) => createHash('sha256').update(String(s), 'utf8').digest('hex');
+// الحسابات الأولى (أسماء وأسماء مستخدمين فقط؛ لا كلمات مرور هنا — الأولى = اسم المستخدم وتُخزَّن مُجزّأة)
+const STAFF = [
+  ['brady', 'عبدالكريم ناصر ابراهيم البرادى', 'super'],
+  ['b.alwanyan', 'باسم ابراهيم بن محمد الونيان', 'admin'],
+  ['abd.allahim', 'عبد العزيز إبراهيم علي اللاحم', 'admin'],
+  ['m.albishri', 'محمد عاتق فرج البشري', 'admin'],
+  ['a.abdou', 'علي عبدالفتاح محمد عبده', 'admin'],
+  ['ssshaiea', 'صالح سليمان محمد الشايع', 'admin'],
+  ['ma.hrby', 'محمد عايد الحميدي الحربي', 'admin'],
+  ['an.alwasel', 'أنس خالد إبراهيم الواصل', 'super'],
+  ['samtrody', 'سليمان عبدالله سليمان المطرودى', 'admin']
+].map(([u, name, role]) => ({ u, name, role }));
 export const hashPassword = (u, p) => sha(String(u).trim().toLowerCase() + ':' + p);
 const lower = (u) => String(u || '').trim().toLowerCase();
 
@@ -39,16 +51,32 @@ async function staticFile(origin, path) {
 }
 
 // الموظفون: أول مرة تُنسخ من users.json في الموقع، بعدها تُدار من السحابة وحدها
+// الصلاحيات: super = مدير عام (كل شيء + إدارة الحسابات)، admin = مدير (كل شيء إلا الحسابات)، employee = موظف.
+// كل حساب يرى جدوله وإعداداته فقط (state/<u>)؛ قائمة الحسابات للمدير العام وحده.
+const normRole = r => (r === 'super' || r === 'admin') ? r : 'employee';
+const STAFF_FLAG = 'staff-seeded-2026-11-13';
 async function users(store, origin) {
-  let list = await getJSON(store, 'users');
+  let list = await getJSON(store, 'users'), dirty = false;
   if (!Array.isArray(list) || !list.length) {
     const file = await staticFile(origin, '/users.json');
     list = Array.isArray(file) && file.length ? file : [{ u: 'admin', name: 'مدير النظام', role: 'admin', h: hashPassword('admin', 'admin123') }];
-    list = list.filter(x => x && x.u && x.h).map(({ u, name, role, h }) => ({ u, name: name || u, role: role === 'admin' ? 'admin' : 'employee', h }));
-    await setJSON(store, 'users', list);
+    list = list.filter(x => x && x.u && x.h).map(({ u, name, role, h }) => ({ u, name: name || u, role: normRole(role), h }));
+    dirty = true;
   }
+  // قبل وجود «مدير عام»: حساب admin (أو أول مدير) يصير مديرًا عامًا
+  if (!list.some(x => x.role === 'super')) {
+    const a = list.find(x => lower(x.u) === 'admin') || list.find(x => x.role === 'admin');
+    if (a) { a.role = 'super'; dirty = true; }
+  }
+  // حسابات الموظفين مرة واحدة: كلمة المرور الأولى = اسم المستخدم (يغيّرها صاحبها من «كلمة المرور» إن شاء)
+  if (!(await getJSON(store, STAFF_FLAG))) {
+    for (const s of STAFF) if (!list.some(x => lower(x.u) === lower(s.u))) { list.push({ u: s.u, name: s.name, role: s.role, h: hashPassword(s.u, s.u) }); dirty = true; }
+    await setJSON(store, STAFF_FLAG, { at: new Date().toISOString() });
+  }
+  if (dirty) await setJSON(store, 'users', list);
   return list;
 }
+const roleNow = (list, u) => { const x = list.find(y => lower(y.u) === lower(u)); return x ? x.role : null; };
 
 async function auth(store, req) {
   const m = (req.headers.get('authorization') || '').match(/^Bearer\s+([A-Za-z0-9_-]{20,})$/);
@@ -162,7 +190,7 @@ export async function handle(req, store) {
     const token = randomBytes(24).toString('base64url');
     const s = { u: user.u, name: user.name, role: user.role, exp: Date.now() + SESSION_DAYS * DAY };
     await setJSON(store, 'sess/' + token, s);
-    return json({ token, session: { u: user.u, name: user.name, role: user.role, t: Date.now(), weak: lower(user.u) === 'admin' && p === 'admin123' } });
+    return json({ token, session: { u: user.u, name: user.name, role: user.role, t: Date.now(), weak: (lower(user.u) === 'admin' && p === 'admin123') || p === user.u } });
   }
 
   const me = await auth(store, req);
@@ -170,7 +198,7 @@ export async function handle(req, store) {
   const U = lower(me.u);
 
   if (method === 'POST' && path === 'logout') { await store.delete('sess/' + me.token); return json({ ok: true }); }
-  if (method === 'GET' && path === 'me') return json({ u: me.u, name: me.name, role: me.role });
+  if (method === 'GET' && path === 'me') return json({ u: me.u, name: me.name, role: roleNow(await users(store, origin), me.u) || me.role });
 
   // --- بيانات الحساب (مفاتيح المتصفح)
   if (path === 'state') {
@@ -241,8 +269,8 @@ export async function handle(req, store) {
     return json({ ok: true });
   }
   if (path === 'users') {
-    if (me.role !== 'admin') return err('للمدير فقط', 403);
     const list = await users(store, origin);
+    if (roleNow(list, me.u) !== 'super') return err('للمدير العام فقط', 403);
     if (method === 'GET') return json({ users: list.map(({ u, name, role }) => ({ u, name, role })) });
     if (method === 'POST') {
       const { u, name, role, password } = await body();
@@ -250,7 +278,7 @@ export async function handle(req, store) {
       const ex = list.find(x => lower(x.u) === lower(u));
       if (!ex && !password) return err('أدخل كلمة مرور للمستخدم الجديد');
       if (password && String(password).length < 6) return err('كلمة المرور يجب ألا تقل عن 6 خانات');
-      const rec = { u: ex ? ex.u : String(u), name: name || (ex && ex.name) || String(u), role: (role || (ex && ex.role)) === 'admin' ? 'admin' : 'employee',
+      const rec = { u: ex ? ex.u : String(u), name: name || (ex && ex.name) || String(u), role: normRole(role || (ex && ex.role)),
         h: password ? hashPassword(ex ? ex.u : u, String(password)) : ex.h };
       const out = list.filter(x => lower(x.u) !== lower(u)); out.push(rec);
       await setJSON(store, 'users', out);
@@ -259,10 +287,10 @@ export async function handle(req, store) {
   }
   { const m = path.match(/^users\/([A-Za-z0-9_.\-]{1,32})$/);
     if (m && method === 'DELETE') {
-      if (me.role !== 'admin') return err('للمدير فقط', 403);
       const list = await users(store, origin);
+      if (roleNow(list, me.u) !== 'super') return err('للمدير العام فقط', 403);
       const target = list.find(x => lower(x.u) === lower(m[1]));
-      if (target && target.role === 'admin' && list.filter(x => x.role === 'admin').length <= 1) return err('لا يمكن حذف آخر مدير في النظام');
+      if (target && target.role === 'super' && list.filter(x => x.role === 'super').length <= 1) return err('لا يمكن حذف آخر مدير عام في النظام');
       await setJSON(store, 'users', list.filter(x => lower(x.u) !== lower(m[1])));
       return json({ ok: true });
     } }

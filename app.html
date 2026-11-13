@@ -28,7 +28,7 @@
       <button class="btn sm" id="btnLogout" title="خروج">⏻<span class="lbl"> خروج</span></button>
     </div>
   </div>
-  <div class="banner" id="weakBanner" hidden>⚠️ أنت تستخدم كلمة المرور الافتراضية للمدير. غيّرها الآن من زر «كلمة المرور».</div>
+  <div class="banner" id="weakBanner" hidden>🔑 كلمة المرور الحالية هي الأولية. تقدر تغيّرها متى ما حبيت من زر «كلمة المرور».</div>
 
   <div class="layout">
     <!-- لوحة التحرير -->
@@ -451,7 +451,7 @@
     </div>
     <div class="row2">
       <div class="field"><label>كلمة المرور (اتركها فارغة عند التعديل)</label><input type="password" id="nuPass" dir="ltr"></div>
-      <div class="field"><label>الصلاحية</label><select id="nuRole"><option value="employee">موظف</option><option value="admin">مدير</option></select></div>
+      <div class="field"><label>الصلاحية</label><select id="nuRole"><option value="employee">موظف</option><option value="admin">مدير</option><option value="super">مدير عام</option></select></div>
     </div>
     <button class="btn primary" id="nuSave">حفظ المستخدم</button>
     <table class="ulist"><thead><tr><th>المستخدم</th><th>الاسم</th><th>الصلاحية</th><th></th></tr></thead><tbody id="userList"></tbody></table>
@@ -491,6 +491,6 @@
   <script src="assets/js/nav.js?v=202611130001"></script>
   <script src="assets/js/poster.js?v=202610170020"></script>
   <script src="assets/js/details.js?v=202611130010"></script>
-  <script src="assets/js/app.js?v=202611140003"></script>
+  <script src="assets/js/app.js?v=202611130101"></script>
 </body>
 </html>

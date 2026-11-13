@@ -137,7 +137,7 @@
     if (CLOUD()) return publishCloud(false);
     if (!pendingCount()) return toast('لا توجد تعديلات جديدة للنشر');
     if (!token()) {
-      if (session.role === 'admin') { openSetup(); return toast('أعدّ النشر مرة واحدة على هذا الجهاز', true); }
+      if (session.role === 'admin' || session.role === 'super') { openSetup(); return toast('أعدّ النشر مرة واحدة على هذا الجهاز', true); }
       return toast('النشر غير مُعدّ على هذا الجهاز. اطلب من المدير إعداده.', true);
     }
     const btn = $('#btnPublish'); btn.disabled = true; btn.textContent = '…جارٍ النشر';
@@ -712,7 +712,7 @@
 
   // ---------- ربط ----------
   $('#who').textContent = `مرحباً، ${session.name || session.u}`;
-  if (session.role === 'admin' && !CLOUD()) $('#btnSetup').hidden = false;      // على Netlify لا حاجة لإعداد النشر
+  if ((session.role === 'admin' || session.role === 'super') && !CLOUD()) $('#btnSetup').hidden = false;      // على Netlify لا حاجة لإعداد النشر
   if (CLOUD()) $('#btnPublish').hidden = true;                                    // الحفظ = النشر
   $('#btnSetup').onclick = openSetup;
   $('#btnLogout').onclick = () => QAuth.logout();

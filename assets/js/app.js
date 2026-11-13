@@ -71,7 +71,10 @@
 
   $('#who').textContent = `مرحباً، ${session.name || session.u}`;
   $('#brandLogo').insertAdjacentHTML('afterbegin', `<img src="${DEFAULT_LOGO}" alt="" class="brand-logo">`);
-  if (session.role === 'admin') $('#btnUsers').hidden = false;
+  // إدارة الحسابات للمدير العام وحده؛ الصلاحية تُقرأ من السحابة (قد تتغير بعد الدخول)
+  if (session.role === 'super') $('#btnUsers').hidden = false;
+  if (window.QCloud && QCloud.site && session.token) fetch('/api/me', { headers: { authorization: 'Bearer ' + session.token } })
+    .then(r => r.ok ? r.json() : null).then(j => { if (j && j.role) { session.role = j.role; $('#btnUsers').hidden = j.role !== 'super'; } }).catch(() => {});
   if (session.weak) $('#weakBanner').hidden = false;
   $('#btnLogout').onclick = () => QAuth.logout();
   // التنقل السفلي (جوال / آيباد عمودي)
@@ -1509,7 +1512,7 @@
   async function renderUsers() {
     const users = await QAuth.getUsers();
     $('#userList').innerHTML = users.map(u => `<tr><td dir="ltr" style="text-align:right">${esc(u.u)}</td><td>${esc(u.name)}</td>
-      <td><span class="tag">${u.role === 'admin' ? 'مدير' : 'موظف'}</span></td>
+      <td><span class="tag">${u.role === 'super' ? 'مدير عام' : u.role === 'admin' ? 'مدير' : 'موظف'}</span></td>
       <td style="text-align:left;white-space:nowrap"><button class="btn sm" data-edit="${esc(u.u)}">تعديل</button>
       ${u.u.toLowerCase() === session.u.toLowerCase() ? '' : `<button class="btn sm danger" data-rm="${esc(u.u)}">حذف</button>`}</td></tr>`).join('');
   }
@@ -1547,7 +1550,7 @@
     try {
       await QAuth.changePassword(session.u, $('#pOld').value, $('#pNew').value);
       $('#mPass').classList.remove('open'); $('#weakBanner').hidden = true;
-      toast(session.role === 'admin' ? 'تم التغيير ✓ — صدّر users.json من «الموظفون» لتطبيقه على كل الأجهزة' : 'تم تغيير كلمة المرور ✓');
+      toast(session.role !== 'employee' && !(window.QCloud && QCloud.site) ? 'تم التغيير ✓ — صدّر users.json من «الموظفون» لتطبيقه على كل الأجهزة' : 'تم تغيير كلمة المرور ✓');
     } catch (e) { toast(e.message, true); }
   };
 
