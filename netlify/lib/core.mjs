@@ -13,6 +13,7 @@
  * لا يُرجَع أي «h» لكلمات المرور للمتصفح أبداً.
  */
 import { createHash, randomBytes } from 'node:crypto';
+import { DEMO_FLAG, demoRows, demoGrid, demoSeminars } from './demo.mjs';
 
 const DAY = 864e5;
 const SESSION_DAYS = 30;
@@ -119,6 +120,23 @@ async function seminarsDoc(store, origin) {
   return { v: new Date().toISOString(), source: 'صفحة الندوات', seminars };
 }
 
+// بيانات تجريبية كاملة تُضاف مرة واحدة (انظر demo.mjs)
+async function ensureDemo(store, origin) {
+  if (await getJSON(store, DEMO_FLAG)) return;
+  await seminarsDoc(store, origin);                         // نقل الندوات القديمة أولاً حتى لا يتجاوزها
+  for (const s of demoSeminars()) await setJSON(store, semKey(s.id), { ...s, by: 'admin' });
+  await setJSON(store, 'rows/admin/demo', demoRows());
+  const st = await getJSON(store, 'state/admin', {});
+  let grid = []; try { grid = JSON.parse(st.qu_grid_admin || '[]'); } catch (e) { grid = []; }
+  if (!Array.isArray(grid)) grid = [];
+  const has = new Set(grid.map(r => Array.isArray(r) ? String(r[2] || '').trim() : ''));
+  grid = grid.filter(r => Array.isArray(r) && r.some(v => String(v || '').trim()));
+  for (const r of demoGrid()) if (!has.has(r[2])) grid.push(r);
+  st.qu_grid_admin = JSON.stringify(grid); st.qu_gridv_admin = '5';
+  await setJSON(store, 'state/admin', st);
+  await setJSON(store, DEMO_FLAG, { at: new Date().toISOString() });
+}
+
 // ---------- الطلب ----------
 export async function handle(req, store) {
   const url = new URL(req.url);
@@ -127,6 +145,7 @@ export async function handle(req, store) {
   const method = req.method.toUpperCase();
   if (method === 'OPTIONS') return new Response(null, { status: 204, headers: { ...PUBLIC, 'access-control-allow-methods': 'GET', 'access-control-allow-headers': '*' } });
   const body = async () => { try { return await req.json(); } catch (e) { return {}; } };
+  await ensureDemo(store, origin);
 
   // --- عام: ملفات OBS
   if (method === 'GET' && path === 'feed/defenses.json') return json(await feedDefenses(store, origin), 200, PUBLIC);
@@ -190,6 +209,7 @@ export async function handle(req, store) {
     // لكل جهاز نسخته (حتى لو دخل اثنان بنفس الحساب معاً)، وملف OBS يجمع كل النسخ فلا يضيع سطر
     const D = String(dev || 'main').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 40) || 'main';
     await setJSON(store, `rows/${U}/${D}`, rows.slice(0, 5000));
+    if (D !== 'demo') await store.delete(`rows/${U}/demo`);    // الجدول صار يحمل التجريبية؛ حذفها منه يحذفها من OBS
     return json({ ok: true, n: rows.length });
   }
   if (path === 'details' && method === 'POST') {

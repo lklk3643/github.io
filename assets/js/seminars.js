@@ -762,6 +762,8 @@
   $('#copyInvite').onclick = () => copyText(shareText());
   // الجدول
   $('#search').addEventListener('input', renderGrid);
+  // المتصفح أحياناً يحفظ اسم الدخول ويكتبه في خانة البحث فيختفي الجدول: تُفرَّغ إذا لم يكتب فيها المستخدم
+  setTimeout(() => { const s = $('#search'); if (s && s.value && document.activeElement !== s) { s.value = ''; renderGrid(); } }, 800);
   $('#gSort').onclick = () => { sortAsc = !sortAsc; renderGrid(); toast(sortAsc ? 'الترتيب: الأقدم أولاً' : 'الترتيب: الأحدث أولاً'); };
   $('#gDel').onclick = delSelected;
   $('#gSelAll').onclick = () => { rowsView.forEach(s => gridSel.add(s.id)); renderGrid(); };
