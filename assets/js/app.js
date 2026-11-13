@@ -1025,9 +1025,18 @@
     const t = timeMin(r[CI('الوقت')] || '');
     return (m ? +m[1] * 10000 + +m[2] * 100 + +m[3] : 99999999) * 10000 + (t == null ? 9999 : t);
   }
-  // الترتيب: الأحدث فوق والأقدم تحت (الأسطر بلا تاريخ في الآخر)
+  // الترتيب: افتراضياً الأحدث فوق والأقدم تحت، وزر «ترتيب بالتاريخ» يقلبه (يُحفظ لكل مستخدم). الأسطر بلا تاريخ دايماً في الآخر
   const NODATE = 99999999 * 10000;
-  const cmpKey = (a, b) => (a >= NODATE) - (b >= NODATE) || b - a;
+  let sortAscG = false; try { sortAscG = localStorage.getItem(userKey('sortdir')) === 'asc'; } catch (e) { /* اختياري */ }
+  const cmpKey = (a, b) => (a >= NODATE) - (b >= NODATE) || (sortAscG ? a - b : b - a);
+  const sortLabel = () => {
+    const b = $('#gSort'); if (b) { b.textContent = sortAscG ? '↑ الأقدم فوق' : '↓ الأحدث فوق'; b.title = 'اضغط لقلب الترتيب: ' + (sortAscG ? 'الأحدث فوق' : 'الأقدم فوق'); }
+    // زرّا القفز بالتاريخ: «البداية» = أول سجل (الأقدم)، «النهاية» = آخر سجل (الأحدث) — مكانهما يتبع الترتيب
+    const top = $('#gTop span'), bot = $('#gBottom span');
+    if (top && bot) { top.textContent = sortAscG ? 'البداية' : 'النهاية'; bot.textContent = sortAscG ? 'النهاية' : 'البداية';
+      $('#gTop').title = sortAscG ? 'أول سجل (الأقدم)' : 'آخر سجل (الأحدث)'; $('#gBottom').title = sortAscG ? 'آخر سجل (الأحدث)' : 'أول سجل (الأقدم)'; }
+  };
+  sortLabel();
   const sortRows = rows => rows.filter(r => !isEmptyRow(r)).map((r, i) => [gridDateKey(r), i, r]).sort((a, b) => cmpKey(a[0], b[0]) || a[1] - b[1]).map(x => x[2]);
   { const s = sortRows(grid); if (s.some((r, i) => r !== grid[i])) { grid = s; if ($('#sheet').tBodies.length) renderGrid(); } }
   { const wk = $('#gWeeks'); wk.checked = weeksOn();
@@ -1083,8 +1092,10 @@
       toast(pw.checked ? `تظهر التنبيهات على كل المناقشات: ${w} ناقص، ${c} تعارض` : 'التنبيهات على المناقشات الجاية بس'); }; }
   $('#gSort').onclick = () => {
     gridSnap('ترتيب بالتاريخ');
+    sortAscG = !sortAscG; try { localStorage.setItem(userKey('sortdir'), sortAscG ? 'asc' : 'desc'); } catch (e) { /* اختياري */ }
+    sortLabel();
     grid = sortRows(grid); gridSel.clear(); activeRow = -1; renderGrid(); gridChanged();
-    toast('تم ترتيب الجدول: الأحدث فوق والأقدم تحت ✓');
+    toast(sortAscG ? 'الترتيب: الأقدم فوق والأحدث تحت ✓' : 'الترتيب: الأحدث فوق والأقدم تحت ✓');
   };
   // بيانات الكلية المشتركة (جدول حجز القاعة): تُضاف للجدول مرة لكل إصدار بدون تكرار ثم يُرتّب
   (async function loadShared() {
@@ -1118,7 +1129,7 @@
       localStorage.setItem(seenKey, data.v);
       if (!add.length && !filled) { renderGrid(); gridChanged(); return; }
       grid = sortRows([...grid, ...add]); gridSel.clear(); activeRow = -1; renderGrid(); gridChanged();
-      toast(add.length ? `📅 أُضيفت ${add.length} مناقشة من جدول حجز القاعة${filled ? ` وحُدّثت ${filled}` : ''} — الأحدث فوق` : `📅 حُدّثت ${filled} مناقشة من جدول حجز القاعة`);
+      toast(add.length ? `📅 أُضيفت ${add.length} مناقشة من جدول حجز القاعة${filled ? ` وحُدّثت ${filled}` : ''} — مرتبة بالتاريخ` : `📅 حُدّثت ${filled} مناقشة من جدول حجز القاعة`);
     } catch (e) { /* بدون اتصال أو نسخة الملف الواحد */ }
   })();
   // ---------- تراجع / إعادة للجدول + سلة المحذوفات ----------
