@@ -1,5 +1,5 @@
 {
- "v": "2026-11-12T17:11:42+00:00",
+ "v": "2026-11-13T00:26:38+00:00",
  "source": "صفحة الندوات",
  "seminars": [
   {
@@ -474,6 +474,55 @@
    "poster_header": "simple",
    "programme_layout": "cells",
    "public_note": ""
+  },
+  {
+   "id": "test-ikhtibar-nadawat",
+   "title": "اختبار ندوات",
+   "subtitle": "ندوة تجريبية للتأكد من وصول البيانات إلى OBS",
+   "organizer": "كلية الشريعة",
+   "date": "2026-11-13",
+   "start": "16:00",
+   "end": "18:00",
+   "place": "قاعة الشيخ ابن عثيمين",
+   "place_note": "(والبث عبر الإنترنت)",
+   "link": "https://www.youtube.com/@src.sds1",
+   "status": "confirmed",
+   "notes": "اختبار — يُحذف بعد التأكد من ظهوره في OBS",
+   "series": "ندوة",
+   "department": "قسم الفقه",
+   "public_note": "",
+   "poster_header": "simple",
+   "programme_layout": "cells",
+   "participants": [
+    {
+     "kind": "opening",
+     "name": "د. متحدث اختبار الافتتاح",
+     "title": "اختبار",
+     "role": "مقدّم",
+     "topic": "افتتاح الندوة",
+     "start": "16:00",
+     "end": "16:10"
+    },
+    {
+     "kind": "paper",
+     "name": "د. متحدث اختبار الأول",
+     "title": "اختبار",
+     "role": "متحدث",
+     "topic": "الورقة الأولى (اختبار)",
+     "start": "16:10",
+     "end": "16:40"
+    },
+    {
+     "kind": "paper",
+     "name": "د. متحدث اختبار الثاني",
+     "title": "اختبار",
+     "role": "متحدث",
+     "topic": "الورقة الثانية (اختبار)",
+     "start": "16:40",
+     "end": "17:10"
+    }
+   ],
+   "updated": "2026-11-13T00:26:38+00:00"
   }
  ]
 }
