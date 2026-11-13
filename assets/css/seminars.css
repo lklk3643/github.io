@@ -45,7 +45,7 @@
 .qs { --p: #2b7574; --d: #0f4a4d; --l: #d9eae9; --a: #5e9998;
       width: 1080px; height: 1350px; position: relative; overflow: hidden; direction: rtl; flex: none;
       background: linear-gradient(180deg, #f3f9f8 0%, #e9f3f2 55%, #f4f8f7 100%);
-      font-family: 'IBM Plex Sans Arabic', 'Segoe UI', Tahoma, sans-serif; color: var(--d); line-height: 1.45;
+      font-family: 'Readex Pro', 'IBM Plex Sans Arabic', 'Segoe UI', Tahoma, sans-serif; color: var(--d); line-height: 1.45;   /* نفس خط إعلان المناقشات */
       transform-origin: top center; }
 .qs[data-size="story"] { height: 1920px; }
 .qs * { box-sizing: border-box; }
@@ -128,8 +128,8 @@
 .qp2-logo { height: 150px; }
 .qp2-college { font-family: "Aref Ruqaa", serif; font-size: 46px; color: var(--d); margin-top: 4px; }
 .qp2-intro { position: relative; text-align: center; padding: 18px 70px 0; display: flex; flex-direction: column; align-items: center; gap: 4px; }
-.qp2-lead { margin: 0; font-size: 30px; font-weight: 600; color: var(--p); }
-.qp2-title { margin: 10px 0 0; font-family: "Readex Pro", "IBM Plex Sans Arabic", sans-serif; font-size: 52px; line-height: 1.35; font-weight: 700; color: var(--d); }
+.qp2-lead { margin: 0; font-size: 30px; font-weight: 500; color: var(--p); }
+.qp2-title { margin: 10px 0 0; font-family: "Readex Pro", "IBM Plex Sans Arabic", sans-serif; font-size: 52px; line-height: 1.35; font-weight: 700; color: var(--d); text-wrap: balance; }
 .qp2-sub { margin: 0; font-size: 28px; color: var(--a); }
 .qp2-rule { width: 160px; height: 4px; border-radius: 4px; background: #c9d3d3; margin: 18px 0 6px; }
 .qp2-band { position: relative; margin: 18px 46px 0; padding: 18px; background: #f2f4f5; border-radius: 26px; display: flex; flex-direction: column; gap: 10px; }
