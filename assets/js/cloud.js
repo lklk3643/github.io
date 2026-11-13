@@ -21,6 +21,9 @@
   }
   QCloud.on = true;
   const U = String(S.u || '').toLowerCase();
+  // جدول المناقشات مشترك بين كل الحسابات: base = آخر نسخة من الخادم بُني عليها جدول هذه الصفحة (للدمج)، ver = رقمها
+  const GRID = 'qu_grid_' + U; let base = null, ver = 0;
+  const applyGrid = (value, by) => { native.set.call(localStorage, GRID, value); base = value; dispatchEvent(new CustomEvent('qcloud:grid', { detail: { value, by } })); };
   const mine = (k) => typeof k === 'string' && k.startsWith('qu_') && k.endsWith('_' + U) && !/^qu_(session|gh_|details_)/.test(k);
 
   // 1) جلب بيانات الحساب قبل أن تبدأ الصفحة (طلب متزامن عن قصد: التطبيق يقرأ التخزين فور تحميله)
@@ -35,6 +38,8 @@
       const first = [];
       for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (mine(k) && !(k in data)) first.push(k); }
       Object.entries(data).forEach(([k, v]) => { if (mine(k)) native.set.call(localStorage, k, v); });
+      if (typeof data[GRID] === 'string') base = data[GRID];
+      ver = +(JSON.parse(x.responseText) || {}).sharedVer || 0;
       if (first.length) setTimeout(() => first.forEach(k => queue(k)), 0);
       QCloud.loaded = true;
     }
@@ -52,8 +57,17 @@
     const set = { ...pendSet }, del = [...pendDel];
     if (!Object.keys(set).length && !del.length) return Promise.resolve();
     Object.keys(set).forEach(k => delete pendSet[k]); pendDel.clear();
-    return api('state', { method: 'POST', body: JSON.stringify({ set, del }), keepalive: !!keepalive })
-      .then(r => { if (!r.ok) throw new Error(r.status); mark(true); })
+    const sentGrid = GRID in set ? set[GRID] : null;
+    return api('state', { method: 'POST', body: JSON.stringify({ set, del, base: sentGrid != null && base != null ? { [GRID]: base } : {} }), keepalive: !!keepalive })
+      .then(r => { if (!r.ok) throw new Error(r.status); mark(true); return r.json().catch(() => ({})); })
+      .then(j => {
+        if (!j || sentGrid == null) return;
+        if (j.sharedVer) ver = j.sharedVer;
+        const merged = j.merged && j.merged[GRID];
+        // تعديلات أحدث تنتظر الإرسال: أساسها ما أُرسل للتو (تُدمج في الحفظ التالي)؛ وإلا تُعرض النسخة المدموجة
+        if (GRID in pendSet || merged == null) { base = sentGrid; return; }
+        applyGrid(merged, '');
+      })
       .catch(() => { Object.assign(pendSet, set); del.forEach(k => pendDel.add(k)); mark(false); t = setTimeout(flush, 5000); });
   }
   Storage.prototype.setItem = function (k, v) { native.set.call(this, k, v); if (this === localStorage && mine(k)) queue(k); };
@@ -93,6 +107,18 @@
       if (changed && !document.querySelector('.modal.open') && !/INPUT|TEXTAREA|SELECT/.test((document.activeElement || {}).tagName || '')) location.reload();
     } catch (e) { /* بدون اتصال */ }
   });
+  // كل 20 ثانية: إن عدّل أحد الزملاء الجدول، يظهر التعديل هنا (ما لم تكن تكتب في خانة الآن)
+  setInterval(async () => {
+    if (document.hidden || GRID in pendSet) return;
+    try {
+      const r = await api('shared?since=' + ver); if (!r.ok) return;
+      const j = await r.json(); if (!j || typeof j.grid !== 'string') { if (j && j.ver) ver = j.ver; return; }
+      const a = document.activeElement;
+      if (a && a.closest && a.closest('#sheet') && /INPUT|TEXTAREA|SELECT/.test(a.tagName)) return;   // يعيد المحاولة بعد قليل
+      ver = j.ver;
+      if (j.grid !== localStorage.getItem(GRID)) applyGrid(j.grid, j.by); else base = j.grid;
+    } catch (e) { /* بدون اتصال */ }
+  }, 20000);
   QCloud.details = (entries) => api('details', { method: 'POST', body: JSON.stringify({ entries }) }).then(r => r.ok);
   QCloud.seminars = (upsert, remove) => api('seminars', { method: 'POST', body: JSON.stringify({ upsert, remove }) }).then(r => r.ok ? r.json() : Promise.reject(new Error(r.status)));
 })();

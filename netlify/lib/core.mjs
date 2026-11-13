@@ -13,7 +13,7 @@
  * لا يُرجَع أي «h» لكلمات المرور للمتصفح أبداً.
  */
 import { createHash, randomBytes } from 'node:crypto';
-import { DEMO_FLAG, demoRows, demoGrid, demoSeminars } from './demo.mjs';
+import { DEMO_FLAG, demoRows, demoGrid, demoSeminars, GCOLS } from './demo.mjs';
 
 const DAY = 864e5;
 const SESSION_DAYS = 30;
@@ -171,6 +171,53 @@ async function ensureDemo(store, origin) {
 }
 
 // ---------- الطلب ----------
+// ---------- جدول المناقشات المشترك ----------
+// جدول واحد لكل الحسابات (state/_shared): كل واحد يضيف ويعدّل ويحذف، والتعديلات تُدمج بدل أن يمسح أحدها الآخر.
+// في المتصفح يبقى المفتاح باسم الحساب (qu_grid_<u>)، والخادم يحوّله للجدول المشترك.
+const SHARED_KEY = /^qu_(gridv|grid|sharedv)_/;
+const sharedName = k => { const m = String(k).match(SHARED_KEY); return m ? m[1] : null; };
+const WCOL = GCOLS.indexOf('الكاتب');
+const emptyRow = r => !Array.isArray(r) || r.every((v, i) => i === WCOL || !String(v || '').trim());
+const parseGrid = s => { try { const g = JSON.parse(s || '[]'); return Array.isArray(g) ? g.filter(Array.isArray) : []; } catch (e) { return []; } };
+
+// أول مرة: الجدول المشترك = كل أسطر جداول الحسابات (بلا تكرار)، وتُحذف نسخ OBS القديمة لكل حساب/جهاز
+async function sharedDoc(store) {
+  let doc = await getJSON(store, 'state/_shared');
+  if (doc) return doc;
+  const seen = new Set(), grid = []; let sharedv = '';
+  const { blobs } = await store.list({ prefix: 'state/' });
+  for (const b of blobs) {
+    if (b.key === 'state/_shared') continue;
+    const st = await getJSON(store, b.key, {});
+    for (const [k, v] of Object.entries(st || {})) {
+      const n = sharedName(k);
+      if (n === 'grid') for (const r of parseGrid(v)) { const j = JSON.stringify(r); if (!emptyRow(r) && !seen.has(j)) { seen.add(j); grid.push(r); } }
+      if (n === 'sharedv' && String(v) > sharedv) sharedv = String(v);
+    }
+  }
+  doc = { ver: 1, grid: JSON.stringify(grid), gridv: '5', sharedv };
+  await setJSON(store, 'state/_shared', doc);
+  await writeSharedRows(store, grid);
+  const old = await store.list({ prefix: 'rows/' });
+  for (const b of old.blobs) if (!b.key.startsWith('rows/_shared/')) await store.delete(b.key);
+  return doc;
+}
+// ملف OBS: من الجدول المشترك نفسه (لا من نسخة كل جهاز، حتى لا يرجع سطر محذوف)
+async function writeSharedRows(store, grid) {
+  await setJSON(store, 'rows/_shared/grid', grid.filter(r => !emptyRow(r)).map(r => Object.fromEntries(GCOLS.map((c, i) => [c, r[i] || '']))));
+}
+// دمج ثلاثي بالأسطر: ما حذفه/عدّله صاحب الحفظ منذ آخر نسخة رآها يُطبَّق على أحدث نسخة، وما أضافه غيره يبقى
+function mergeGrid(base, mine, theirs) {
+  const count = a => { const m = new Map(); for (const r of a) { const k = JSON.stringify(r); m.set(k, (m.get(k) || 0) + 1); } return m; };
+  const nb = count(base.filter(r => !emptyRow(r))), nm = count(mine.filter(r => !emptyRow(r)));
+  const drop = new Map(); for (const [k, n] of nb) { const d = n - (nm.get(k) || 0); if (d > 0) drop.set(k, d); }
+  const out = [];
+  for (const r of theirs) { if (emptyRow(r)) continue; const k = JSON.stringify(r), d = drop.get(k) || 0; if (d > 0) { drop.set(k, d - 1); continue; } out.push(r); }
+  const have = count(out);
+  for (const [k, n] of nm) { const add = n - (nb.get(k) || 0) - Math.max(0, (have.get(k) || 0) - (nb.get(k) || 0)); for (let i = 0; i < add; i++) out.push(JSON.parse(k)); }
+  return out.concat(mine.filter(emptyRow));                  // صفوف المحرّر الفارغة تبقى عنده
+}
+
 export async function handle(req, store) {
   const url = new URL(req.url);
   const origin = url.origin;
@@ -207,15 +254,40 @@ export async function handle(req, store) {
 
   // --- بيانات الحساب (مفاتيح المتصفح)
   if (path === 'state') {
-    if (method === 'GET') return json({ data: await getJSON(store, 'state/' + U, {}) });
-    if (method === 'POST') {
-      const { set = {}, del = [] } = await body();
-      const cur = await getJSON(store, 'state/' + U, {});
-      Object.entries(set).forEach(([k, v]) => { if (typeof k === 'string' && k.startsWith('qu_') && typeof v === 'string') cur[k] = v; });
-      (Array.isArray(del) ? del : []).forEach(k => { delete cur[k]; });
-      await setJSON(store, 'state/' + U, cur);
-      return json({ ok: true });
+    const sh = await sharedDoc(store);
+    const mapShared = () => Object.fromEntries(['grid', 'gridv', 'sharedv'].filter(n => sh[n] != null && sh[n] !== '').map(n => [`qu_${n}_${U}`, sh[n]]));
+    if (method === 'GET') {
+      const own = await getJSON(store, 'state/' + U, {});
+      for (const k of Object.keys(own)) if (sharedName(k)) delete own[k];
+      return json({ data: { ...own, ...mapShared() }, sharedVer: sh.ver });
     }
+    if (method === 'POST') {
+      const { set = {}, del = [], base = {} } = await body();
+      const cur = await getJSON(store, 'state/' + U, {});
+      let shChanged = false, merged = null;
+      for (const [k, v] of Object.entries(set)) {
+        if (typeof k !== 'string' || !k.startsWith('qu_') || typeof v !== 'string') continue;
+        const n = sharedName(k);
+        if (!n) { cur[k] = v; continue; }
+        if (n === 'grid') {
+          // بلا نسخة أساس (صفحة قديمة): الحفظ يحل محل الجدول كما كان
+          const g = typeof base[k] === 'string' ? mergeGrid(parseGrid(base[k]), parseGrid(v), parseGrid(sh.grid)) : parseGrid(v);
+          const s = JSON.stringify(g);
+          if (s !== sh.grid) { sh.grid = s; shChanged = true; await writeSharedRows(store, g); }
+          if (s !== v) merged = s;
+        } else if (sh[n] !== v) { sh[n] = v; shChanged = true; }
+      }
+      (Array.isArray(del) ? del : []).forEach(k => { if (!sharedName(k)) delete cur[k]; });
+      for (const k of Object.keys(cur)) if (sharedName(k)) delete cur[k];
+      await setJSON(store, 'state/' + U, cur);
+      if (shChanged) { sh.ver = (sh.ver || 0) + 1; sh.by = me.name || me.u; sh.at = Date.now(); await setJSON(store, 'state/_shared', sh); }
+      return json({ ok: true, sharedVer: sh.ver, ...(merged != null ? { merged: { ['qu_grid_' + U]: merged } } : {}) });
+    }
+  }
+  // تحديث الجدول المشترك في الصفحات المفتوحة: يرجع الجدول فقط إذا تغيّر بعد النسخة التي عند الصفحة
+  if (path === 'shared' && method === 'GET') {
+    const sh = await sharedDoc(store), since = +new URL(req.url).searchParams.get('since') || 0;
+    return json(sh.ver === since ? { ver: sh.ver } : { ver: sh.ver, key: 'qu_grid_' + U, grid: sh.grid, by: sh.by || '' });
   }
 
   // --- سجل التصاميم
@@ -236,27 +308,12 @@ export async function handle(req, store) {
     if (m && method === 'DELETE') { await store.delete(`hist/${U}/${m[1]}`); return json({ ok: true }); } }
 
   // --- أسطر جدول المناقشات وتفاصيل التصاميم (لشاشة OBS)
-  // مناقشات بقية الحسابات (للاطلاع فقط في صفحة كل حساب): من نفس الأسطر التي تصل OBS، مع اسم الكاتب
-  if (path === 'rows/others' && method === 'GET') {
-    const names = Object.fromEntries((await users(store, origin)).map(x => [lower(x.u), x.name]));
-    // جدول حجز القاعة (الملف الثابت) موجود أصلًا في جدول كل حساب: لا يُكرَّر هنا
-    const base = (await staticFile(origin, '/assets/data/defenses.json')) || { rows: [] };
-    const shared = new Set((base.rows || []).map(r => keyOf(r['الطالب'], r['التاريخ'])));
-    const { blobs } = await store.list({ prefix: 'rows/' }), map = new Map();
-    for (const b of blobs) {
-      const owner = lower(b.key.split('/')[1]); if (!owner || owner === U) continue;
-      const rows = await getJSON(store, b.key, []); if (!Array.isArray(rows)) continue;
-      for (const r of rows) if (r && String(r['الطالب'] || '').trim() && !shared.has(keyOf(r['الطالب'], r['التاريخ']))) map.set(keyOf(r['الطالب'], r['التاريخ']) + '|' + owner, { ...r, _by: names[owner] || owner });
-    }
-    return json({ rows: [...map.values()] });
-  }
   if (path === 'rows' && method === 'POST') {
     const { rows, dev } = await body();
     if (!Array.isArray(rows)) return err('أسطر غير صالحة');
     // لكل جهاز نسخته (حتى لو دخل اثنان بنفس الحساب معاً)، وملف OBS يجمع كل النسخ فلا يضيع سطر
-    const D = String(dev || 'main').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 40) || 'main';
-    await setJSON(store, `rows/${U}/${D}`, rows.slice(0, 5000));
-    if (D !== 'demo') await store.delete(`rows/${U}/demo`);    // الجدول صار يحمل التجريبية؛ حذفها منه يحذفها من OBS
+    // الجدول صار مشتركًا: ملف OBS يُكتب من الجدول المشترك عند حفظه (state)، فلا تُحفظ نسخة لكل جهاز
+    await sharedDoc(store);
     return json({ ok: true, n: rows.length });
   }
   if (path === 'details' && method === 'POST') {

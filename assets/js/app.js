@@ -1093,6 +1093,13 @@
     pw.onchange = () => { try { localStorage.setItem(userKey('pastwarn2'), pw.checked ? '1' : '0'); } catch (e) { /* اختياري */ } renderGrid();
       const w = $$('#sheet .chip.warn').length, c = conflicts.size;
       toast(pw.checked ? `تظهر التنبيهات على كل المناقشات: ${w} ناقص، ${c} تعارض` : 'التنبيهات على المناقشات الجاية بس'); }; }
+  // الجدول مشترك بين الحسابات: تعديل من زميل (أو نتيجة دمج الحفظ) يُعرض فورًا
+  addEventListener('qcloud:grid', e => {
+    let g; try { g = JSON.parse(e.detail.value); } catch (err) { return; }
+    if (!Array.isArray(g)) return;
+    grid = sortRows(g.filter(Array.isArray)); gridSel.clear(); activeRow = -1; renderGrid(); updateGridInfo();
+    const by = e.detail.by; if (by && String(by).toLowerCase() !== String(session.u).toLowerCase()) toast(`🔄 تحدّث الجدول — آخر تعديل: ${by}`);
+  });
   $('#gSort').onclick = () => {
     gridSnap('ترتيب بالتاريخ');
     sortAscG = !sortAscG; try { localStorage.setItem(userKey('sortdir'), sortAscG ? 'asc' : 'desc'); } catch (e) { /* اختياري */ }
@@ -1100,24 +1107,6 @@
     grid = sortRows(grid); gridSel.clear(); activeRow = -1; renderGrid(); gridChanged();
     toast(sortAscG ? 'الترتيب: الأقدم فوق والأحدث تحت ✓' : 'الترتيب: الأحدث فوق والأقدم تحت ✓');
   };
-  // مناقشات الزملاء: ما كتبته بقية الحسابات (للاطلاع فقط)، بنفس اتجاه الترتيب، وتتحدّث كل دقيقة
-  let othersRows = [];
-  const othersKey = r => { const m = String(r['التاريخ'] || '').replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d)).match(/(\d{4})\s*\/\s*(\d{1,2})\s*\/\s*(\d{1,2})/);
-    return m ? (+m[1] * 10000 + +m[2] * 100 + +m[3]) * 10000 : NODATE; };
-  function renderOthers() {
-    const box = $('#othersBox'); if (!box) return;
-    box.hidden = !othersRows.length; $('#othersCount').textContent = othersRows.length ? `(${othersRows.length})` : '';
-    const rows = othersRows.map((r, i) => [othersKey(r), i, r]).sort((a, b) => cmpKey(a[0], b[0]) || a[1] - b[1]).map(x => x[2]);
-    const cols = ['التاريخ', 'اليوم', 'الوقت', 'الطالب', 'الدرجة', 'العنوان', 'المكان'];
-    $('#othersSheet').innerHTML = `<thead><tr>${cols.map(c => `<th>${c}</th>`).join('')}<th>كتبها</th></tr></thead><tbody>` +
-      rows.map(r => `<tr>${cols.map(c => `<td>${esc(r[c])}</td>`).join('')}<td class="by">${esc(r._by)}</td></tr>`).join('') + '</tbody>';
-  }
-  async function loadOthers() {
-    if (!(window.QCloud && QCloud.on)) return;
-    try { const r = await QCloud.api('rows/others'); if (r.ok) { othersRows = (await r.json()).rows || []; renderOthers(); } } catch (e) { /* يحاول بعد دقيقة */ }
-  }
-  loadOthers(); setInterval(loadOthers, 60000);
-  $('#gSort').addEventListener('click', renderOthers);
   // بيانات الكلية المشتركة (جدول حجز القاعة): تُضاف للجدول مرة لكل إصدار بدون تكرار ثم يُرتّب
   (async function loadShared() {
     try {
