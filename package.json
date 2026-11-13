@@ -1,0 +1,9 @@
+{
+  "name": "qu-announcer",
+  "private": true,
+  "description": "مصمم إعلانات المناقشات والندوات — كلية الشريعة",
+  "type": "module",
+  "dependencies": {
+    "@netlify/blobs": "^8.1.0"
+  }
+}

@@ -1,0 +1,12 @@
+# موقع مصمم الإعلانات على Netlify: ملفات ثابتة + خادم صغير (netlify/functions) للدخول والسحابة وملفات OBS
+[build]
+  publish = "."
+  functions = "netlify/functions"
+
+[functions]
+  node_bundler = "esbuild"
+
+[[headers]]
+  for = "/*.html"
+  [headers.values]
+    Cache-Control = "no-cache"

@@ -1,0 +1,7 @@
+// Netlify Function: كل ما تحت /api/* (انظر core.mjs)
+import { getStore } from '@netlify/blobs';
+import { handle } from './core.mjs';
+
+export default async (req) => handle(req, getStore({ name: 'qu', consistency: 'strong' }));
+
+export const config = { path: '/api/*' };

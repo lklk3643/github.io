@@ -30,7 +30,12 @@
     return { key: keyOf(s.student, s.date), student: String(s.student).trim(), date: normDate(s.date), title, committee, updated: new Date().toISOString() };
   }
   async function publish() {
-    const p = read(); if (!token() || !Object.keys(p).length) return false;
+    const p = read(); if (!Object.keys(p).length) return false;
+    if (window.QCloud && QCloud.on) {                       // موقع Netlify: الخادم يكتبها لشاشة OBS
+      if (await QCloud.details(p).catch(() => false)) { localStorage.removeItem(PENDING); return true; }
+      return false;
+    }
+    if (!token()) return false;
     const H = { Authorization: 'Bearer ' + token(), Accept: 'application/vnd.github+json' };
     for (let attempt = 0; attempt < 2; attempt++) {
       let doc = { v: '', details: {} }, sha;
@@ -54,7 +59,7 @@
   }
   /* أول مرة يتوفر فيها الرمز: كل تصاميم السجل على هذا الجهاز */
   async function backfill(list) {
-    if (!token() || localStorage.getItem(BACKFILL)) return;
+    if ((!token() && !(window.QCloud && QCloud.on)) || localStorage.getItem(BACKFILL)) return;
     const p = read(); (list || []).forEach(it => { const e = entryOf(it && it.state); if (e) p[e.key] = e; });
     localStorage.setItem(PENDING, JSON.stringify(p));
     if (await publish().catch(() => false)) localStorage.setItem(BACKFILL, '1');

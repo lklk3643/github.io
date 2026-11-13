@@ -444,10 +444,12 @@
         t.onerror = () => rej(t.error);
       });
     },
-    put(item) { return this.tx('readwrite', st => st.put(item)); },
-    get(id) { return this.tx('readonly', st => st.get(id)); },
-    del(id) { return this.tx('readwrite', st => st.delete(id)); },
-    list() { return this.tx('readonly', st => st.index('user').getAll(session.u.toLowerCase())); }
+    // على موقع Netlify: السجل في السحابة لكل حساب (نفس السجل من أي جهاز)؛ غير ذلك: هذا المتصفح
+    cloud() { return !!(window.QCloud && window.QCloud.on); },
+    put(item) { return this.cloud() ? QCloud.hist.put(item) : this.tx('readwrite', st => st.put(item)); },
+    async get(id) { if (!this.cloud()) return this.tx('readonly', st => st.get(id)); return (await QCloud.hist.list()).find(x => String(x.id) === String(id)); },
+    del(id) { return this.cloud() ? QCloud.hist.del(id) : this.tx('readwrite', st => st.delete(id)); },
+    list() { return this.cloud() ? QCloud.hist.list() : this.tx('readonly', st => st.index('user').getAll(session.u.toLowerCase())); }
   };
   let editingId = null;
   const histSel = new Set();
@@ -694,7 +696,10 @@
   function gridItems(onlySel) {
     return grid.map((g, i) => (isEmptyRow(g) || (onlySel && !gridSel.has(i))) ? null : ({ n: i + 1, i, data: parseRow(gridToObj(g)) })).filter(Boolean);
   }
-  function syncRows() { updateGridInfo(); }
+  function syncRows() {
+    updateGridInfo();
+    if (window.QCloud && QCloud.on) QCloud.rows(grid.filter(r => !isEmptyRow(r)).map(gridToObj));   // تظهر في OBS تلقائياً
+  }
   function updateGridInfo() {
     const total = grid.filter(r => !isEmptyRow(r)).length, sel = gridItems(true).length;
     $('#gridCount').textContent = `(${total} إعلان)`;
@@ -708,6 +713,7 @@
     gridSel.clear();
     grid.forEach((_, i) => gridSel.add(i));
     try { localStorage.setItem(userKey('grid'), JSON.stringify(grid)); } catch (e) { /* مساحة */ }
+    syncRows();
     renderGrid();
     $('#dataSheet').scrollIntoView({ behavior: 'smooth' });
     toast(grid.length ? `تم استيراد ${grid.length} إعلان إلى الجدول ✓` : 'لم يتم العثور على أعمدة مطابقة – استخدم الملف النموذجي', !grid.length);

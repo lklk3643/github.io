@@ -91,7 +91,13 @@
   const b64 = { enc: (s) => { const b = new TextEncoder().encode(s); let x = ''; for (let i = 0; i < b.length; i += 0x8000) x += String.fromCharCode.apply(null, b.subarray(i, i + 0x8000)); return btoa(x); },
                 dec: (s) => new TextDecoder().decode(Uint8Array.from(atob(s.replace(/\s/g, '')), c => c.charCodeAt(0))) };
 
+  const CLOUD = () => !!(window.QCloud && QCloud.on);      // موقع Netlify: الحفظ = النشر للبث فوراً
   async function fetchPublished() {
+    if (CLOUD()) {
+      const r = await fetch('/api/feed/seminars.json?t=' + Date.now(), { cache: 'no-store' });
+      if (!r.ok) throw new Error('read ' + r.status);
+      return { data: await r.json(), sha: undefined };
+    }
     // مع رمز: أحدث نسخة مباشرة من GitHub؛ بدونه: الملف المنشور (قد يتأخر دقائق بسبب التخزين المؤقت)
     if (token()) {
       try {
@@ -114,7 +120,21 @@
     renderList(); renderPub();
   }
 
+  let pubBusy = false;
+  async function publishCloud(quiet) {
+    if (!pendingCount() || pubBusy) return;
+    pubBusy = true;
+    try {
+      const out = await QCloud.seminars(Object.values(local.items).map(clean), local.deleted);
+      published = { v: out.v, seminars: (out.seminars || []).map(clean) };
+      local = { items: {}, deleted: [] }; saveLocal();
+      renderList(); renderPub();
+      if (!quiet) toast('✓ وصلت للبث — تظهر في OBS خلال دقائق');
+    } catch (e) { renderPub(); toast('تعذر الاتصال الآن — محفوظة على هذا الجهاز وتُرسل تلقائياً عند عودة الاتصال', true); setTimeout(() => publishCloud(true), 15000); }
+    finally { pubBusy = false; }
+  }
   async function publish() {
+    if (CLOUD()) return publishCloud(false);
     if (!pendingCount()) return toast('لا توجد تعديلات جديدة للنشر');
     if (!token()) {
       if (session.role === 'admin') { openSetup(); return toast('أعدّ النشر مرة واحدة على هذا الجهاز', true); }
@@ -148,7 +168,10 @@
   function renderPub() {
     const n = pendingCount(), s = $('#pubState');
     s.textContent = ''; s.className = '';
-    if (n) { s.className = 'pending'; s.textContent = `تعديلات غير منشورة على هذا الجهاز: ${n}`; }
+    if (CLOUD()) {
+      if (n) { s.className = 'pending'; s.textContent = `جارٍ الإرسال للبث… (${n})`; }
+      else { s.className = 'ok'; s.textContent = '✓ كل الندوات وصلت للبث (تُحفظ وتصل تلقائياً)'; }
+    } else if (n) { s.className = 'pending'; s.textContent = `تعديلات غير منشورة على هذا الجهاز: ${n}`; }
     else { s.className = 'ok'; s.textContent = 'كل الندوات منشورة ✓'; }
     $('#btnPublish').disabled = !n;
   }
@@ -222,6 +245,7 @@
           local.items[item.id] = item; local.deleted = local.deleted.filter(x => x !== item.id); saveLocal();
           if (current && current.id === item.id) openSem(item, true); else renderGrid();
           renderPub(); flagSaved();
+          if (CLOUD()) publishCloud(true);
         });
         td.appendChild(inp); tr.appendChild(td);
       });
@@ -310,9 +334,10 @@
       $('#btnDelete').hidden = false; $('#btnDup').hidden = false;
       $('#editingLabel').textContent = `تعدّل: ${s.title || 'ندوة بلا عنوان'}`;
       renderGrid(); renderPub(); flagSaved(); formConflict();
+      if (CLOUD()) publishCloud(true);
     }, 350);
   }
-  function flagSaved() { $('#savedFlag').classList.add('show'); $('#savedFlag').textContent = token() ? '✓ محفوظة على هذا الجهاز — «نشر الندوات» لتظهر للجميع' : '✓ محفوظة على هذا الجهاز'; }
+  function flagSaved() { $('#savedFlag').classList.add('show'); $('#savedFlag').textContent = CLOUD() ? '✓ محفوظة وتصل للبث تلقائياً' : token() ? '✓ محفوظة على هذا الجهاز — «نشر الندوات» لتظهر للجميع' : '✓ محفوظة على هذا الجهاز'; }
   function formConflict() {
     const box = $('#formConflict'); const c = current ? conflictsOf(clean(current), merged()) : [];
     box.hidden = !c.length; box.textContent = c.length ? '🔴 تعارض: بنفس القاعة والوقت مع «' + c.map(o => o.title || 'ندوة بلا عنوان').join('»، «') + '»' : '';
@@ -326,14 +351,16 @@
     delete local.items[current.id];
     if (published.seminars.some(x => x.id === current.id) && !local.deleted.includes(current.id)) local.deleted.push(current.id);
     gridSel.delete(current.id);
-    saveLocal(); openSem(blank()); renderPub(); toast('حُذفت — اضغط «نشر الندوات» لتطبيق الحذف على الجميع');
+    saveLocal(); openSem(blank()); renderPub();
+    if (CLOUD()) { publishCloud(true); toast('حُذفت — وتختفي من البث تلقائياً'); } else toast('حُذفت — اضغط «نشر الندوات» لتطبيق الحذف على الجميع');
   }
   function delSelected() {
     if (!gridSel.size) return toast('حدد الأسطر أولاً من مربعات الجدول', true);
     if (!confirm(`حذف ${gridSel.size} ندوة؟ تُحذف من الجميع بعد النشر.`)) return;
     gridSel.forEach(id => { delete local.items[id]; if (published.seminars.some(x => x.id === id) && !local.deleted.includes(id)) local.deleted.push(id); });
     if (current && gridSel.has(current.id)) current = blank();
-    gridSel.clear(); saveLocal(); openSem(current || blank()); renderPub(); toast('حُذفت — اضغط «نشر الندوات» لتطبيق الحذف على الجميع');
+    gridSel.clear(); saveLocal(); openSem(current || blank()); renderPub();
+    if (CLOUD()) { publishCloud(true); toast('حُذفت — وتختفي من البث تلقائياً'); } else toast('حُذفت — اضغط «نشر الندوات» لتطبيق الحذف على الجميع');
   }
   // ---------- الإعلان ----------
   function renderPoster() {
@@ -685,7 +712,8 @@
 
   // ---------- ربط ----------
   $('#who').textContent = `مرحباً، ${session.name || session.u}`;
-  if (session.role === 'admin') $('#btnSetup').hidden = false;
+  if (session.role === 'admin' && !CLOUD()) $('#btnSetup').hidden = false;      // على Netlify لا حاجة لإعداد النشر
+  if (CLOUD()) $('#btnPublish').hidden = true;                                    // الحفظ = النشر
   $('#btnSetup').onclick = openSetup;
   $('#btnLogout').onclick = () => QAuth.logout();
   $('#btnHelp').onclick = () => $('#mHelp').classList.add('open');

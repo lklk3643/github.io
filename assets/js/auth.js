@@ -76,7 +76,18 @@
     return BUILTIN;
   }
 
+  // على موقع Netlify: الموظفون وكلمات المرور في الخادم (السحابة)، لا في المتصفح
+  const cloud = () => !!(window.QCloud && window.QCloud.site);
+  async function capi(path, opt) {
+    const s = current();
+    const r = await fetch('/api/' + path, { ...(opt || {}), headers: { 'content-type': 'application/json', ...(s && s.token ? { authorization: 'Bearer ' + s.token } : {}) } });
+    let j = {}; try { j = await r.json(); } catch (e) { /* فارغ */ }
+    if (!r.ok) throw new Error(j.error || 'تعذر الاتصال بالخادم (' + r.status + ')');
+    return j;
+  }
+
   async function getUsers() {
+    if (cloud()) return (await capi('users')).users.map(x => ({ ...x, source: 'cloud' }));
     const base = await loadFileUsers();
     const local = readLocal();
     const map = new Map();
@@ -97,6 +108,7 @@
 
   async function addOrUpdateUser({ u, name, role, password }) {
     u = String(u || '').trim();
+    if (cloud()) { await capi('users', { method: 'POST', body: JSON.stringify({ u, name, role, password }) }); return; }
     if (!/^[A-Za-z0-9_.\-]{3,32}$/.test(u)) throw new Error('اسم المستخدم يجب أن يكون 3-32 حرفاً إنجليزياً أو أرقاماً');
     const users = await getUsers();
     const existing = users.find(x => x.u.toLowerCase() === u.toLowerCase());
@@ -111,6 +123,7 @@
   }
 
   async function deleteUser(u) {
+    if (cloud()) { await capi('users/' + encodeURIComponent(u), { method: 'DELETE' }); return; }
     const users = await getUsers();
     const admins = users.filter(x => x.role === 'admin');
     const target = users.find(x => x.u.toLowerCase() === u.toLowerCase());
@@ -122,6 +135,12 @@
   }
 
   async function login(u, password, remember) {
+    if (cloud()) {
+      const j = await capi('login', { method: 'POST', body: JSON.stringify({ u: String(u).trim(), p: password }) });
+      const session = { ...j.session, token: j.token };
+      (remember ? localStorage : sessionStorage).setItem(SESSION_KEY, JSON.stringify(session));
+      return session;
+    }
     const users = await getUsers();
     const user = users.find(x => x.u.toLowerCase() === String(u).trim().toLowerCase());
     if (!user || user.h !== hashPassword(user.u, password)) throw new Error('اسم المستخدم أو كلمة المرور غير صحيحة');
@@ -138,6 +157,7 @@
   }
 
   function logout() {
+    if (cloud()) { try { const s = current(); if (s && s.token) fetch('/api/logout', { method: 'POST', headers: { authorization: 'Bearer ' + s.token }, keepalive: true }); } catch (e) { /* لا شيء */ } }
     sessionStorage.removeItem(SESSION_KEY);
     localStorage.removeItem(SESSION_KEY);
     if (window.QAuthNoSession) location.reload(); else location.href = 'index.html';
@@ -153,6 +173,11 @@
   }
 
   async function changePassword(u, oldPass, newPass) {
+    if (cloud()) {
+      await capi('password', { method: 'POST', body: JSON.stringify({ old: oldPass, nw: newPass }) });
+      const s0 = current(); if (s0) { s0.weak = false; (sessionStorage.getItem(SESSION_KEY) ? sessionStorage : localStorage).setItem(SESSION_KEY, JSON.stringify(s0)); }
+      return;
+    }
     const users = await getUsers();
     const user = users.find(x => x.u.toLowerCase() === u.toLowerCase());
     if (!user || user.h !== hashPassword(user.u, oldPass)) throw new Error('كلمة المرور الحالية غير صحيحة');
@@ -167,12 +192,14 @@
   }
 
   async function exportUsersJson() {
+    if (cloud()) throw new Error('على موقع Netlify الموظفون محفوظون في السحابة ويظهرون في كل الأجهزة — لا حاجة للتصدير');
     const users = await getUsers();
     return JSON.stringify(users.map(({ u, name, role, h }) => ({ u, name, role, h })), null, 2);
   }
 
   async function importUsers(list) {
     if (!Array.isArray(list)) throw new Error('ملف غير صالح');
+    if (cloud()) throw new Error('على موقع Netlify أضف الموظفين من «إدارة الموظفين» مباشرة');
     for (const x of list) {
       if (x && x.u && x.h) await saveUser({ u: x.u, name: x.name || x.u, role: x.role === 'admin' ? 'admin' : 'employee', h: x.h });
     }
