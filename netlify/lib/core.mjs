@@ -263,7 +263,7 @@ export async function handle(req, store) {
     const list = await users(store, origin);
     const user = list.find(x => lower(x.u) === U);
     if (!user || user.h !== hashPassword(user.u, String(old || ''))) return err('كلمة المرور الحالية غير صحيحة', 403);
-    if (!nw || String(nw).length < 6) return err('كلمة المرور الجديدة يجب ألا تقل عن 6 خانات');
+    if (!nw) return err('اكتب كلمة المرور الجديدة');   // أي كلمة مرور، بلا شروط طول
     user.h = hashPassword(user.u, String(nw));
     await setJSON(store, 'users', list);
     return json({ ok: true });
@@ -277,7 +277,6 @@ export async function handle(req, store) {
       if (!/^[A-Za-z0-9_.\-]{3,32}$/.test(String(u || ''))) return err('اسم المستخدم يجب أن يكون 3-32 حرفاً إنجليزياً أو أرقاماً');
       const ex = list.find(x => lower(x.u) === lower(u));
       if (!ex && !password) return err('أدخل كلمة مرور للمستخدم الجديد');
-      if (password && String(password).length < 6) return err('كلمة المرور يجب ألا تقل عن 6 خانات');
       const rec = { u: ex ? ex.u : String(u), name: name || (ex && ex.name) || String(u), role: normRole(role || (ex && ex.role)),
         h: password ? hashPassword(ex ? ex.u : u, String(password)) : ex.h };
       const out = list.filter(x => lower(x.u) !== lower(u)); out.push(rec);

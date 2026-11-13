@@ -113,7 +113,6 @@
     const users = await getUsers();
     const existing = users.find(x => x.u.toLowerCase() === u.toLowerCase());
     if (!existing && !password) throw new Error('أدخل كلمة مرور للمستخدم الجديد');
-    if (password && password.length < 6) throw new Error('كلمة المرور يجب ألا تقل عن 6 خانات');
     await saveUser({
       u: existing ? existing.u : u,
       name: name || (existing && existing.name) || u,
@@ -181,7 +180,7 @@
     const users = await getUsers();
     const user = users.find(x => x.u.toLowerCase() === u.toLowerCase());
     if (!user || user.h !== hashPassword(user.u, oldPass)) throw new Error('كلمة المرور الحالية غير صحيحة');
-    if (!newPass || newPass.length < 6) throw new Error('كلمة المرور الجديدة يجب ألا تقل عن 6 خانات');
+    if (!newPass) throw new Error('اكتب كلمة المرور الجديدة');
     await saveUser({ ...user, h: hashPassword(user.u, newPass) });
     const s = current();
     if (s) {
