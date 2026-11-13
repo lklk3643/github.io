@@ -743,9 +743,10 @@
     const w = weekOf(grid[i]); if (w == null) return null;
     let j = i - 1; while (j >= 0 && weekOf(grid[j]) == null) j--;
     if (j < 0) return null;
-    const pw = weekOf(grid[j]); if (pw == null || w <= pw) return null;
-    const fri = pw * 7 + 3 + 5, sat = fri + 1;
-    return { fri: hijriOfDay(fri), sat: hijriOfDay(sat), gap: w - pw - 1 };
+    const pw = weekOf(grid[j]); if (pw == null || w === pw) return null;
+    const lo = Math.min(w, pw), hi = Math.max(w, pw);       // الجدول من الأحدث للأقدم: الإجازة بعد الأسبوع الأقدم
+    const fri = lo * 7 + 3 + 5, sat = fri + 1;
+    return { fri: hijriOfDay(fri), sat: hijriOfDay(sat), gap: hi - lo - 1 };
   }
   const weekRows = b => [['الجمعة', b.fri], ['السبت', b.sat]].map(([d, h]) => { const r = emptyRow(); r[CI('اليوم')] = d; r[CI('التاريخ')] = h; r[CI('الملاحظات')] = 'إجازة أسبوعية'; return r; });
   const isWeekendRow = o => /[اأإ]جاز/.test(o.notes || '') && !o.student && !o.title && !o.degree;
@@ -1018,20 +1019,24 @@
     if (firstEmpty >= 0) grid[firstEmpty] = row; else grid.push(row);
     renderGrid(); gridChanged(); autoSort(row); toast('تمت إضافة التصميم الحالي كصف ✓');
   };
-  // ترتيب تصاعدي: التاريخ الهجري ثم الوقت (الأسطر بلا تاريخ في الآخر)
+  // مفتاح الترتيب: التاريخ الهجري ثم الوقت (الأسطر بلا تاريخ في الآخر)
   function gridDateKey(r) {
     const m = toLatin(r[CI('التاريخ')] || '').match(/(\d{4})\D+(\d{1,2})\D+(\d{1,2})/);
     const t = timeMin(r[CI('الوقت')] || '');
     return (m ? +m[1] * 10000 + +m[2] * 100 + +m[3] : 99999999) * 10000 + (t == null ? 9999 : t);
   }
-  const sortRows = rows => rows.filter(r => !isEmptyRow(r)).map((r, i) => [gridDateKey(r), i, r]).sort((a, b) => a[0] - b[0] || a[1] - b[1]).map(x => x[2]);
+  // الترتيب: الأحدث فوق والأقدم تحت (الأسطر بلا تاريخ في الآخر)
+  const NODATE = 99999999 * 10000;
+  const cmpKey = (a, b) => (a >= NODATE) - (b >= NODATE) || b - a;
+  const sortRows = rows => rows.filter(r => !isEmptyRow(r)).map((r, i) => [gridDateKey(r), i, r]).sort((a, b) => cmpKey(a[0], b[0]) || a[1] - b[1]).map(x => x[2]);
+  { const s = sortRows(grid); if (s.some((r, i) => r !== grid[i])) { grid = s; if ($('#sheet').tBodies.length) renderGrid(); } }
   { const wk = $('#gWeeks'); wk.checked = weeksOn();
     wk.onchange = () => { try { localStorage.setItem(userKey('weeks'), wk.checked ? '1' : '0'); } catch (e) { /* اختياري */ } renderGrid();
       toast(wk.checked ? '🌙 تظهر الإجازة الأسبوعية بين الأسابيع (وفي الملف المصدَّر)' : 'أُخفيت فواصل الأسابيع — الصفوف ورا بعض'); }; }
   // ترتيب تلقائي بالتاريخ ثم الوقت (الأسطر الفاضية تبقى في الآخر)، مع الحفاظ على التحديد والسطر المفتوح
   function autoSort(focusRow) {
     const order = grid.map((r, i) => [isEmptyRow(r) ? 1 : 0, gridDateKey(r), i, r])
-      .sort((a, b) => a[0] - b[0] || a[1] - b[1] || a[2] - b[2]);
+      .sort((a, b) => a[0] - b[0] || cmpKey(a[1], b[1]) || a[2] - b[2]);
     if (order.every((x, i) => x[2] === i)) return false;
     gridSnap('ترتيب تلقائي');
     const map = new Map(order.map((x, ni) => [x[2], ni]));
@@ -1079,7 +1084,7 @@
   $('#gSort').onclick = () => {
     gridSnap('ترتيب بالتاريخ');
     grid = sortRows(grid); gridSel.clear(); activeRow = -1; renderGrid(); gridChanged();
-    toast('تم ترتيب الجدول تصاعدياً حسب التاريخ والوقت ✓');
+    toast('تم ترتيب الجدول: الأحدث فوق والأقدم تحت ✓');
   };
   // بيانات الكلية المشتركة (جدول حجز القاعة): تُضاف للجدول مرة لكل إصدار بدون تكرار ثم يُرتّب
   (async function loadShared() {
@@ -1113,7 +1118,7 @@
       localStorage.setItem(seenKey, data.v);
       if (!add.length && !filled) { renderGrid(); gridChanged(); return; }
       grid = sortRows([...grid, ...add]); gridSel.clear(); activeRow = -1; renderGrid(); gridChanged();
-      toast(add.length ? `📅 أُضيفت ${add.length} مناقشة من جدول حجز القاعة${filled ? ` وحُدّثت ${filled}` : ''} — مرتبة تصاعدياً بالتاريخ` : `📅 حُدّثت ${filled} مناقشة من جدول حجز القاعة`);
+      toast(add.length ? `📅 أُضيفت ${add.length} مناقشة من جدول حجز القاعة${filled ? ` وحُدّثت ${filled}` : ''} — الأحدث فوق` : `📅 حُدّثت ${filled} مناقشة من جدول حجز القاعة`);
     } catch (e) { /* بدون اتصال أو نسخة الملف الواحد */ }
   })();
   // ---------- تراجع / إعادة للجدول + سلة المحذوفات ----------
