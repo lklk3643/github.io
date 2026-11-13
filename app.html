@@ -9,7 +9,7 @@
     if (!(sessionStorage.getItem('qu_session') || localStorage.getItem('qu_session'))) location.replace('index.html');
   </script>
   <link rel="stylesheet" href="assets/fonts/fonts.css?v=202610170020">
-  <link rel="stylesheet" href="assets/css/app.css?v=202611130003">
+  <link rel="stylesheet" href="assets/css/app.css?v=202611130301">
   <link rel="stylesheet" href="assets/css/poster.css?v=202610170020">
 </head>
 <body>
@@ -269,6 +269,10 @@
           <button type="button" id="gBottom" title="نهاية الجدول">⬇<span>النهاية</span></button>
         </div>
       </div>
+      <details class="others" id="othersBox" open hidden>
+        <summary>👥 مناقشات الزملاء <span class="hint">— للاطلاع فقط، كل واحد يعدّل مناقشاته من جدوله</span> <span class="hint" id="othersCount"></span></summary>
+        <div class="gridwrap"><table class="sheet ro" id="othersSheet"></table></div>
+      </details>
     </section>
   </div>
 
@@ -491,6 +495,6 @@
   <script src="assets/js/nav.js?v=202611130001"></script>
   <script src="assets/js/poster.js?v=202610170020"></script>
   <script src="assets/js/details.js?v=202611130010"></script>
-  <script src="assets/js/app.js?v=202611130101"></script>
+  <script src="assets/js/app.js?v=202611130301"></script>
 </body>
 </html>

@@ -236,6 +236,20 @@ export async function handle(req, store) {
     if (m && method === 'DELETE') { await store.delete(`hist/${U}/${m[1]}`); return json({ ok: true }); } }
 
   // --- أسطر جدول المناقشات وتفاصيل التصاميم (لشاشة OBS)
+  // مناقشات بقية الحسابات (للاطلاع فقط في صفحة كل حساب): من نفس الأسطر التي تصل OBS، مع اسم الكاتب
+  if (path === 'rows/others' && method === 'GET') {
+    const names = Object.fromEntries((await users(store, origin)).map(x => [lower(x.u), x.name]));
+    // جدول حجز القاعة (الملف الثابت) موجود أصلًا في جدول كل حساب: لا يُكرَّر هنا
+    const base = (await staticFile(origin, '/assets/data/defenses.json')) || { rows: [] };
+    const shared = new Set((base.rows || []).map(r => keyOf(r['الطالب'], r['التاريخ'])));
+    const { blobs } = await store.list({ prefix: 'rows/' }), map = new Map();
+    for (const b of blobs) {
+      const owner = lower(b.key.split('/')[1]); if (!owner || owner === U) continue;
+      const rows = await getJSON(store, b.key, []); if (!Array.isArray(rows)) continue;
+      for (const r of rows) if (r && String(r['الطالب'] || '').trim() && !shared.has(keyOf(r['الطالب'], r['التاريخ']))) map.set(keyOf(r['الطالب'], r['التاريخ']) + '|' + owner, { ...r, _by: names[owner] || owner });
+    }
+    return json({ rows: [...map.values()] });
+  }
   if (path === 'rows' && method === 'POST') {
     const { rows, dev } = await body();
     if (!Array.isArray(rows)) return err('أسطر غير صالحة');
