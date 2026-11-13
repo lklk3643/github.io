@@ -104,10 +104,19 @@ async function feedDetails(store, origin) {
   return { v: new Date().toISOString(), details };
 }
 
+// كل ندوة في مدخل مستقل (sem/<id>): حفظ جهازين معاً لا يمسح أحدهما الآخر
+const semKey = (id) => 'sem/' + String(id).replace(/[^A-Za-z0-9_\-]/g, '_').slice(0, 80);
 async function seminarsDoc(store, origin) {
-  let doc = await getJSON(store, 'seminars');
-  if (!doc) { doc = (await staticFile(origin, '/assets/data/seminars.json')) || { v: '', seminars: [] }; await setJSON(store, 'seminars', doc); }
-  return doc;
+  if (!(await getJSON(store, 'sem-seeded'))) {             // أول مرة: من آخر نسخة مجمّعة إن وُجدت، وإلا ملف الموقع
+    const old = (await getJSON(store, 'seminars')) || (await staticFile(origin, '/assets/data/seminars.json')) || { seminars: [] };
+    for (const s of old.seminars || []) if (s && s.id) await setJSON(store, semKey(s.id), s);
+    await setJSON(store, 'sem-seeded', { at: new Date().toISOString() });
+  }
+  const { blobs } = await store.list({ prefix: 'sem/' });
+  const seminars = [];
+  for (const b of blobs) { const s = await getJSON(store, b.key); if (s && s.id) seminars.push(s); }
+  seminars.sort((a, b) => ((a.date || '') + (a.start || '')).localeCompare((b.date || '') + (b.start || '')));
+  return { v: new Date().toISOString(), source: 'صفحة الندوات', seminars };
 }
 
 // ---------- الطلب ----------
@@ -176,9 +185,11 @@ export async function handle(req, store) {
 
   // --- أسطر جدول المناقشات وتفاصيل التصاميم (لشاشة OBS)
   if (path === 'rows' && method === 'POST') {
-    const { rows } = await body();
+    const { rows, dev } = await body();
     if (!Array.isArray(rows)) return err('أسطر غير صالحة');
-    await setJSON(store, 'rows/' + U, rows.slice(0, 5000));
+    // لكل جهاز نسخته (حتى لو دخل اثنان بنفس الحساب معاً)، وملف OBS يجمع كل النسخ فلا يضيع سطر
+    const D = String(dev || 'main').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 40) || 'main';
+    await setJSON(store, `rows/${U}/${D}`, rows.slice(0, 5000));
     return json({ ok: true, n: rows.length });
   }
   if (path === 'details' && method === 'POST') {
@@ -192,13 +203,10 @@ export async function handle(req, store) {
   // --- الندوات: الحفظ = النشر (تظهر في OBS مباشرة)
   if (path === 'seminars' && method === 'POST') {
     const { upsert = [], remove = [] } = await body();
-    const doc = await seminarsDoc(store, origin);
-    const map = new Map((doc.seminars || []).map(s => [s.id, s]));
-    (Array.isArray(upsert) ? upsert : []).forEach(s => { if (s && s.id) map.set(String(s.id), { ...s, id: String(s.id), by: me.u }); });
-    (Array.isArray(remove) ? remove : []).forEach(id => map.delete(String(id)));
-    const out = { v: new Date().toISOString(), source: 'صفحة الندوات', seminars: [...map.values()].sort((a, b) => ((a.date || '') + (a.start || '')).localeCompare((b.date || '') + (b.start || ''))) };
-    await setJSON(store, 'seminars', out);
-    return json(out);
+    await seminarsDoc(store, origin);                         // يضمن نقل البيانات القديمة أول مرة
+    for (const s of Array.isArray(upsert) ? upsert : []) if (s && s.id) await setJSON(store, semKey(s.id), { ...s, id: String(s.id), by: me.u });
+    for (const id of Array.isArray(remove) ? remove : []) await store.delete(semKey(id));
+    return json(await seminarsDoc(store, origin));
   }
 
   // --- الموظفون وكلمة المرور

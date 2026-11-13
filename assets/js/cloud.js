@@ -77,7 +77,22 @@
     del: (id) => api('hist/' + encodeURIComponent(id), { method: 'DELETE' }).then(r => { if (!r.ok) throw new Error(r.status); })
   };
   let rowsT = 0;
-  QCloud.rows = (rows) => { clearTimeout(rowsT); rowsT = setTimeout(() => api('rows', { method: 'POST', body: JSON.stringify({ rows }) }).then(r => mark(r.ok)).catch(() => mark(false)), 900); };
+  // معرّف هذا الجهاز (لا يُرسل للسحابة كمفتاح حساب): كل جهاز يرسل أسطره منفصلة، وملف OBS يجمعها كلها
+  let DEV = ''; try { DEV = localStorage.getItem('qu_device') || ''; if (!DEV) { DEV = Math.random().toString(36).slice(2, 12); native.set.call(localStorage, 'qu_device', DEV); } } catch (e) { DEV = 'main'; }
+  QCloud.rows = (rows) => { clearTimeout(rowsT); rowsT = setTimeout(() => api('rows', { method: 'POST', body: JSON.stringify({ rows, dev: DEV }) }).then(r => mark(r.ok)).catch(() => mark(false)), 900); };
+
+  // رجوع للصفحة بعد غياب: إن عدّل غيره (بنفس الحساب أو من جهاز آخر) تُجلب تعديلاته قبل أن يكمل
+  let hiddenAt = 0;
+  document.addEventListener('visibilitychange', async () => {
+    if (document.hidden) { hiddenAt = Date.now(); flush(true); return; }
+    if (!hiddenAt || Date.now() - hiddenAt < 20000 || Object.keys(pendSet).length || pendDel.size) return;
+    try {
+      const r = await api('state'); if (!r.ok) return;
+      const data = ((await r.json()) || {}).data || {};
+      const changed = Object.entries(data).some(([k, v]) => mine(k) && localStorage.getItem(k) !== v);
+      if (changed && !document.querySelector('.modal.open') && !/INPUT|TEXTAREA|SELECT/.test((document.activeElement || {}).tagName || '')) location.reload();
+    } catch (e) { /* بدون اتصال */ }
+  });
   QCloud.details = (entries) => api('details', { method: 'POST', body: JSON.stringify({ entries }) }).then(r => r.ok);
   QCloud.seminars = (upsert, remove) => api('seminars', { method: 'POST', body: JSON.stringify({ upsert, remove }) }).then(r => r.ok ? r.json() : Promise.reject(new Error(r.status)));
 })();
