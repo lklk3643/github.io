@@ -9,7 +9,7 @@
     if (!(sessionStorage.getItem('qu_session') || localStorage.getItem('qu_session'))) location.replace('index.html');
   </script>
   <link rel="stylesheet" href="assets/fonts/fonts.css?v=202610170020">
-  <link rel="stylesheet" href="assets/css/app.css?v=202611140601">
+  <link rel="stylesheet" href="assets/css/app.css?v=202611140901">
   <link rel="stylesheet" href="assets/css/poster.css?v=202610170020">
 </head>
 <body>
@@ -169,7 +169,7 @@
             <button class="btn sm" id="btnRedo" title="إعادة (Ctrl+Y)" disabled>↷</button>
             <button class="btn sm primary" id="btnSaveHist">💾 حفظ في السجل</button>
             <button class="btn sm" id="btnSaveCopy">📄 حفظ كنسخة جديدة</button>
-            <button class="btn sm" id="btnNew">➕ تصميم جديد</button>
+            <button class="btn sm primary" id="btnNew" title="خانات فاضية، وتنضاف للجدول والبث تلقائياً">➕ مناقشة جديدة</button>
           </span>
         </div>
         <span class="label">المعاينة:</span>
@@ -221,42 +221,51 @@
         <span class="hint">كل سطر = مناقشة. لإضافة مناقشة اكتب في السطر الأول الفاضي بالجدول. اكتب اسم الدكتور وتطلع لك الأسماء تختار منها. أو الصق من Excel (Ctrl+V). كل شي ينحفظ تلقائياً.</span>
       </div>
       <div class="ds-tools">
-        <div class="ds-group"><span class="ds-label">الصفوف</span>
-          <button class="btn sm" id="gAdd">➕ سطر فوق</button>
-          <button class="btn sm" id="gAdd5">➕ 5 أسطر</button>
-          <button class="btn sm" id="gFromDesign">➕ التصميم الحالي</button>
-          <button class="btn sm" id="gSamples">📝 أمثلة</button>
-          <label class="check wk-chk" title="يفصل بين الأسابيع بسطر «إجازة أسبوعية» (الجمعة والسبت) كما في جدول الحجز، ويظهر في الملف المصدَّر"><input type="checkbox" id="gWeeks" checked> 🌙 فواصل الأسابيع</label>
-          <label class="check wk-chk past-chk" title="«ناقص» و«تعارض» على المناقشات المنتهية أيضاً (مفعّل افتراضياً — شيل الصح لإخفائها)"><input type="checkbox" id="gPastWarn" checked> ⚠️ تنبيهات المنتهية</label>
-          <button class="btn sm" id="gSort" title="ترتيب الجدول: الأحدث فوق والأقدم تحت">↕️ ترتيب بالتاريخ</button>
-          <button class="btn sm" id="gUndo" disabled title="تراجع عن آخر تغيير في الجدول (Ctrl+Z)">↶ تراجع</button>
-          <button class="btn sm" id="gRedo" disabled title="إعادة (Ctrl+Y)">↷ إعادة</button>
-          <button class="btn sm" id="gTrash" title="الأسطر المحذوفة — تقدر ترجعها">🗑️ المحذوفات <span id="gTrashN" class="hint"></span></button>
-          <button class="btn sm danger" id="gDel">🗑️ حذف المحدد</button>
-          <button class="btn sm danger" id="gClear">🧹 مسح الكل</button>
-        </div>
-        <div class="ds-group"><span class="ds-label">نموذج التعبئة</span>
-          <button class="btn sm primary" id="dlTemplate">📥 تنزيل نموذج Excel</button>
-          <button class="btn sm" id="gsTemplate">📗 نموذج Google Sheets</button>
-        </div>
-        <div class="ds-group"><span class="ds-label">استيراد</span>
-          <label class="btn sm">📄 من ملف Excel / CSV<input type="file" id="xlsFile" accept=".xlsx,.xls,.csv,.ods" hidden></label>
-          <input type="url" id="sheetUrl" dir="ltr" placeholder="رابط Google Sheets" class="ds-url">
-          <button class="btn sm" id="loadSheet">🔗 من Google Sheets</button>
-          <button class="btn sm" id="refreshSheet" hidden>🔄 تحديث</button>
-        </div>
-        <div class="ds-group"><span class="ds-label">تصدير</span>
-          <button class="btn sm" id="gExport">⬇️ Excel</button>
-          <button class="btn sm" id="gExportCsv">⬇️ CSV</button>
-        </div>
         <div class="ds-group"><span class="ds-label">الإعلانات</span>
           <button class="btn sm" id="gSelAll">☑️ تحديد الكل</button>
           <button class="btn sm" id="gSelNone">إلغاء التحديد</button>
           <button class="btn sm primary" id="gDl">📦 تحميل المحدد</button>
           <button class="btn sm" id="gPrint">🖨️ طباعة المحدد</button>
           <span class="hint" id="gSelCount"></span>
+          <button class="btn sm danger" id="gDel" style="margin-inline-start:14px">🗑️ حذف المحدد</button>
+        </div>
+        <div class="ds-group">
+          <button class="btn sm" id="gUndo" disabled title="تراجع عن آخر تغيير في الجدول (Ctrl+Z)">↶ تراجع</button>
+          <button class="btn sm" id="gRedo" disabled title="إعادة (Ctrl+Y)">↷ إعادة</button>
+          <button class="btn sm" id="gTrash" title="الأسطر المحذوفة — تقدر ترجعها">🗑️ المحذوفات <span id="gTrashN" class="hint"></span></button>
         </div>
       </div>
+      <details class="ds-adv">
+        <summary>⚙️ أدوات متقدمة (استيراد من Excel، تصدير، ترتيب، حذف)</summary>
+        <div class="ds-tools">
+          <div class="ds-group"><span class="ds-label">الأسطر</span>
+            <button class="btn sm" id="gAdd">➕ سطر فوق</button>
+            <button class="btn sm" id="gAdd5">➕ 5 أسطر</button>
+            <button class="btn sm" id="gFromDesign">⬇ أضف التصميم الحالي للجدول</button>
+            <button class="btn sm" id="gSamples">📝 أمثلة</button>
+            <label class="check wk-chk" title="يفصل بين الأسابيع بسطر «إجازة أسبوعية» (الجمعة والسبت) كما في جدول الحجز، ويظهر في الملف المصدَّر"><input type="checkbox" id="gWeeks" checked> 🌙 فواصل الأسابيع</label>
+            <label class="check wk-chk past-chk" title="«ناقص» و«تعارض» على المناقشات المنتهية أيضاً (مفعّل افتراضياً — شيل الصح لإخفائها)"><input type="checkbox" id="gPastWarn" checked> ⚠️ تنبيهات المنتهية</label>
+            <button class="btn sm" id="gSort" title="ترتيب الجدول: الأحدث فوق والأقدم تحت">↕️ ترتيب بالتاريخ</button>
+          </div>
+          <div class="ds-group"><span class="ds-label">نموذج التعبئة</span>
+            <button class="btn sm" id="dlTemplate">📥 تنزيل نموذج Excel</button>
+            <button class="btn sm" id="gsTemplate">📗 نموذج Google Sheets</button>
+          </div>
+          <div class="ds-group"><span class="ds-label">استيراد</span>
+            <label class="btn sm">📄 من ملف Excel / CSV<input type="file" id="xlsFile" accept=".xlsx,.xls,.csv,.ods" hidden></label>
+            <input type="url" id="sheetUrl" dir="ltr" placeholder="رابط Google Sheets" class="ds-url">
+            <button class="btn sm" id="loadSheet">🔗 من Google Sheets</button>
+            <button class="btn sm" id="refreshSheet" hidden>🔄 تحديث</button>
+          </div>
+          <div class="ds-group"><span class="ds-label">تصدير</span>
+            <button class="btn sm" id="gExport">⬇️ Excel</button>
+            <button class="btn sm" id="gExportCsv">⬇️ CSV</button>
+          </div>
+          <div class="ds-group ds-danger"><span class="ds-label">مسح</span>
+            <button class="btn sm danger" id="gClear">🧹 مسح الكل</button>
+          </div>
+        </div>
+      </details>
       <div class="ds-legend">
         <span><b class="chip warn">ناقص</b> مناقشة ينقصها شي لتصميم الإعلان (مثل العنوان أو اللجنة)</span>
         <span><b class="chip conf">تعارض</b> مناقشة بنفس الوقت (فرق أقل من ساعة) والقاعة أو الرابط أو نفس الدكتور مع سطر ثاني</span>
@@ -264,7 +273,8 @@
       </div>
       <div class="ds-newbar">
         <button class="btn primary" id="gNew" title="ينقلك لسطر الإضافة الفاضي أول الجدول">➕ مناقشة جديدة</button>
-        <input type="search" id="gFind" class="ds-find" placeholder="🔎 ابحث بالطالب أو الدكتور أو العنوان (يشمل المنتهية)">
+        <button class="btn save-btn" id="gSave" title="الحفظ تلقائي دايماً — هذا الزر للتأكيد ويرسل الحين">💾 حفظ</button>
+        <input type="search" id="gFind" class="ds-find" placeholder="🔎 ابحث باسم الطالب أو الدكتور أو العنوان (يشمل المنتهية)">
         <span class="hint" id="gFindInfo"></span>
         <button class="btn sm" id="gShowPast" hidden title="المناقشات اللي مضى تاريخها مخفية عشان الجدول يكون أخف وأوضح"></button>
         <button class="btn sm" id="gMorePast" hidden></button>
@@ -495,11 +505,11 @@
   <script src="assets/vendor/qrcode.js?v=202610170020"></script>
   <script src="assets/vendor/html-to-image.js?v=202610170020"></script>
   <script src="assets/js/auth.js?v=202611130201"></script>
-  <script src="assets/js/cloud.js?v=202611140101"></script>
+  <script src="assets/js/cloud.js?v=202611140901"></script>
   <script src="assets/js/nav.js?v=202611130001"></script>
-  <script src="assets/js/poster.js?v=202611140401"></script>
+  <script src="assets/js/poster.js?v=202611140801"></script>
   <script src="assets/js/details.js?v=202611130010"></script>
   <script src="assets/js/people.js?v=202611140101"></script>
-  <script src="assets/js/app.js?v=202611140601"></script>
+  <script src="assets/js/app.js?v=202611140901"></script>
 </body>
 </html>

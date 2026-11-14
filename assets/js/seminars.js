@@ -328,7 +328,11 @@
   let saveT = 0;
   function autosave() {
     clearTimeout(saveT);
-    saveT = setTimeout(() => {
+    saveT = setTimeout(saveNow, 350);
+  }
+  function saveNow() {
+    clearTimeout(saveT);
+    {
       const s = clean(current);
       const empty = !s.title && !s.subtitle && !s.date && !s.start && !s.participants.length && !s.notes;
       if (empty && !local.items[s.id] && !published.seminars.some(x => x.id === s.id)) return;   // ندوة جديدة فاضية: لا تُحفظ
@@ -339,8 +343,20 @@
       $('#editingLabel').textContent = `تعدّل: ${s.title || 'ندوة بلا عنوان'}`;
       renderGrid(); renderPub(); flagSaved(); formConflict();
       if (CLOUD()) publishCloud(true);
-    }, 350);
+    }
   }
+  // «💾 حفظ»: تأكيد — الحفظ التلقائي شغال دايماً، والزر يرسل الحين ويقول للموظف إنها وصلت
+  { const b = $('#btnSave'); if (b) b.onclick = async () => {
+    readForm(false);
+    { const s = clean(current); if (!s.title && !s.subtitle && !s.date && !s.participants.length) return toast('اكتب بيانات الندوة أول (العنوان والتاريخ)، وبعدين احفظ', true); }
+    saveNow();
+    if (!CLOUD()) return toast('✓ انحفظت على هذا الجهاز');
+    b.disabled = true; const old = b.textContent; b.textContent = '⏳ جارٍ الحفظ...';
+    for (let i = 0; i < 20 && pubBusy; i++) await new Promise(r => setTimeout(r, 300));
+    await publishCloud(true);
+    b.disabled = false; b.textContent = old;
+    toast(!pendingCount() ? '✓ انحفظت ووصلت للبث — يشوفها زملاؤك وOBS' : 'ما قدرت أوصل للخادم الحين — محفوظة على جهازك وبتوصل تلقائياً', !!pendingCount());
+  }; }
   function flagSaved() { $('#savedFlag').classList.add('show'); $('#savedFlag').textContent = CLOUD() ? '✓ محفوظة وتصل للبث تلقائياً' : token() ? '✓ محفوظة على هذا الجهاز — «نشر الندوات» لتظهر للجميع' : '✓ محفوظة على هذا الجهاز'; }
   function formConflict() {
     const box = $('#formConflict'); const c = current ? conflictsOf(clean(current), merged()) : [];
@@ -897,7 +913,7 @@
   // الجوال/الآيباد: مشاركة مباشرة. الكمبيوتر: واتساب ويب + نسخ الصورة. (نفس سلوك المناقشات)
   const SEND = { s: null, kind: 'invite', blob: null, file: null };
   const SEND_FMT = SFMTS[0];   // مثل المناقشات: تُرسل الصورة الأساسية الكاملة (برنامج الندوة)
-  const canShareFiles = () => { try { return !!(navigator.canShare && navigator.canShare({ files: [new File([new Blob(['x'])], 'x.jpg', { type: 'image/jpeg' })] })); } catch (e) { return false; } };
+  const canShareFiles = () => { try { return matchMedia('(pointer: coarse)').matches && !!(navigator.canShare && navigator.canShare({ files: [new File([new Blob(['x'])], 'x.jpg', { type: 'image/jpeg' })] })); } catch (e) { return false; } };
   async function sendImage(s) { const { canvas } = await capture(s, SEND_FMT, 2); return toBlob(canvas, 'image/jpeg', 0.93); }
   function sendSetKind(kind) {
     SEND.kind = kind;

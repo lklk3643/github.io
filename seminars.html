@@ -9,7 +9,7 @@
     if (!(sessionStorage.getItem('qu_session') || localStorage.getItem('qu_session'))) location.replace('index.html');
   </script>
   <link rel="stylesheet" href="assets/fonts/fonts.css?v=202611130001">
-  <link rel="stylesheet" href="assets/css/app.css?v=202611130003">
+  <link rel="stylesheet" href="assets/css/app.css?v=202611140901">
   <link rel="stylesheet" href="assets/css/seminars.css?v=202611140401">
 </head>
 <body class="sem-page">
@@ -138,6 +138,7 @@
           <span style="display:flex;gap:6px;flex-wrap:wrap">
             <button class="btn sm" id="btnDup" title="نسخة جديدة من هذه الندوة">📄 حفظ كنسخة جديدة</button>
             <button class="btn sm" id="btnNew">➕ ندوة جديدة</button>
+            <button class="btn sm save-btn" id="btnSave" title="الحفظ تلقائي دايماً — هذا الزر للتأكيد ويرسل الحين">💾 حفظ</button>
             <button class="btn sm danger" id="btnDelete">🗑️ حذف الندوة</button>
           </span>
         </div>
@@ -303,7 +304,7 @@
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
   <script src="assets/js/auth.js?v=202611130201"></script>
-  <script src="assets/js/cloud.js?v=202611140101"></script>
+  <script src="assets/js/cloud.js?v=202611140901"></script>
   <script src="assets/js/nav.js?v=202611130001"></script>
   <script src="assets/vendor/xlsx.full.min.js?v=202610170020"></script>
   <script src="assets/vendor/jszip.min.js?v=202610170020"></script>
@@ -311,6 +312,6 @@
   <script src="assets/vendor/qrcode.js?v=202610170020"></script>
   <script src="assets/vendor/jspdf.umd.min.js?v=202610170020"></script>
   <script src="assets/js/people.js?v=202611140101"></script>
-  <script src="assets/js/seminars.js?v=202611140401"></script>
+  <script src="assets/js/seminars.js?v=202611140801"></script>
 </body>
 </html>

@@ -389,3 +389,14 @@ a.btn { text-decoration: none; }
 .sheet tr.newrow input::placeholder { color: #2f7a4e; font-weight: 600; opacity: 1; }
 
 .ds-find { flex: 1 1 260px; max-width: 420px; padding: 9px 12px; border: 1px solid #8fa3a2; border-radius: 10px; font: inherit; font-size: 14px; }
+.save-btn { background: #167a41; border-color: #167a41; color: #fff; font-weight: 700; }
+.save-btn:hover { background: #12663a; border-color: #12663a; color: #fff; }
+.ds-adv { margin: 6px 0 10px; }
+.ds-adv > summary { cursor: pointer; font-weight: 700; color: var(--brand-d); padding: 6px 2px; font-size: 14px; }
+.ds-adv[open] > summary { margin-bottom: 6px; }
+.ds-danger { margin-inline-start: auto; }
+#btnDelete { margin-inline-start: 22px; }
+@media (max-width: 760px) {
+  .sheet td.act, .sheet th.act { position: static; }
+  .sheet td.act .msg-b { display: none; }
+}

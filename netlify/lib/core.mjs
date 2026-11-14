@@ -136,7 +136,7 @@ async function feedDetails(store, origin) {
   const details = Object.fromEntries(Object.entries(base.details || {}).filter(([k]) => !gone.has(k)));
   for (const r of await allRows(store)) { const d = detailsFromRow(r); if (d) details[d.key] = { ...(details[d.key] || {}), ...d }; }
   const { blobs } = await store.list({ prefix: 'details/' });
-  for (const b of blobs) { const d = await getJSON(store, b.key); if (d && d.key) details[d.key] = { ...(details[d.key] || {}), ...d }; }
+  for (const b of blobs) { const d = await getJSON(store, b.key); if (d && d.key && !gone.has(d.key)) details[d.key] = { ...(details[d.key] || {}), ...d }; }
   return { v: new Date().toISOString(), details };
 }
 
@@ -297,7 +297,7 @@ export async function handle(req, store) {
     if (method === 'GET') {
       const own = await getJSON(store, 'state/' + U, {});
       for (const k of Object.keys(own)) if (sharedName(k)) delete own[k];
-      return json({ data: { ...own, ...mapShared() }, sharedVer: sh.ver });
+      return json({ data: { ...own, ...mapShared() }, sharedVer: sh.ver, gone: sh.gone || [] });
     }
     if (method === 'POST') {
       const { set = {}, del = [], base = {} } = await body();

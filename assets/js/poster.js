@@ -49,7 +49,7 @@
 
   // ---------- الأحجام ----------
   const FORMATS = [
-    { id: 'exact', name: 'مطابق للأصل 100%', w: 1045, h: 1505, layout: 'exact' },
+    { id: 'exact', name: 'الإعلان الرسمي (مطابق للأصل)', w: 1045, h: 1505, layout: 'exact' },
     { id: 'a4', name: 'A4 قابل للتخصيص', w: 1080, h: 1527, layout: 'tall', building: 215, footer: 70 },
     { id: 'story', name: 'ستوري / حالات', w: 1080, h: 1920, layout: 'tall', building: 330, footer: 80 },
     { id: 'post', name: 'منشور طولي (إنستقرام)', w: 1080, h: 1350, layout: 'tall', building: 190, footer: 64 },

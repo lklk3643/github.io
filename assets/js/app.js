@@ -262,7 +262,7 @@
   window.addEventListener('resize', () => layoutPreview());
 
   // ---------- التحميل ----------
-  let defaultFmts = ['exact', 'youtube'];
+  let defaultFmts = ['exact'];   // مقاس واحد افتراضياً: ملف واحد ينزل (الموظف يزيد لو يبي)
   try { const saved = JSON.parse(localStorage.getItem(userKey('fmts'))); if (Array.isArray(saved) && saved.length) defaultFmts = saved; } catch (e) { /* افتراضي */ }
   $('#exportFormats').innerHTML = FORMATS.map(f => `<label class="fmt"><input type="checkbox" value="${f.id}" ${defaultFmts.includes(f.id) ? 'checked' : ''}>
       <span>${f.name}<small>${f.w}×${f.h}</small></span></label>`).join('') +
@@ -588,9 +588,17 @@
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); saveToHistory(); }
   });
   $('#btnSaveCopy').onclick = () => saveToHistory({ asNew: true });
+  // «➕ مناقشة جديدة» من النموذج: خانات المناقشة فاضية (لا بيانات نموذجية)، ومربوطة بسطر الإضافة في الجدول المشترك —
+  // أول ما يكتب اسم الطالب تنضاف للجدول وتوصل للبث، والنصوص الثابتة (الكلية، القاعة، الرابط) تبقى
   $('#btnNew').onclick = () => {
-    if (!confirm('بدء تصميم جديد من النموذج الافتراضي؟ (التصاميم المحفوظة في السجل لا تتأثر)')) return;
-    state = normalize(); setEditing(null); activeRow = -1; $$('#sheet tbody tr.active').forEach(t => t.classList.remove('active')); fillForm(); changed();
+    state = normalize();
+    Object.assign(state, { degree: '', title: '', student: '', day: '', date: '', time: '', committeeLink: '', recordingLink: '',
+      committee: [{ name: '', title: '', role: 'مشرفاً ومقرراً' }, { name: '', title: '', role: 'مناقشاً' }, { name: '', title: '', role: 'مناقشاً' }] });
+    setEditing(null); ensureBlankTop(); activeRow = 0; rowSnap = gridOfState();
+    renderGrid(); fillForm(); changed();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    const f = $('[data-k="student"]'); if (f) setTimeout(() => f.focus(), 400);
+    toast('✏️ مناقشة جديدة: عبّ البيانات، وتنضاف للجدول وتوصل للبث تلقائياً');
   };
 
   // ---------- الإكسل وجوجل شيت ----------
@@ -771,6 +779,7 @@
   const pastShown = () => { try { return localStorage.getItem(userKey('showpast')) === '1'; } catch (e) { return false; } };
   // المنتهية تُعرض بدفعات (الأحدث أولاً) والبحث يشمل الكل — حتى لا يرسم الجدول آلاف الخانات مرة وحدة
   const PAST_STEP = 50, FIND_MAX = 120;
+  const FIND_COLS = GCOLS.map((c, j) => /^(الطالب|العنوان|الدرجة|عضو\d+ الاسم)$/.test(c) ? j : -1).filter(j => j >= 0);   // البحث: الطالب والعنوان والدرجة وأسماء اللجنة
   let pastLimit = PAST_STEP, pastVis = new Set(), findQ = '', findHits = null;
   const fnorm = v => String(v || '').replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/[ً-ٰٟـ]/g, '').replace(/[إأآٱ]/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه').replace(/\s+/g, '');
   function planRows() {
@@ -778,7 +787,7 @@
     const q = fnorm(findQ);
     if (q) {
       findHits = new Set();
-      for (let i = 0; i < grid.length && findHits.size < FIND_MAX; i++) if (!isEmptyRow(grid[i]) && fnorm(grid[i].join(' ')).includes(q)) findHits.add(i);
+      for (let i = 0; i < grid.length && findHits.size < FIND_MAX; i++) if (!isEmptyRow(grid[i]) && fnorm(FIND_COLS.map(j => grid[i][j] || '').join(' ')).includes(q)) findHits.add(i);
       return;
     }
     if (!pastShown()) return;
@@ -1036,8 +1045,9 @@
     // لصق عدة أسطر فوق مناقشات موجودة: ما نكتب فوقها — تنضاف كأسطر جديدة أول الجدول
     let start = r0, asNew = false;
     if (data.length > 1 && data.some((_, k) => grid[r0 + k] && !isEmptyRow(grid[r0 + k]))) {
+      grid = grid.filter(r => !isEmptyRow(r));                     // سطر الإضافة الفاضي يرجع لحاله بعد اللصق
       for (let k = 0; k < data.length; k++) grid.unshift(emptyRow());
-      start = 0; asNew = true;
+      start = 0; asNew = true; gridSel.clear(); activeRow = -1;     // الأرقام تحركت: لا نحذف/نعدّل سطراً غلط
     }
     data.forEach((vals, k) => {
       const r = start + k;
@@ -1074,7 +1084,19 @@
   }
   $('#gAdd').onclick = addOnTop;
   { const b = $('#gNew'); if (b) b.onclick = addOnTop; }
-  $('#gAdd5').onclick = () => { for (let i = 0; i < 5; i++) grid.unshift(emptyRow()); renderGrid(); gridChanged(); const w = $('.gridwrap'); if (w) w.scrollTo({ top: 0, behavior: 'smooth' }); };
+  // «💾 حفظ»: تأكيد — الحفظ التلقائي شغال دايماً، والزر يرسل الحين ويقول للموظف إنها وصلت
+  { const b = $('#gSave'); if (b) b.onclick = async () => {
+    const a = document.activeElement; if (a && a.blur && a.closest && a.closest('#sheet')) a.blur();   // يكمّل أي خانة مفتوحة
+    clearTimeout(gridSaveT);
+    try { localStorage.setItem(userKey('grid'), JSON.stringify(grid)); } catch (e) { /* مساحة */ }
+    syncRows();
+    if (!(window.QCloud && QCloud.on)) return toast('✓ انحفظ على هذا الجهاز');
+    b.disabled = true; const old = b.textContent; b.textContent = '⏳ جارٍ الحفظ...';
+    const ok = await QCloud.flush();
+    b.disabled = false; b.textContent = old;
+    toast(ok ? '✓ انحفظ ووصل للبث — يشوفه زملاؤك وOBS' : 'ما قدرت أوصل للخادم الحين — محفوظ على جهازك وبيوصل تلقائياً أول ما يرجع الاتصال', !ok);
+  }; }
+  $('#gAdd5').onclick = () => { gridSel.clear(); activeRow = -1; for (let i = 0; i < 5; i++) grid.unshift(emptyRow()); renderGrid(); gridChanged(); const w = $('.gridwrap'); if (w) w.scrollTo({ top: 0, behavior: 'smooth' }); };
   $('#gFromDesign').onclick = () => {
     gridSnap('إضافة التصميم الحالي');
     const firstEmpty = grid.findIndex(isEmptyRow);
@@ -1191,7 +1213,9 @@
       const have = new Map(); grid.forEach(r => { if (!isEmptyRow(r)) have.set(key(r), r); });
       const add = [], fresh = data.rows.map(o => GCOLS.map(c => o[c] || ''));
       let filled = 0;
-      fresh.forEach(r => { // سطر موجود: تُعبّأ خاناته الفاضية فقط (مثل الملاحظات ومنسق الحجز) بدون المساس بتعديلات الموظف
+      const gone = (window.QCloud && QCloud.gone) || new Set();   // حذفها الموظفون من الجدول المشترك: لا ترجع
+      const skey = r => String(r[CI('الطالب')] || '').trim().replace(/\s+/g, ' ') + '|' + ((toLatin(r[CI('التاريخ')] || '').match(/(\d{4})\D+(\d{1,2})\D+(\d{1,2})/) || []).slice(1).map(Number).join('/'));
+      fresh.forEach(r => { if (gone.has(skey(r))) return; // سطر موجود: تُعبّأ خاناته الفاضية فقط (مثل الملاحظات ومنسق الحجز) بدون المساس بتعديلات الموظف
         const old = have.get(key(r)); if (!old) { add.push(r); return; }
         let f = false; r.forEach((v, j) => { if (v && !String(old[j] || '').trim()) { old[j] = v; f = true; } }); if (f) filled++;
       });
@@ -2088,7 +2112,8 @@
 
   // ---------- إرسال بالواتساب: الصورة الأصلية الكاملة + نص الرسالة ----------
   const SEND = { s: null, kind: 'invite', blob: null, file: null };
-  const canShareFiles = () => { try { return !!(navigator.canShare && navigator.canShare({ files: [new File([new Blob(['x'])], 'x.jpg', { type: 'image/jpeg' })] })); } catch (e) { return false; } };
+  // المشاركة المباشرة للجوال واللوحي فقط؛ الكمبيوتر يفتح واتساب ويب (ويندوز يفتح نافذة مشاركة النظام وتلخبط)
+  const canShareFiles = () => { try { return matchMedia('(pointer: coarse)').matches && !!(navigator.canShare && navigator.canShare({ files: [new File([new Blob(['x'])], 'x.jpg', { type: 'image/jpeg' })] })); } catch (e) { return false; } };
   function sendSetKind(kind) {
     SEND.kind = kind;
     $$('[data-send]').forEach(b => b.classList.toggle('active', b.dataset.send === kind));
@@ -2185,8 +2210,10 @@
     if (activeRow < 0 || !grid[activeRow] || !rowSnap) return;
     const fresh = gridOfState(), prevSnap = rowSnap;
     const row = grid[activeRow]; let changedAny = false;
+    // سطر جديد فاضي: أول ما ينكتب اسم الطالب ينتقل كل ما في النموذج (ومنه القاعة والرابط الافتراضيان — يحتاجها البث)
+    const snap = isEmptyRow(row) && (fresh[CI('الطالب')] || '').trim() ? emptyRow() : rowSnap;
     GCOLS.forEach((c, j) => {
-      if ((fresh[j] || '') === (rowSnap[j] || '')) return; // لم يتغيّر في النموذج
+      if ((fresh[j] || '') === (snap[j] || '')) return; // لم يتغيّر في النموذج
       if ((row[j] || '') !== (fresh[j] || '')) {
         row[j] = fresh[j]; changedAny = true;
         const inp = cellAt(activeRow, j); if (inp && document.activeElement !== inp) inp.value = fresh[j];
