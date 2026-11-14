@@ -270,7 +270,7 @@
 
   // ---------- التحميل ----------
   let defaultFmts = ['exact'];   // مقاس واحد افتراضياً: ملف واحد ينزل (الموظف يزيد لو يبي)
-  try { const saved = JSON.parse(localStorage.getItem(userKey('fmts'))); if (Array.isArray(saved) && saved.length) defaultFmts = saved; } catch (e) { /* افتراضي */ }
+  // الافتراضي دايماً «الإعلان الرسمي» عند كل فتح (ما يتذكر مقاس المرة الماضية)
   $('#exportFormats').innerHTML = FORMATS.map(f => `<label class="fmt"><input type="checkbox" value="${f.id}" ${defaultFmts.includes(f.id) ? 'checked' : ''}>
       <span>${f.name}<small>${f.w}×${f.h}</small></span></label>`).join('') +
     `<label class="fmt"><input type="checkbox" value="custom"><span>المقاس المخصص<small>من شريط المعاينة</small></span></label>`;
@@ -280,7 +280,8 @@
     const t = e.target; if (t && t.checked) pickPreview(t.value, false);
     else { const first = $('#exportFormats input:checked'); if (first) pickPreview(first.value, false); }
   });
-  { const first = $('#exportFormats input:checked'); if (first && first.value !== 'exact') pickPreview(first.value, false); }
+  // الواتساب: «دعوة» = الإعلان الرسمي، «تسجيل» = صورة اليوتيوب — ثابت مهما كان المقاس المختار فوق
+  const sendFmt = kind => getFormat(kind === 'record' ? 'youtube' : 'exact');
   const selectedFormats = () => $$('#exportFormats input:checked').map(i => getFormat(i.value));
 
   const exportEl = $('#exportPoster');
@@ -2269,16 +2270,24 @@
       ? 'اضغط «إرسال للواتساب» واختر واتساب ثم المحادثة. إذا ما ظهر النص مع الصورة، الصقه (منسوخ تلقائياً).'
       : 'في الكمبيوتر: يفتح واتساب ويب بالرسالة، والصورة تنسخ تلقائياً — الصقها في المحادثة (Ctrl+V).';
     openModal('#mSend');
-    try {
-      if (readyBlob) SEND.blob = readyBlob;
-      else { const cv = await capture(s, currentFmt, 2); SEND.blob = await new Promise(r => cv.toBlob(r, 'image/jpeg', 0.93)); } // الصورة الأصلية الكاملة
-      SEND.file = new File([SEND.blob], `${safeName(s.student || 'اعلان')}.jpg`, { type: 'image/jpeg' });
-      if (img._url) URL.revokeObjectURL(img._url);
-      img._url = URL.createObjectURL(SEND.blob); img.src = img._url;
-      $('#sendImgNote').textContent = 'الصورة الأصلية الكاملة — جاهزة ✓';
-    } catch (e) { $('#sendImgNote').textContent = 'تعذّر تجهيز الصورة'; }
+    await sendBuildImg(readyBlob);
   }
-  $$('[data-send]').forEach(b => b.onclick = () => sendSetKind(b.dataset.send));
+  let sendTok = 0;
+  async function sendBuildImg(readyBlob) {
+    const s = SEND.s, kind = SEND.kind, tok = ++sendTok, img = $('#sendImg');
+    SEND.blob = null; SEND.file = null; img.removeAttribute('src');
+    $('#sendImgNote').textContent = kind === 'record' ? 'جارٍ تجهيز صورة اليوتيوب...' : 'جارٍ تجهيز الإعلان الرسمي...';
+    try {
+      let blob = readyBlob;
+      if (!blob) { const cv = await capture(s, sendFmt(kind), 2); blob = await new Promise(r => cv.toBlob(r, 'image/jpeg', 0.93)); }
+      if (tok !== sendTok) return;                                  // تغيّر نوع الرسالة أثناء التجهيز
+      SEND.blob = blob; SEND.file = new File([blob], `${safeName(s.student || 'اعلان')}${kind === 'record' ? '-يوتيوب' : ''}.jpg`, { type: 'image/jpeg' });
+      if (img._url) URL.revokeObjectURL(img._url);
+      img._url = URL.createObjectURL(blob); img.src = img._url;
+      $('#sendImgNote').textContent = kind === 'record' ? 'صورة اليوتيوب (للتسجيل) — جاهزة ✓' : 'الإعلان الرسمي (للدعوة) — جاهز ✓';
+    } catch (e) { if (tok === sendTok) $('#sendImgNote').textContent = 'تعذّر تجهيز الصورة'; }
+  }
+  $$('[data-send]').forEach(b => b.onclick = () => { const was = SEND.kind; sendSetKind(b.dataset.send); if (SEND.kind !== was && SEND.s) sendBuildImg(); });
   const sendReady = () => {
     if (!$('#sendText').value.trim()) { toast(SEND.kind === 'record' ? 'أضف رابط التسجيل أولاً' : 'الرسالة فاضية', true); return false; }
     if (!SEND.file) { toast('لحظة... الصورة تتجهز', true); return false; }
@@ -2318,7 +2327,7 @@
     const text = buildMsg(kind, s);
     overlay.show('جارٍ تجهيز الصورة للواتساب...');
     let blob;
-    try { const cv = await capture(s, currentFmt, 2); blob = await new Promise(r => cv.toBlob(r, 'image/jpeg', 0.93)); }
+    try { const cv = await capture(s, sendFmt(kind), 2); blob = await new Promise(r => cv.toBlob(r, 'image/jpeg', 0.93)); }
     catch (e) { overlay.hide(); return toast('تعذّر تجهيز الصورة', true); }
     overlay.hide();
     const file = new File([blob], `${safeName(s.student || 'اعلان')}.jpg`, { type: 'image/jpeg' });

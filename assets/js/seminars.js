@@ -914,7 +914,9 @@
   const SEND = { s: null, kind: 'invite', blob: null, file: null };
   const SEND_FMT = SFMTS[0];   // مثل المناقشات: تُرسل الصورة الأساسية الكاملة (برنامج الندوة)
   const canShareFiles = () => { try { return matchMedia('(pointer: coarse)').matches && !!(navigator.canShare && navigator.canShare({ files: [new File([new Blob(['x'])], 'x.jpg', { type: 'image/jpeg' })] })); } catch (e) { return false; } };
-  async function sendImage(s) { const { canvas } = await capture(s, SEND_FMT, 2); return toBlob(canvas, 'image/jpeg', 0.93); }
+  // «دعوة» = برنامج الندوة كامل، «تسجيل» = صورة اليوتيوب — ثابت مهما كان المقاس المختار
+  const sendFmt = kind => kind === 'record' ? (SFMTS.find(f => f.id === 'youtube') || SEND_FMT) : SEND_FMT;
+  async function sendImage(s, kind) { const { canvas } = await capture(s, sendFmt(kind), 2); return toBlob(canvas, 'image/jpeg', 0.93); }
   function sendSetKind(kind) {
     SEND.kind = kind;
     $$('[data-send]').forEach(b => b.classList.toggle('active', b.dataset.send === kind));
@@ -933,15 +935,23 @@
       ? 'اضغط «إرسال للواتساب» واختر واتساب ثم المحادثة. إذا ما ظهر النص مع الصورة، الصقه (منسوخ تلقائياً).'
       : 'في الكمبيوتر: يفتح واتساب ويب بالرسالة، والصورة تنسخ تلقائياً — الصقها في المحادثة (Ctrl+V).';
     $('#mSend').classList.add('open');
-    try {
-      SEND.blob = readyBlob || await sendImage(SEND.s);
-      SEND.file = new File([SEND.blob], `${fileBase(SEND.s, SEND_FMT)}.jpg`, { type: 'image/jpeg' });
-      if (img._url) URL.revokeObjectURL(img._url);
-      img._url = URL.createObjectURL(SEND.blob); img.src = img._url;
-      $('#sendImgNote').textContent = 'صورة برنامج الندوة كاملة — جاهزة ✓';
-    } catch (e) { $('#sendImgNote').textContent = 'تعذّر تجهيز الصورة'; }
+    await sendBuildImg(readyBlob);
   }
-  $$('[data-send]').forEach(b => b.onclick = () => sendSetKind(b.dataset.send));
+  let sendTok = 0;
+  async function sendBuildImg(readyBlob) {
+    const s = SEND.s, kind = SEND.kind, tok = ++sendTok, img = $('#sendImg');
+    SEND.blob = null; SEND.file = null; img.removeAttribute('src');
+    $('#sendImgNote').textContent = kind === 'record' ? 'جارٍ تجهيز صورة اليوتيوب...' : 'جارٍ تجهيز برنامج الندوة...';
+    try {
+      const blob = readyBlob || await sendImage(s, kind);
+      if (tok !== sendTok) return;
+      SEND.blob = blob; SEND.file = new File([blob], `${fileBase(s, sendFmt(kind))}.jpg`, { type: 'image/jpeg' });
+      if (img._url) URL.revokeObjectURL(img._url);
+      img._url = URL.createObjectURL(blob); img.src = img._url;
+      $('#sendImgNote').textContent = kind === 'record' ? 'صورة اليوتيوب (للتسجيل) — جاهزة ✓' : 'برنامج الندوة كامل (للدعوة) — جاهز ✓';
+    } catch (e) { if (tok === sendTok) $('#sendImgNote').textContent = 'تعذّر تجهيز الصورة'; }
+  }
+  $$('[data-send]').forEach(b => b.onclick = () => { const was = SEND.kind; sendSetKind(b.dataset.send); if (SEND.kind !== was && SEND.s) sendBuildImg(); });
   const sendReady = () => {
     if (!$('#sendText').value.trim()) { toast(SEND.kind === 'record' ? 'أضف رابط التسجيل أولاً' : 'الرسالة فاضية', true); return false; }
     if (!SEND.file) { toast('لحظة... الصورة تتجهز', true); return false; }
@@ -980,9 +990,9 @@
     const text = buildMsg(kind, s);
     busy(true, 'جارٍ تجهيز الصورة للواتساب...');
     let blob;
-    try { blob = await sendImage(s); } catch (e) { busy(false); return toast('تعذّر تجهيز الصورة', true); }
+    try { blob = await sendImage(s, kind); } catch (e) { busy(false); return toast('تعذّر تجهيز الصورة', true); }
     busy(false);
-    const file = new File([blob], `${fileBase(s, SEND_FMT)}.jpg`, { type: 'image/jpeg' });
+    const file = new File([blob], `${fileBase(s, sendFmt(kind))}.jpg`, { type: 'image/jpeg' });
     copyText(text);
     try { await navigator.share({ files: [file], text }); }
     catch (e) {
