@@ -2195,6 +2195,9 @@
     };
   }
   // تسجيل من عدة أجزاء (روابط مفصولة بـ | ) → «الجزء 1: ...» كل جزء في سطر
+  // صورة التسجيل: الباركود يفتح رابط التسجيل (أول جزء) والعبارة «امسح لمشاهدة التسجيل» بدل «امسح للبث»
+  function recState(s) { const u = String(s.recordingLink || '').split(/\s*\|\s*|\s+(?=https?:)/).map(x => x.trim()).find(x => /^https?:/i.test(x));
+    return u ? { ...s, link: u, rec: true, opt: { ...(s.opt || {}), qr: true } } : s; }
   function recLinks(v) {
     const urls = String(v || '').split(/\s*\|\s*|\s+(?=https?:)/).map(x => x.trim()).filter(Boolean);
     return urls.length > 1 ? urls.map((u, i) => `الجزء ${i + 1}:\n${u}`).join('\n\n') : (urls[0] || '');
@@ -2297,7 +2300,7 @@
     $('#sendImgNote').textContent = kind === 'record' ? 'جارٍ تجهيز صورة اليوتيوب...' : 'جارٍ تجهيز صورة الحالة...';
     try {
       let blob = readyBlob;
-      if (!blob) { const cv = await capture(s, sendFmt(kind), 2); blob = await new Promise(r => cv.toBlob(r, 'image/jpeg', 0.93)); }
+      if (!blob) { const cv = await capture(kind === 'record' ? recState(s) : s, sendFmt(kind), 2); blob = await new Promise(r => cv.toBlob(r, 'image/jpeg', 0.93)); }
       if (tok !== sendTok) return;                                  // تغيّر نوع الرسالة أثناء التجهيز
       SEND.blob = blob; SEND.file = new File([blob], `${safeName(s.student || 'اعلان')}${kind === 'record' ? '-يوتيوب' : ''}.jpg`, { type: 'image/jpeg' });
       if (img._url) URL.revokeObjectURL(img._url);

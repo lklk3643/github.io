@@ -225,7 +225,7 @@
     });
     ['day', 'date', 'time', 'place', 'placeNote', 'dept'].forEach(k => { html += exItem(E[k], state[k], k); });
     const qr = qrSvg(state);
-    if (qr) html += `<div class="ex-qr">${qr}<span>${platformOf(state.link).cta}</span></div>`;
+    if (qr) html += `<div class="ex-qr">${qr}<span>${state.rec ? 'شاهد التسجيل' + (platformOf(state.link).id === 'youtube' ? ' على يوتيوب' : '') : platformOf(state.link).cta}</span></div>`;
     el.innerHTML = html;
   }
 
@@ -270,7 +270,7 @@
     const qrBox = qrSvg(state);
     if (qrBox) {
       const pf = platformOf(state.link);
-      qr = `<div class="qp-sep"></div><div class="qp-info-item qp-qr">${qrBox}<div class="qp-info-text"><b>امسح للبث</b><span>${pf.id === 'link' ? 'المباشر' : 'عبر ' + pf.name}</span></div></div>`;
+      qr = `<div class="qp-sep"></div><div class="qp-info-item qp-qr">${qrBox}<div class="qp-info-text"><b>${state.rec ? 'امسح لمشاهدة التسجيل' : 'امسح للبث'}</b><span>${pf.id === 'link' ? (state.rec ? '' : 'المباشر') : 'عبر ' + pf.name}</span></div></div>`;
     }
 
     const building = o.building ? `<img class="qp-building-img" src="${state.assets.building || DEFAULT_BUILDING}" alt="">` : '';

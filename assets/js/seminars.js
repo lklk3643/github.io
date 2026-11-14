@@ -462,7 +462,7 @@
         const q = window.qrcode(0, 'M'); q.addData(s.link); q.make();
         const box = el('div', 'qs-qr');
         box.innerHTML = q.createSvgTag({ cellSize: 4, margin: 0, scalable: true });   // SVG من مكتبة QR (الرابط مُرمّز كمربعات، لا كنص HTML)
-        box.appendChild(el('div', null, 'شاهد البث'));
+        box.appendChild(el('div', null, s._rec ? 'شاهد التسجيل' : 'شاهد البث'));
         foot.appendChild(box);
       } catch (e) { /* رابط طويل جداً */ }
     }
@@ -541,7 +541,7 @@
     fact('cal', 'اليوم', s.date ? `${weekday(s.date)} ${hijri(s.date)}` : '', s.date ? gdate(s.date) : '');
     fact('clock', 'الوقت', [t12(s.start), t12(s.end)].filter(Boolean).join(' – '));
     fact('pin', 'المكان', s.place, s.place_note);
-    const qr = qrBox(s.link, banner ? 'qb-qr' : 'qs-qr qw-qr', 'شاهد البث');
+    const qr = qrBox(s.link, banner ? 'qb-qr' : 'qs-qr qw-qr', s._rec ? 'شاهد التسجيل' : 'شاهد البث');
     if (banner) { stage.appendChild(facts); if (qr) stage.appendChild(qr); }
 
     // المتحدثون: عمود جانبي في 16:9، وسطر «بمشاركة» في الغلاف
@@ -623,7 +623,7 @@
         const q = window.qrcode(0, 'M'); q.addData(s.link); q.make();
         const box = el('div', 'qp2-qr');
         box.innerHTML = q.createSvgTag({ cellSize: 4, margin: 0, scalable: true });   // SVG من مكتبة QR
-        box.appendChild(el('div', null, 'البث المباشر عبر مسح رمز QR'));
+        box.appendChild(el('div', null, s._rec ? 'شاهد التسجيل عبر مسح رمز QR' : 'البث المباشر عبر مسح رمز QR'));
         foot.appendChild(box);
       } catch (e) { /* رابط طويل جداً */ }
     }
@@ -888,6 +888,9 @@
     return `السلام عليكم ورحمة الله\nمرفق لكم تسجيل ${s.series || 'ندوة'}: ${quoted(s.title)}${when}\n\n${recLinks(s.recording_link)}\n\nولكم خالص الشكر`;
   }
   const buildMsg = (kind, s) => kind === 'record' ? recordText(s) : shareText(s);
+  // صورة التسجيل: الباركود يفتح رابط التسجيل (أول جزء) والعبارة «شاهد التسجيل»
+  function recState(s) { const u = String(s.recording_link || '').split(/\s*\|\s*|\s+(?=https?:)/).map(x => x.trim()).find(x => /^https?:/i.test(x));
+    return u ? { ...s, link: u, _rec: true } : s; }
   const hasRec = (s) => !!String((s && s.recording_link) || '').trim();
   async function copyText(text) {
     try { await navigator.clipboard.writeText(text); return true; }
@@ -916,7 +919,7 @@
   const canShareFiles = () => { try { return matchMedia('(pointer: coarse)').matches && !!(navigator.canShare && navigator.canShare({ files: [new File([new Blob(['x'])], 'x.jpg', { type: 'image/jpeg' })] })); } catch (e) { return false; } };
   // «دعوة» = صورة الحالة (ستوري)، «تسجيل» = صورة اليوتيوب — ثابت مهما كان المقاس المختار
   const sendFmt = kind => SFMTS.find(f => f.id === (kind === 'record' ? 'youtube' : 'story')) || SEND_FMT;
-  async function sendImage(s, kind) { const { canvas } = await capture(s, sendFmt(kind), 2); return toBlob(canvas, 'image/jpeg', 0.93); }
+  async function sendImage(s, kind) { const { canvas } = await capture(kind === 'record' ? recState(s) : s, sendFmt(kind), 2); return toBlob(canvas, 'image/jpeg', 0.93); }
   function sendSetKind(kind) {
     SEND.kind = kind;
     $$('[data-send]').forEach(b => b.classList.toggle('active', b.dataset.send === kind));

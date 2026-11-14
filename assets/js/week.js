@@ -36,6 +36,7 @@
         <button class="week-act wa" data-wkact="wa"><b>💬 واتساب</b><small>للجروب أو القناة مرة وحدة</small></button>
         <button class="week-act" data-wkact="copy"><b>📋 نسخ الصور</b><small>كلها مرة وحدة — الصقها في المدونة</small></button>
       </div>
+      <p class="hint wk-blog-tip" style="margin:6px 0 0">📌 المدونة: الصق في العرض العادي «عرض الإنشاء» (Compose)، مو «عرض HTML» — إذا كنت في HTML غيّرها من زر القلم ✏️ في شريط الأدوات.</p>
       <div class="hbar"><button class="btn sm" data-wkall>☑️ تحديد / إلغاء الكل</button><span class="hint">${esc(cfg.heading || '')}</span></div>
       <div class="trash-list wk-list"></div></div>`;
     document.body.appendChild(m);
@@ -94,7 +95,7 @@
             return new Blob([`<div dir="rtl">${parts.join('\n')}</div>`], { type: 'text/html' });
           })();
           await navigator.clipboard.write([new ClipboardItem({ 'text/html': html })]);   // صور بس، بدون نص
-          hide(); toast(`📋 انسخت ${list.length} صور ✓ — افتح المدونة والصقها (Ctrl+V): تنلصق كلها ورا بعض`);
+          hide(); toast(`📋 انسخت ${list.length} صور ✓ — افتح المدونة على «عرض الإنشاء» (مو HTML) والصقها: تنلصق كلها ورا بعض`);
         } else if (act.dataset.wkact === 'dl') {
           const fs = await blobs(list); hide();
           for (const f of fs) { saveBlob(f.blob, cfg.name(f.x)); await sleep(450); }
