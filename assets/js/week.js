@@ -93,7 +93,7 @@
             for (const f of fs) parts.push(`<p style="text-align:center"><img src="${await webImg(f.blob)}" alt="${esc(f.x.title)}" style="max-width:100%;height:auto"></p>`);
             return new Blob([`<div dir="rtl">${parts.join('\n')}</div>`], { type: 'text/html' });
           })();
-          await navigator.clipboard.write([new ClipboardItem({ 'text/html': html, 'text/plain': new Blob([text()], { type: 'text/plain' }) })]);
+          await navigator.clipboard.write([new ClipboardItem({ 'text/html': html })]);   // صور بس، بدون نص
           hide(); toast(`📋 انسخت ${list.length} صور ✓ — افتح المدونة والصقها (Ctrl+V): تنلصق كلها ورا بعض`);
         } else if (act.dataset.wkact === 'dl') {
           const fs = await blobs(list); hide();
@@ -101,13 +101,12 @@
           toast(`⬇️ نزلت ${fs.length} صورة`);
         } else if (act.dataset.wkact === 'wa') {
           const fs = (await blobs(list)).map(f => new File([f.blob], cfg.name(f.x), { type: 'image/png' })); hide();
-          try { await navigator.clipboard.writeText(text()); } catch (err) { /* اختياري */ }
           if (matchMedia('(pointer: coarse)').matches && navigator.canShare && navigator.canShare({ files: fs })) {
-            try { await navigator.share({ files: fs, text: text() }); }
+            try { await navigator.share({ files: fs }); }   // صور بس، بدون نص
             catch (err) { if (err.name === 'NotAllowedError') toast('الصور جاهزة ✓ — اضغط «💬 واتساب» مرة ثانية'); else if (err.name !== 'AbortError') toast('تعذّر فتح المشاركة', true); }
           } else {
             for (const f of fs) { saveBlob(f, f.name); await sleep(450); }
-            toast('في الكمبيوتر: نزلت الصور — اسحبها لمحادثة الجروب في واتساب ويب، أو «📋 نسخ الصور» والصقها');
+            toast('في الكمبيوتر: نزلت الصور — اسحبها لمحادثة الجروب في واتساب ويب');
           }
         }
       } catch (err) { toast('تعذّر التجهيز: ' + (err.message || ''), true); } finally { hide(); }
