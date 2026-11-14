@@ -5,6 +5,12 @@
  */
 (function () {
   'use strict';
+  // زر المظهر (فاتح/داكن/تلقائي): theme.js يُفضَّل تحميله في أول <head>؛ وإن لم يُحمَّل هناك نحمّله من هنا
+  if (!window.QTheme) {
+    const s = document.createElement('script');
+    s.src = 'assets/js/theme.js?v=202611142301';
+    document.head.appendChild(s);
+  }
   const top = document.querySelector('.topbar');
   if (!top) return;
   const here = /seminars\.html/.test(location.pathname) ? 'sem' : 'def';

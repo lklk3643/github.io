@@ -53,7 +53,9 @@
     if (removed) { pendDel.add(k); delete pendSet[k]; }
     else { const v = localStorage.getItem(k); if (v == null) return; pendSet[k] = v; pendDel.delete(k); }
     clearTimeout(t); t = setTimeout(flush, 700);
+    saving();
   }
+  function saving() { const b = document.getElementById('cloudBadge'); if (b) { clearTimeout(b._h); b.className = 'cloud-badge ok'; b.textContent = '⏳ جارٍ الحفظ...'; } }
   const typing = () => { const a = document.activeElement; return !!(a && a.closest && a.closest('#sheet') && /INPUT|TEXTAREA|SELECT/.test(a.tagName)); };
   addEventListener('focusout', () => setTimeout(() => {
     if (deferred == null || typing() || GRID in pendSet) return;
@@ -120,16 +122,19 @@
   });
   // كل 20 ثانية: إن عدّل أحد الزملاء الجدول، يظهر التعديل هنا (ما لم تكن تكتب في خانة الآن)
   setInterval(async () => {
-    if (document.hidden || GRID in pendSet) return;
+    if (document.hidden) return;
+    if (GRID in pendSet) return;
     try {
-      const r = await api('shared?since=' + ver); if (!r.ok) return;
-      const j = await r.json(); if (!j || typeof j.grid !== 'string') { if (j && j.ver) ver = j.ver; return; }
+      const r = await api('shared?since=' + ver + '&editing=' + encodeURIComponent(QCloud.editing || '')); if (!r.ok) return;
+      const j = await r.json();
+      if (j && Array.isArray(j.others)) dispatchEvent(new CustomEvent('qcloud:presence', { detail: j.others }));
+      if (!j || typeof j.grid !== 'string') { if (j && j.ver) ver = j.ver; return; }
       const a = document.activeElement;
       if (a && a.closest && a.closest('#sheet') && /INPUT|TEXTAREA|SELECT/.test(a.tagName)) return;   // يعيد المحاولة بعد قليل
       ver = j.ver;
       if (j.grid !== localStorage.getItem(GRID)) applyGrid(j.grid, j.by); else base = j.grid;
     } catch (e) { /* بدون اتصال */ }
-  }, 20000);
+  }, 15000);
   QCloud.details = (entries) => api('details', { method: 'POST', body: JSON.stringify({ entries }) }).then(r => r.ok);
   QCloud.seminars = (upsert, remove) => api('seminars', { method: 'POST', body: JSON.stringify({ upsert, remove }) }).then(r => r.ok ? r.json() : Promise.reject(new Error(r.status)));
 })();

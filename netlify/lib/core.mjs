@@ -253,6 +253,64 @@ async function cleanupOnce(store, origin) {
   await setJSON(store, CLEAN_FLAG, { at: new Date().toISOString(), rows: removed.length, seminars: sems.length });
 }
 
+// ---------- الحماية: نسخ احتياطية + سجل التعديلات + محذوفات مشتركة ----------
+// backup/day/<YYYY-MM-DD>  أول حفظ في اليوم (قبل التغيير) — آخر 30 يوم
+// backup/op/<ms>           قبل أي حذف كبير (5 أسطر فأكثر) أو استرجاع — آخر 30 عملية
+// audit                    آخر 3000 تعديل: {at, by, t: add|del|edit|restore, k, st, d, row?, ch?}
+const KEEP_BACKUPS = 30, AUDIT_MAX = 3000, TRASH_DAYS = 30;
+const riyadhDay = () => new Date(Date.now() + 3 * 36e5).toISOString().slice(0, 10);
+async function allSeminars(store) {
+  const { blobs } = await store.list({ prefix: 'sem/' }); const out = [];
+  for (const b of blobs) { const x = await getJSON(store, b.key); if (x && x.id) out.push(x); }
+  return out;
+}
+async function backupNow(store, kind, by, sh, note) {
+  const key = kind === 'day' ? 'backup/day/' + riyadhDay() : 'backup/op/' + Date.now();
+  if (kind === 'day' && (await getJSON(store, 'backup-last-day')) === riyadhDay()) return null;   // علامة صغيرة بدل قراءة النسخة كاملة كل حفظ
+  const g = parseGrid(sh.grid);
+  await setJSON(store, key, { key, kind, at: new Date().toISOString(), by: by || '', note: note || '', rows: g.filter(r => !emptyRow(r)).length,
+    grid: sh.grid || '[]', gone: sh.gone || [], seminars: await allSeminars(store) });
+  const { blobs } = await store.list({ prefix: 'backup/' + kind + '/' });
+  const keys = blobs.map(b => b.key).sort();
+  for (const k of keys.slice(0, Math.max(0, keys.length - KEEP_BACKUPS))) await store.delete(k);
+  if (kind === 'day') await setJSON(store, 'backup-last-day', riyadhDay());
+  return key;
+}
+const COL_ST = GCOLS.indexOf('الطالب'), COL_D = GCOLS.indexOf('التاريخ');
+const cellsOf = r => Object.fromEntries(GCOLS.map((c, i) => [c, String(r[i] || '')]).filter(([c, v]) => v && c !== 'الكاتب'));
+// الفرق بين جدولين: إضافة / حذف / تعديل (تغيّر التاريخ أو الاسم = تعديل إذا تطابق الطرف الآخر)
+function diffGrids(oldG, newG) {
+  const idx = g => { const m = new Map(); g.forEach(r => { if (emptyRow(r)) return; const k = rowKey(r) || ('?' + String(r[COL_ST] || '').trim()); if (k !== '?') m.set(k, r); }); return m; };
+  const A = idx(oldG), B = idx(newG), out = [];
+  const dels = [...A].filter(([k]) => !B.has(k)), adds = [...B].filter(([k]) => !A.has(k));
+  const pair = (r1, r2) => { const ch = {}; GCOLS.forEach((c, i) => { if (c !== 'الكاتب' && String(r1[i] || '') !== String(r2[i] || '')) ch[c] = [String(r1[i] || ''), String(r2[i] || '')]; }); return ch; };
+  for (const [k, r] of B) if (A.has(k)) { const ch = pair(A.get(k), r); if (Object.keys(ch).length) out.push({ t: 'edit', k, st: String(r[COL_ST] || '').trim(), d: String(r[COL_D] || ''), ch }); }
+  const usedDel = new Set();
+  for (const [k, r] of adds) {
+    const st = String(r[COL_ST] || '').trim();
+    const m = dels.find(([dk, dr]) => !usedDel.has(dk) && (String(dr[COL_ST] || '').trim() === st || (String(dr[COL_D] || '') && String(dr[COL_D]) === String(r[COL_D] || '') && pair(dr, r) && Object.keys(pair(dr, r)).length <= 2)));
+    if (m) { usedDel.add(m[0]); out.push({ t: 'edit', k, st, d: String(r[COL_D] || ''), ch: pair(m[1], r) }); }
+    else out.push({ t: 'add', k, st, d: String(r[COL_D] || '') });             // السطر كامل يُحفظ للمحذوف فقط (للاسترجاع)
+  }
+  for (const [k, r] of dels) if (!usedDel.has(k)) out.push({ t: 'del', k, st: String(r[COL_ST] || '').trim(), d: String(r[COL_D] || ''), row: r });
+  return out;
+}
+async function auditAdd(store, by, entries) {
+  if (!entries.length) return;
+  const log = await getJSON(store, 'audit', []), now = Date.now();
+  for (const e of entries) {
+    const last = log[log.length - 1];
+    // كتابة متتالية لنفس المناقشة من نفس الشخص خلال دقيقتين = تعديل واحد
+    if (e.t === 'edit' && last && last.t === 'edit' && last.by === by && last.k === e.k && now - last.ms < 120000) {
+      for (const [c, [o, n]] of Object.entries(e.ch)) last.ch[c] = [last.ch[c] ? last.ch[c][0] : o, n];
+      for (const c of Object.keys(last.ch)) if (last.ch[c][0] === last.ch[c][1]) delete last.ch[c];
+      last.ms = now; last.at = new Date(now).toISOString(); continue;
+    }
+    log.push({ ...e, by, ms: now, at: new Date(now).toISOString() });
+  }
+  await setJSON(store, 'audit', log.slice(-AUDIT_MAX));
+}
+
 export async function handle(req, store) {
   const url = new URL(req.url);
   const origin = url.origin;
@@ -290,6 +348,55 @@ export async function handle(req, store) {
   // أعضاء هيئة التدريس لاقتراح الأسماء أثناء الكتابة (للمسجلين فقط؛ اسم ورتبة وقسم بلا بريد ولا جوال)
   if (method === 'GET' && path === 'people') return json({ people: PEOPLE });
 
+  // سجل التعديلات: لمناقشة (?st=اسم الطالب) أو آخر التعديلات — لكل من سجّل دخوله
+  if (method === 'GET' && path === 'audit') {
+    const st = String(new URL(req.url).searchParams.get('st') || '').trim().replace(/\s+/g, ' ');
+    const log = await getJSON(store, 'audit', []);
+    const list = st ? log.filter(e => String(e.st || '').replace(/\s+/g, ' ') === st) : log;
+    return json({ entries: list.slice(-300).reverse().map(({ row, sem, ...e }) => e) });
+  }
+  // المحذوفات المشتركة: ما حذفه أي موظف خلال 30 يوم ولم يرجع للجدول
+  if (method === 'GET' && path === 'trash') {
+    const sh = await sharedDoc(store), now = new Set(parseGrid(sh.grid).map(r => rowKey(r)).filter(Boolean));
+    const nowSem = new Set((await allSeminars(store)).map(x => 'sem:' + x.id));
+    const log = await getJSON(store, 'audit', []), since = Date.now() - TRASH_DAYS * DAY, seen = new Set();
+    const items = log.filter(e => e.t === 'del' && e.ms >= since).reverse()
+      .filter(e => !seen.has(e.k) && seen.add(e.k) && !(e.row ? now.has(e.k) : nowSem.has(e.k)))
+      .map(e => ({ at: e.at, by: e.by, k: e.k, st: e.st, d: e.d, row: e.row || null, sem: e.sem || null }));
+    return json({ items });
+  }
+  // النسخ الاحتياطية: المدير العام فقط
+  if (path === 'backups' || path === 'backups/restore' || path === 'backups/get') {
+    if (roleNow(await users(store, origin), me.u) !== 'super') return err('النسخ الاحتياطية للمدير العام فقط', 403);
+    if (method === 'GET' && path === 'backups') {
+      const out = [];
+      for (const kind of ['day', 'op']) { const { blobs } = await store.list({ prefix: 'backup/' + kind + '/' }); for (const b of blobs) { const x = await getJSON(store, b.key); if (x) out.push({ key: x.key, kind: x.kind, at: x.at, by: x.by, note: x.note, rows: x.rows, seminars: (x.seminars || []).length }); } }
+      out.sort((a, b) => String(b.at).localeCompare(String(a.at)));
+      return json({ backups: out });
+    }
+    if (method === 'GET' && path === 'backups/get') {
+      const key = String(new URL(req.url).searchParams.get('key') || '');
+      if (!key.startsWith('backup/')) return err('نسخة غير صحيحة', 400);
+      const x = await getJSON(store, key); return x ? json(x) : err('ما لقيت النسخة', 404);
+    }
+    if (method === 'POST' && path === 'backups/restore') {
+      const { key } = await body();
+      if (!String(key || '').startsWith('backup/')) return err('نسخة غير صحيحة', 400);
+      const x = await getJSON(store, key); if (!x) return err('ما لقيت النسخة', 404);
+      const sh = await sharedDoc(store), byName = me.name || me.u;
+      await backupNow(store, 'op', byName, sh, 'قبل الاسترجاع (نسخة الوضع الحالي)');
+      const g = parseGrid(x.grid);
+      sh.grid = JSON.stringify(g); sh.gone = x.gone || []; sh.ver = (sh.ver || 0) + 1; sh.by = byName + ' (استرجاع نسخة)'; sh.at = Date.now();
+      await setJSON(store, 'state/_shared', sh); await writeSharedRows(store, g);
+      if (Array.isArray(x.seminars)) {
+        const { blobs } = await store.list({ prefix: 'sem/' }); for (const b of blobs) await store.delete(b.key);
+        for (const sm of x.seminars) if (sm && sm.id) await setJSON(store, semKey(sm.id), sm);
+      }
+      await auditAdd(store, byName, [{ t: 'restore', k: key, st: 'استرجاع نسخة ' + (x.at || ''), d: '' }]);
+      return json({ ok: true, rows: g.filter(r => !emptyRow(r)).length, seminars: (x.seminars || []).length });
+    }
+  }
+
   // --- بيانات الحساب (مفاتيح المتصفح)
   if (path === 'state') {
     const sh = await sharedDoc(store);
@@ -312,6 +419,11 @@ export async function handle(req, store) {
           const g = typeof base[k] === 'string' ? mergeGrid(parseGrid(base[k]), parseGrid(v), parseGrid(sh.grid)) : parseGrid(v);
           const s = JSON.stringify(g);
           if (s !== sh.grid) {
+            const oldG = parseGrid(sh.grid), changes = diffGrids(oldG, g), byName = me.name || me.u;
+            await backupNow(store, 'day', byName, sh);                                       // أول حفظ اليوم: نسخة قبل التغيير
+            const removedN = changes.filter(c => c.t === 'del').length;
+            if (removedN >= 5) await backupNow(store, 'op', byName, sh, `قبل حذف ${removedN} مناقشة`);
+            await auditAdd(store, byName, changes);
             // مناقشة حُذفت أو تغيّر تاريخها: مفتاحها القديم يُسجَّل حتى لا يرجّعه ملف الحجز الثابت في البث
             const now = new Set(g.map(rowKey).filter(Boolean));
             const gone = new Set((sh.gone || []).filter(k => !now.has(k)));
@@ -331,8 +443,16 @@ export async function handle(req, store) {
   }
   // تحديث الجدول المشترك في الصفحات المفتوحة: يرجع الجدول فقط إذا تغيّر بعد النسخة التي عند الصفحة
   if (path === 'shared' && method === 'GET') {
-    const sh = await sharedDoc(store), since = +new URL(req.url).searchParams.get('since') || 0;
-    return json(sh.ver === since ? { ver: sh.ver } : { ver: sh.ver, key: 'qu_grid_' + U, grid: sh.grid, by: sh.by || '' });
+    const q = new URL(req.url).searchParams, sh = await sharedDoc(store), since = +q.get('since') || 0;
+    // «فلان يعدّل هذي المناقشة الحين»: كل صفحة تبلّغ عن المناقشة اللي فيها المؤشر، وتستلم مناقشات زملائها (آخر دقيقة)
+    const editing = String(q.get('editing') || '').slice(0, 200), pres = await getJSON(store, 'presence', {}), now = Date.now(), mine = pres[U];
+    if (editing !== ((mine && mine.k) || '') || (editing && now - ((mine && mine.at) || 0) > 40000)) {
+      if (editing) pres[U] = { k: editing, name: me.name || me.u, at: now }; else delete pres[U];
+      for (const [u, v] of Object.entries(pres)) if (now - v.at > 120000) delete pres[u];
+      await setJSON(store, 'presence', pres);
+    }
+    const others = Object.entries(pres).filter(([u, v]) => u !== U && now - v.at < 60000).map(([, v]) => ({ k: v.k, name: v.name }));
+    return json(sh.ver === since ? { ver: sh.ver, others } : { ver: sh.ver, key: 'qu_grid_' + U, grid: sh.grid, by: sh.by || '', others });
   }
 
   // --- سجل التصاميم
@@ -373,6 +493,11 @@ export async function handle(req, store) {
   if (path === 'seminars' && method === 'POST') {
     const { upsert = [], remove = [] } = await body();
     await seminarsDoc(store, origin);                         // يضمن نقل البيانات القديمة أول مرة
+    await backupNow(store, 'day', me.name || me.u, await sharedDoc(store));
+    const semLog = [];
+    for (const id of Array.isArray(remove) ? remove : []) { const old = await getJSON(store, semKey(id)); if (old) semLog.push({ t: 'del', k: 'sem:' + id, st: old.title || 'ندوة', d: old.date || '', sem: old }); }
+    for (const s of Array.isArray(upsert) ? upsert : []) if (s && s.id && !(await getJSON(store, semKey(s.id)))) semLog.push({ t: 'add', k: 'sem:' + s.id, st: s.title || 'ندوة', d: s.date || '' });
+    await auditAdd(store, me.name || me.u, semLog);
     for (const s of Array.isArray(upsert) ? upsert : []) if (s && s.id) await setJSON(store, semKey(s.id), { ...s, id: String(s.id), by: me.u });
     for (const id of Array.isArray(remove) ? remove : []) await store.delete(semKey(id));
     return json(await seminarsDoc(store, origin));

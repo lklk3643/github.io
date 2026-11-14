@@ -72,9 +72,9 @@
   $('#who').textContent = `مرحباً، ${session.name || session.u}`;
   $('#brandLogo').insertAdjacentHTML('afterbegin', `<img src="${DEFAULT_LOGO}" alt="" class="brand-logo">`);
   // إدارة الحسابات للمدير العام وحده؛ الصلاحية تُقرأ من السحابة (قد تتغير بعد الدخول)
-  if (session.role === 'super') $('#btnUsers').hidden = false;
+  if (session.role === 'super') { $('#btnUsers').hidden = false; $('#btnBackups').hidden = false; }
   if (window.QCloud && QCloud.site && session.token) fetch('/api/me', { headers: { authorization: 'Bearer ' + session.token } })
-    .then(r => r.ok ? r.json() : null).then(j => { if (j && j.role) { session.role = j.role; $('#btnUsers').hidden = j.role !== 'super'; } }).catch(() => {});
+    .then(r => r.ok ? r.json() : null).then(j => { if (j && j.role) { session.role = j.role; $('#btnUsers').hidden = j.role !== 'super'; $('#btnBackups').hidden = j.role !== 'super'; } }).catch(() => {});
   if (session.weak) $('#weakBanner').hidden = false;
   $('#btnLogout').onclick = () => QAuth.logout();
   // التنقل السفلي (جوال / آيباد عمودي)
@@ -812,9 +812,16 @@
     computeConflicts();
     const cls = c => /العنوان/.test(c) ? 'w-title' : /رابط/.test(c) ? 'w-link' : c === 'الكاتب' ? 'w-sm w-auto' : /الجنس|اليوم|الوقت|الدور/.test(c) ? 'w-sm' : '';
     $('#sheet').innerHTML = `<thead><tr><th class="n">#</th><th class="act">عرض / نسخ</th>${GCOLS.map(c => `<th class="${/^عضو/.test(c) ? 'mem' : ''}">${c}</th>`).join('')}</tr></thead>
-      <tbody>${grid.map((r, i) => hideRow(r, i) ? '' : `${(b => b ? `<tr class="wk-sep"><td colspan="${GCOLS.length + 2}"><span>🌙 إجازة أسبوعية</span> الجمعة ${b.fri} · السبت ${b.sat}${b.gap ? ` <small>(بعدها ${b.gap === 1 ? 'أسبوع' : b.gap + ' أسابيع'} بدون مناقشات)</small>` : ''}</td></tr>` : '')(weekBreak(i))}<tr data-r="${i}" class="${gridSel.has(i) ? 'sel' : ''} ${i === activeRow ? 'active' : ''} ${missingOf(r).length ? 'incomplete' : ''} ${isPast(r) ? 'past' : ''} ${conflicts.has(i) ? 'conflict' : ''}"><td class="n"><label><input type="checkbox" data-gsel ${gridSel.has(i) ? 'checked' : ''}>${i + 1}</label>${warnHtml(r)}${conflictHtml(i)}</td><td class="act"><button data-view title="عرض في التصميم">👁</button><button data-dup title="تكرار السطر (نفس اللجنة لطالب آخر)">⧉</button><button data-msg="invite" class="msg-b" title="نسخ رسالة الدعوة">دعوة</button><button data-wa="invite" class="wa-i" title="إرسال الدعوة بالواتساب">💬</button><button data-msg="record" class="msg-b ${r[GCOLS.indexOf('رابط التسجيل')] ? 'has' : ''}" title="نسخ رسالة التسجيل">تسجيل</button><button data-wa="record" class="wa-i" title="إرسال التسجيل بالواتساب">💬</button></td>${
+      <tbody>${grid.map((r, i) => hideRow(r, i) ? '' : `${(b => b ? `<tr class="wk-sep"><td colspan="${GCOLS.length + 2}"><span>🌙 إجازة أسبوعية</span> الجمعة ${b.fri} · السبت ${b.sat}${b.gap ? ` <small>(بعدها ${b.gap === 1 ? 'أسبوع' : b.gap + ' أسابيع'} بدون مناقشات)</small>` : ''}</td></tr>` : '')(weekBreak(i))}<tr data-r="${i}" class="${gridSel.has(i) ? 'sel' : ''} ${i === activeRow ? 'active' : ''} ${missingOf(r).length ? 'incomplete' : ''} ${isPast(r) ? 'past' : ''} ${conflicts.has(i) ? 'conflict' : ''}"><td class="n"><label><input type="checkbox" data-gsel ${gridSel.has(i) ? 'checked' : ''}>${i + 1}</label>${warnHtml(r)}${conflictHtml(i)}</td><td class="act"><button data-view title="عرض في التصميم">👁</button><button data-dup title="تكرار السطر (نفس اللجنة لطالب آخر)">⧉</button><button data-log title="سجل التعديلات: مين أضافها ومين عدّلها ومتى">🕘</button><button data-msg="invite" class="msg-b" title="نسخ رسالة الدعوة">دعوة</button><button data-wa="invite" class="wa-i" title="إرسال الدعوة بالواتساب">💬</button><button data-msg="record" class="msg-b ${r[GCOLS.indexOf('رابط التسجيل')] ? 'has' : ''}" title="نسخ رسالة التسجيل">تسجيل</button><button data-wa="record" class="wa-i" title="إرسال التسجيل بالواتساب">💬</button></td>${
         GCOLS.map((c, j) => `<td><input type="text" class="${cls(c)}" data-c="${j}" value="${esc(r[j] || '')}"${pickOf(c) ? ` inputmode="none" data-pick="${pickOf(c)}"` : ''}${c === 'الكاتب' ? ' readonly tabindex="-1" title="يتعبّى تلقائياً باسم المستخدم اللي كتب السطر أو عدّله آخر مرة"' : ''}${c === 'رابط البث' ? ' dir="ltr" placeholder="يوتيوب (افتراضي)"' : c === 'رابط اللجنة' ? ' dir="ltr" placeholder="زوم (اختياري)"' : c === 'رابط التسجيل' ? ' dir="ltr" placeholder="بعد المناقشة"' : ''}></td>`).join('')}</tr>`).join('')}</tbody>`;
-    updateGridInfo(); pastBtn();
+    updateGridInfo(); pastBtn(); try { if (presence.length) paintPresence(); } catch (e) { /* قبل التهيئة */ }
+    // الجوال: أول ما ينفتح الجدول يتحرك أفقياً لين تبان خانة «الطالب» في سطر الإضافة (بدل ما تكون برّا الشاشة)
+    if (!renderGrid._sx && matchMedia('(max-width: 760px)').matches) {
+      const w = $('.gridwrap'), c = $(`#sheet tr[data-r="0"] input[data-c="${CI('الطالب')}"]`);
+      if (w && c) { renderGrid._sx = true; let n = 0; const go = () => { const a = w.getBoundingClientRect(), b = c.getBoundingClientRect();
+        if (!a.width || !b.width) { if (n++ < 10) setTimeout(go, 400); return; }       // الصفحة ما انرسمت بعد: نعيد المحاولة
+        w.scrollLeft += (b.left + b.width / 2) - (a.left + a.width / 2); }; setTimeout(go, 300); }
+    }
     { const nr = $('#sheet tr[data-r="0"]'), si = nr && nr.querySelector(`input[data-c="${GCOLS.indexOf('الطالب')}"]`);
       if (nr && isEmptyRow(grid[0])) { nr.classList.add('newrow'); if (si) si.placeholder = '✏️ مناقشة جديدة: اكتب اسم الطالب هنا'; } }
     const b = $('#gConflicts'); if (b) { b.hidden = !conflicts.size; b.textContent = `🔴 ${conflicts.size} سطر فيه تعارض`; }
@@ -834,7 +841,18 @@
   const showPast = () => { try { return localStorage.getItem(userKey('pastwarn2')) !== '0'; } catch (e) { return true; } }; // مفعّل افتراضياً
   const quiet = r => isPast(r) && !showPast();
   function missingOf(r) { return isEmptyRow(r) || quiet(r) ? [] : REQUIRED.filter(c => !String(r[GCOLS.indexOf(c)] || '').trim()); }
-  function warnHtml(r) { const m = missingOf(r); return m.length ? ` <button class="chip warn" data-why="${esc('ناقص لتصميم الإعلان: ' + m.join('، '))}">ناقص</button>` : ''; }
+  // اليوم المكتوب ما يوافق التاريخ الهجري (مثل «الأحد» و1448/6/4 سبت)
+  function dayMismatch(r) {
+    const d = r[CI('اليوم')], h = r[CI('التاريخ')]; if (!d || !h || quiet(r)) return '';
+    const g = hijriToGreg(h); if (!g) return '';
+    const [y, m, dd] = g.split('/').map(Number), real = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'][new Date(Date.UTC(y, m - 1, dd)).getUTCDay()];
+    return nrm(d).replace(/^ال/, '') === nrm(real).replace(/^ال/, '') ? '' : real;
+  }
+  function warnHtml(r) {
+    const real = dayMismatch(r), dw = real ? ` <button class="chip warn" data-why="${esc(`اليوم مكتوب «${r[CI('اليوم')]}» لكن تاريخ ${r[CI('التاريخ')]} يوافق يوم ${real}`)}">اليوم؟</button>` : '';
+    return warnHtml0(r) + dw;
+  }
+  function warnHtml0(r) { const m = missingOf(r); return m.length ? ` <button class="chip warn" data-why="${esc('ناقص لتصميم الإعلان: ' + m.join('، '))}">ناقص</button>` : ''; }
   function updRowWarn(i) {
     const tr = $(`#sheet tr[data-r="${i}"]`); if (!tr) return;
     const td = tr.querySelector('td.n'); const w = td.querySelector('.warn'); if (w) w.remove();
@@ -1291,7 +1309,100 @@
       <small class="hint">${esc(x.why)} · ${ago(x.at)}</small></label>`).join('') : '<p class="hint">ما فيه أسطر محذوفة.</p>';
   }
   const trashSel = () => $$('#trashList input:checked').map(i => +i.dataset.t);
-  $('#gTrash').onclick = () => { $('#trashSearch').value = ''; renderTrash(); openModal('#mTrash'); };
+  $('#gTrash').onclick = () => { $('#trashSearch').value = ''; renderTrash(); loadSharedTrash(); openModal('#mTrash'); };
+  // محذوفات الكل (من الخادم، آخر 30 يوم): أي موظف يرجّع ما حذفه زميله بالغلط
+  const capi = (path, opt) => fetch('/api/' + path, { ...(opt || {}), headers: { 'content-type': 'application/json', authorization: 'Bearer ' + session.token } }).then(async r => { const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || r.status); return j; });
+  let sharedTrash = [];
+  async function loadSharedTrash() {
+    const box = $('#trashShared'); if (!box) return;
+    if (!(window.QCloud && QCloud.on)) { box.innerHTML = ''; return; }
+    box.innerHTML = '<p class="hint">جارٍ التحميل...</p>';
+    try { sharedTrash = (await capi('trash')).items.filter(x => x.row); } catch (e) { box.innerHTML = '<p class="hint">تعذر الاتصال الحين.</p>'; return; }
+    box.innerHTML = sharedTrash.length ? sharedTrash.map((x, i) => `<div class="trash-it"><span><b>${esc(x.st || 'بدون اسم')}</b> — ${esc(x.d || '')}<br><small class="hint">حذفها ${esc(x.by || '')} · ${ago(Date.parse(x.at))}</small></span>
+      <button class="btn sm primary" data-strestore="${i}">↩️ رجّعها</button></div>`).join('') : '<p class="hint">ما فيه مناقشات محذوفة خلال آخر 30 يوم ✓</p>';
+  }
+  $('#mTrash').addEventListener('click', e => {
+    const b = e.target.closest('[data-strestore]'); if (!b) return;
+    const x = sharedTrash[+b.dataset.strestore]; if (!x) return;
+    gridSnap('استرجاع ' + (x.st || 'سطر'));
+    const row = GCOLS.map((_, j) => x.row[j] || ''); grid.push(row); renderGrid(); gridChanged(); autoSort(row);
+    b.closest('.trash-it').remove(); toast(`↩️ رجعت «${x.st}» للجدول — ووصلت للبث`);
+  });
+  // «✏️ فلان يعدّل هنا»: المناقشة اللي فيها المؤشر تُبلَّغ للزملاء، ومناقشاتهم تظهر عليها علامة باسمهم
+  const pkey = r => String(r[CI('الطالب')] || '').trim().replace(/\s+/g, ' ') + '|' + ((toLatin(r[CI('التاريخ')] || '').match(/(\d{4})\D+(\d{1,2})\D+(\d{1,2})/) || []).slice(1).map(Number).join('/'));
+  let presence = [];
+  function paintPresence() {
+    $$('#sheet .pres').forEach(x => x.remove());
+    if (!presence.length) return;
+    $$('#sheet tbody tr[data-r]').forEach(tr => {
+      const r = grid[+tr.dataset.r]; if (!r || isEmptyRow(r)) return;
+      const who = presence.filter(p => p.k === pkey(r)).map(p => String(p.name || '').split(' ')[0]);
+      if (who.length) tr.querySelector('td.n').insertAdjacentHTML('beforeend', ` <span class="chip pres" title="يعدّل هذي المناقشة الحين">✏️ ${esc(who.join('، '))}</span>`);
+    });
+  }
+  addEventListener('qcloud:presence', e => { presence = e.detail || []; paintPresence(); });
+  $('#sheet').addEventListener('focusin', e => { const tr = e.target.closest && e.target.closest('tr[data-r]'); if (!tr || !window.QCloud) return; const r = grid[+tr.dataset.r]; QCloud.editing = r && !isEmptyRow(r) ? pkey(r) : ''; });
+  $('#sheet').addEventListener('focusout', () => setTimeout(() => { const a = document.activeElement; if (window.QCloud && !(a && a.closest && a.closest('#sheet'))) QCloud.editing = ''; }, 1500));
+  // جولة تعريفية أول مرة (لكل حساب مرة وحدة، وتنفتح من «الدليل» بعدين)
+  function tour(force) {
+    const k = userKey('tour1'); try { if (!force && localStorage.getItem(k)) return; localStorage.setItem(k, '1'); } catch (e) { return; }
+    const m = document.createElement('div'); m.className = 'modal open'; m.id = 'mTour';
+    m.innerHTML = `<div class="box" style="width:min(560px,100%)"><h2>👋 أهلاً — ثلاث خطوات بس <button class="btn sm" data-close>✕</button></h2>
+      <ol class="tour-steps">
+        <li><b>➕ أضف مناقشة:</b> اكتب في <b>السطر الأخضر أول الجدول</b>، أو اضغط «➕ مناقشة جديدة».</li>
+        <li><b>👨‍🏫 اللجنة:</b> اكتب جزء من اسم الدكتور (مثل «عبدالله») واختر من القائمة — الصفة تتعبّى لحالها.</li>
+        <li><b>💾 احفظ وحمّل:</b> كل شي ينحفظ تلقائياً ويوصل للبث، و«💾 حفظ» للتأكيد. الإعلان من «التحميل».</li>
+      </ol>
+      <p class="hint">غلطت؟ «↶ تراجع» يرجّع آخر تعديل، و«🗑️ المحذوفات» ترجّع أي مناقشة انحذفت.</p>
+      <div style="text-align:center;margin-top:12px"><button class="btn primary" data-close style="font-size:16px;padding:10px 28px">فهمت، نبدأ ✓</button></div></div>`;
+    m.addEventListener('click', e => { if (e.target === m || e.target.closest('[data-close]')) m.remove(); });
+    document.body.appendChild(m);
+  }
+  setTimeout(() => tour(false), 1200);
+  window.QTour = () => tour(true);
+  // سجل تعديلات مناقشة
+  async function openRowLog(r) {
+    const st = String(grid[r][CI('الطالب')] || '').trim();
+    $('#rowLogTitle').textContent = st; $('#rowLogList').innerHTML = '<p class="hint">جارٍ التحميل...</p>'; openModal('#mRowLog');
+    if (!(window.QCloud && QCloud.on)) { $('#rowLogList').innerHTML = '<p class="hint">السجل يحتاج اتصال بالموقع.</p>'; return; }
+    try {
+      const { entries } = await capi('audit?st=' + encodeURIComponent(st));
+      const verb = { add: '➕ أضافها', del: '🗑️ حذفها', edit: '✏️ عدّل', restore: '🛡️ استرجع نسخة' };
+      $('#rowLogList').innerHTML = entries.length ? entries.map(e => `<div class="trash-it"><span><b>${esc(e.by || '')}</b> ${verb[e.t] || e.t}${e.t === 'edit' ? ':' : ''}
+        ${e.t === 'edit' ? Object.entries(e.ch || {}).map(([c, [o, n]]) => `<br><small>${esc(c)}: <s>${esc(o || 'فاضي')}</s> ← <b>${esc(n || 'فاضي')}</b></small>`).join('') : ''}</span>
+        <small class="hint">${new Date(e.at).toLocaleString('ar-SA-u-ca-islamic-umalqura', { dateStyle: 'medium', timeStyle: 'short' })}</small></div>`).join('')
+        : '<p class="hint">ما فيه تعديلات مسجلة لهذي المناقشة (السجل بدأ 14 نوفمبر 2026).</p>';
+    } catch (e) { $('#rowLogList').innerHTML = '<p class="hint">تعذر الاتصال الحين.</p>'; }
+  }
+  $('#sheet').addEventListener('click', e => { const b = e.target.closest('[data-log]'); if (!b) return; const r = +b.closest('tr').dataset.r; if (isEmptyRow(grid[r])) return toast('هذا السطر فاضي', true); openRowLog(r); });
+  // النسخ الاحتياطية (المدير العام)
+  async function renderBackups() {
+    const box = $('#backupList'); box.innerHTML = '<p class="hint">جارٍ التحميل...</p>';
+    try {
+      const { backups } = await capi('backups');
+      box.innerHTML = backups.length ? backups.map(b => `<div class="trash-it"><span><b>${b.kind === 'day' ? '📅 نسخة يومية' : '🛡️ ' + esc(b.note || 'نسخة قبل عملية')}</b><br>
+        <small class="hint">${new Date(b.at).toLocaleString('ar-SA-u-ca-islamic-umalqura', { dateStyle: 'medium', timeStyle: 'short' })} · ${b.rows} مناقشة · ${b.seminars} ندوة${b.by ? ' · ' + esc(b.by) : ''}</small></span>
+        <span style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn sm" data-bkdl="${esc(b.key)}">⬇️ تنزيل</button><button class="btn sm danger" data-bkrestore="${esc(b.key)}">↩️ استرجاع</button></span></div>`).join('')
+        : '<p class="hint">أول نسخة تنحفظ تلقائياً مع أول تعديل اليوم.</p>';
+    } catch (e) { box.innerHTML = `<p class="hint">${esc(e.message)}</p>`; }
+  }
+  { const b = $('#btnBackups'); if (b) b.onclick = () => { renderBackups(); openModal('#mBackups'); }; }
+  $('#mBackups').addEventListener('click', async e => {
+    const dl = e.target.closest('[data-bkdl]'), rs = e.target.closest('[data-bkrestore]');
+    if (dl) {
+      try { const x = await capi('backups/get?key=' + encodeURIComponent(dl.dataset.bkdl));
+        const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(x, null, 1)], { type: 'application/json' }));
+        a.download = 'نسخة-احتياطية-' + String(x.at || '').slice(0, 16).replace(/[:T]/g, '-') + '.json'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+      } catch (err) { toast(err.message, true); }
+    }
+    if (rs) {
+      const w = prompt('الاسترجاع يرجّع كل المناقشات والندوات لوضع هذي النسخة عند كل الموظفين.\n(الوضع الحالي ينحفظ قبلها كنسخة، فتقدر ترجع له)\nللتأكيد اكتب كلمة: استرجاع');
+      if ((w || '').trim() !== 'استرجاع') return toast('ما صار استرجاع');
+      try { const r = await capi('backups/restore', { method: 'POST', body: JSON.stringify({ key: rs.dataset.bkrestore }) });
+        toast(`✓ رجعت النسخة: ${r.rows} مناقشة و${r.seminars} ندوة — تتحدث الصفحة الحين`); setTimeout(() => location.reload(), 1800);
+      } catch (err) { toast(err.message, true); }
+    }
+  });
   $('#trashSearch').addEventListener('input', renderTrash);
   $('#trashAll').onclick = () => { const all = $$('#trashList input'); const on = all.some(i => !i.checked); all.forEach(i => { i.checked = on; }); };
   $('#trashRestore').onclick = () => {
@@ -1320,7 +1431,9 @@
     toast(`🗑️ حُذف ${n} سطر — محفوظة في «المحذوفات»`, false, { label: '↶ تراجع', fn: gridUndo });
   };
   $('#gClear').onclick = () => {
-    if (!confirm('مسح كل بيانات الجدول؟ (تقدر ترجعها من «المحذوفات» أو «تراجع»)')) return;
+    if (session.role !== 'super') return toast('«مسح الكل» للمدير العام فقط — لحذف مناقشة حدّدها واضغط «حذف المحدد»', true);
+    const w = prompt('هذا يمسح كل المناقشات عند كل الموظفين.\nللتأكيد اكتب كلمة: مسح');
+    if ((w || '').trim() !== 'مسح') return toast('ما انمسح شي');
     gridSnap('مسح الكل');
     const n = toTrash(grid, 'مسح الكل');
     grid = []; gridSel.clear(); activeRow = -1; renderGrid(); gridChanged();

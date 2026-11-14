@@ -2,31 +2,37 @@
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="utf-8">
+  <script src="assets/js/theme.js?v=202611141201"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>تسجيل الدخول – مصمم الإعلانات</title>
   <link rel="stylesheet" href="assets/fonts/fonts.css?v=202610170020">
-  <link rel="stylesheet" href="assets/css/app.css?v=202610170020">
+  <link rel="stylesheet" href="assets/css/app.css?v=202611141501">
   <style>
     body { min-height: 100vh; display: grid; place-items: center; padding: 16px;
-      background: radial-gradient(circle at 20% 10%, #ffffff 0, #e8f3f2 40%, #cfe3e2 100%); }
-    .login { width: min(420px, 100%); background: #fff; border-radius: 22px; box-shadow: 0 20px 60px rgba(15,74,77,.18); overflow: hidden; }
-    .login .head { text-align: center; padding: 28px 24px 18px; background: linear-gradient(180deg, #f3f9f8, #fff); }
+      background: var(--login-bg); }
+    :root { --login-bg: radial-gradient(circle at 20% 10%, #ffffff 0, #e8f3f2 40%, #cfe3e2 100%); --login-head: linear-gradient(180deg, #f3f9f8, #fff); }
+    :root[data-theme="dark"] { --login-bg: radial-gradient(circle at 20% 10%, #1a2e34 0, #12232a 45%, #0f1a1f 100%); --login-head: linear-gradient(180deg, #1b3036, #16252b); }
+    @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --login-bg: radial-gradient(circle at 20% 10%, #1a2e34 0, #12232a 45%, #0f1a1f 100%); --login-head: linear-gradient(180deg, #1b3036, #16252b); } }
+    .login { width: min(420px, 100%); background: var(--panel); border-radius: 22px; box-shadow: 0 20px 60px rgba(15,74,77,.18); overflow: hidden; }
+    .login .head { text-align: center; padding: 28px 24px 18px; background: var(--login-head); }
+    :root[data-theme="dark"] .login-logo { background: #fff; border-radius: 14px; padding: 6px 12px; }
+    @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .login-logo { background: #fff; border-radius: 14px; padding: 6px 12px; } }
     .login .head svg { width: 92px; height: 92px; }
     .uni-ar { font-family: 'Aref Ruqaa', serif; font-size: 38px; color: #0f4a4d; line-height: 1.1; }
     .uni-en { font-family: 'Cormorant Garamond', Georgia, serif; font-size: 20px; color: #0f4a4d; }
-    .login h1 { font-size: 17px; color: #2b7574; margin: 14px 0 0; font-weight: 600; }
+    .login h1 { font-size: 17px; color: var(--brand); margin: 14px 0 0; font-weight: 600; }
     .login form { padding: 8px 26px 26px; }
     .pass { position: relative; }
-    .pass button { position: absolute; left: 6px; top: 50%; transform: translateY(-50%); border: 0; background: none; cursor: pointer; color: #5f7574; }
-    .err { color: #b3261e; min-height: 20px; font-size: 13px; margin: 4px 0 8px; }
+    .pass button { position: absolute; left: 6px; top: 50%; transform: translateY(-50%); border: 0; background: none; cursor: pointer; color: var(--muted); }
+    .err { color: var(--danger); min-height: 20px; font-size: 13px; margin: 4px 0 8px; }
     .login .btn.primary { width: 100%; justify-content: center; padding: 11px; font-size: 15px; }
-    .foot { text-align: center; font-size: 12px; color: #5f7574; padding: 0 20px 18px; }
+    .foot { text-align: center; font-size: 12px; color: var(--muted); padding: 0 20px 18px; }
   </style>
 </head>
 <body>
   <div class="login">
     <div class="head">
-      <img src="assets/img/logo.png" alt="جامعة القصيم" style="height:96px;max-width:100%">
+      <img class="login-logo" src="assets/img/logo.png" alt="جامعة القصيم" style="height:96px;max-width:100%">
       <h1>مصمم إعلانات المناقشات العلمية</h1>
     </div>
     <form id="f" autocomplete="on">
@@ -41,8 +47,8 @@
     <div class="foot">كلية الشريعة</div>
   </div>
 
-  <script src="assets/js/auth.js?v=202611130201"></script>
-  <script src="assets/js/cloud.js?v=202611130401"></script>
+  <script src="assets/js/auth.js?v=202611141201"></script>
+  <script src="assets/js/cloud.js?v=202611141201"></script>
   <script>
     if (QAuth.current()) location.replace('app.html?v=202610170020');
     document.getElementById('eye').onclick = () => { const p = document.getElementById('p'); p.type = p.type === 'password' ? 'text' : 'password'; };

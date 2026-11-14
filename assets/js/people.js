@@ -115,10 +115,10 @@
   document.addEventListener('scroll', () => { if (!box.hidden && cur) place(); }, true);
 
   const css = document.createElement('style');
-  css.textContent = `.qp-list{position:absolute;z-index:9999;background:#fff;border:1px solid #b9cfcd;border-radius:10px;box-shadow:0 8px 24px rgba(0,40,60,.18);max-height:320px;overflow:auto;direction:rtl;padding:4px}
+  css.textContent = `.qp-list{position:absolute;z-index:9999;background:var(--qp-bg,#fff);color:var(--qp-text,#123);border:1px solid var(--qp-line,#b9cfcd);border-radius:10px;box-shadow:0 8px 24px rgba(0,40,60,.18);max-height:320px;overflow:auto;direction:rtl;padding:4px}
 .qp-it{padding:8px 10px;border-radius:8px;cursor:pointer;display:flex;flex-direction:column;gap:2px}
-.qp-it b{font-size:14px;color:#123}.qp-it small{font-size:12.5px;color:#4d6362}
-.qp-it:hover,.qp-it.on{background:#e3eef7}`;
+.qp-it b{font-size:14px;color:var(--qp-text,#123)}.qp-it small{font-size:12.5px;color:var(--qp-small,#4d6362)}
+.qp-it:hover,.qp-it.on{background:var(--qp-hover,#e3eef7)}`;
   document.head.appendChild(css);
 
   window.QPeople = {
