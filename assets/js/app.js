@@ -280,8 +280,8 @@
     const t = e.target; if (t && t.checked) pickPreview(t.value, false);
     else { const first = $('#exportFormats input:checked'); if (first) pickPreview(first.value, false); }
   });
-  // الواتساب: «دعوة» = الإعلان الرسمي، «تسجيل» = صورة اليوتيوب — ثابت مهما كان المقاس المختار فوق
-  const sendFmt = kind => getFormat(kind === 'record' ? 'youtube' : 'exact');
+  // الواتساب: «دعوة» = صورة الحالة (ستوري)، «تسجيل» = صورة اليوتيوب — ثابت مهما كان المقاس المختار فوق
+  const sendFmt = kind => getFormat(kind === 'record' ? 'youtube' : 'story');
   const selectedFormats = () => $$('#exportFormats input:checked').map(i => getFormat(i.value));
 
   const exportEl = $('#exportPoster');
@@ -2224,6 +2224,94 @@
   $('#copyInvite').onclick = () => copyMsg('invite', state);
   $('#copyRecord').onclick = () => copyMsg('record', state, () => $('[data-k=recordingLink]').focus());
   // رسائل سطر من الجدول: بيانات السطر فقط (لا تُستعار العنوان أو اللجنة من التصميم المفتوح)
+  // ---------- إعلانات الأسبوع (الأحد ← الخميس) بالإعلان الرسمي: تحميل، نسخ ولصق (مدونة/واتساب ويب)، مشاركة للواتساب ----------
+  let weekStart = null, weekItems = [];
+  const DAYN = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+  const hfmt = d => new Intl.DateTimeFormat('ar-SA-u-ca-islamic-umalqura', { day: 'numeric', month: 'long' }).format(d);
+  function thisWeek() {                                         // الجمعة والسبت: الأسبوع الجاي
+    const t = new Date(); const d = new Date(Date.UTC(t.getFullYear(), t.getMonth(), t.getDate()));
+    const wd = d.getUTCDay(); d.setUTCDate(d.getUTCDate() - wd + (wd >= 5 ? 7 : 0)); return d;
+  }
+  function weekPosters(start) {
+    const end = new Date(start); end.setUTCDate(end.getUTCDate() + 4);
+    const out = [];
+    grid.forEach((r, i) => {
+      if (isEmptyRow(r) || !r[CI('الطالب')]) return;
+      const g = hijriToGreg(r[CI('التاريخ')]); if (!g) return;
+      const [y, m, d] = g.split('/').map(Number), t = Date.UTC(y, m - 1, d);
+      if (t >= start.getTime() && t <= end.getTime()) out.push({ i, t, key: gridDateKey(r) });
+    });
+    return out.sort((a, b) => a.key - b.key);
+  }
+  function renderWeek() {
+    const end = new Date(weekStart); end.setUTCDate(end.getUTCDate() + 4);
+    $('#weekRange').textContent = `من الأحد ${hfmt(weekStart)} إلى الخميس ${hfmt(end)}`;
+    weekItems = weekPosters(weekStart).map(x => ({ ...x, blob: null }));
+    $('#weekList').innerHTML = weekItems.length ? weekItems.map((x, k) => {
+      const r = grid[x.i];
+      return `<div class="trash-it week-it"><input type="checkbox" checked data-wk="${k}"><span><b>${esc(r[CI('الطالب')])}</b> — ${esc(r[CI('الدرجة')] || '')}<br>
+        <small class="hint">${esc(r[CI('اليوم')] || '')} ${esc(r[CI('التاريخ')] || '')} · ${esc(r[CI('الوقت')] || '')}</small></span>
+        <span style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn sm" data-wkcopy="${k}">📋 نسخ</button><button class="btn sm" data-wkdl="${k}">⬇️</button></span></div>`;
+    }).join('') : '<p class="hint">ما فيه مناقشات مسجلة في هذا الأسبوع.</p>';
+    $('#weekCount').textContent = weekItems.length ? `(${weekItems.length})` : '';
+  }
+  const weekSel = () => weekItems.filter((x, k) => { const c = $(`[data-wk="${k}"]`); return c && c.checked; });
+  async function weekBlob(x) {
+    if (!x.blob) { const cv = await capture(rowMsgState(x.i), getFormat('exact'), 2); x.blob = await new Promise(r => cv.toBlob(r, 'image/png')); }
+    return x.blob;
+  }
+  const weekName = x => `${safeName(grid[x.i][CI('الطالب')] || 'اعلان')}.png`;
+  async function weekBlobs(list, label) {
+    const out = [];
+    for (let n = 0; n < list.length; n++) { overlay.show(`${label} ${n + 1} من ${list.length}...`); out.push({ x: list[n], blob: await weekBlob(list[n]) }); }
+    return out;
+  }
+  function openWeek(start) { weekStart = start || thisWeek(); renderWeek(); openModal('#mWeek'); }
+  { const b = $('#gWeek'); if (b) b.onclick = () => openWeek(); }
+  $('#mWeek').addEventListener('click', async e => {
+    const nav = e.target.closest('[data-wknav]');
+    if (nav) { const d = new Date(weekStart); d.setUTCDate(d.getUTCDate() + (+nav.dataset.wknav) * 7); weekStart = d; renderWeek(); return; }
+    const cp = e.target.closest('[data-wkcopy]'), dl = e.target.closest('[data-wkdl]');
+    if (cp || dl) {
+      const x = weekItems[+(cp ? cp.dataset.wkcopy : dl.dataset.wkdl)];
+      try {
+        if (cp) {
+          if (!navigator.clipboard || !window.ClipboardItem) return toast('النسخ غير مدعوم في هذا المتصفح — استخدم ⬇️ التحميل', true);
+          overlay.show('جارٍ نسخ الإعلان...');
+          await navigator.clipboard.write([new ClipboardItem({ 'image/png': weekBlob(x) })]);
+          toast('📋 انسخ ✓ — الصقه الحين في المدونة أو الواتساب (Ctrl+V)');
+        } else { overlay.show('جارٍ تجهيز الإعلان...'); saveBlob(await weekBlob(x), weekName(x)); }
+      } catch (err) { toast('تعذّر — جرّب ⬇️ التحميل', true); } finally { overlay.hide(); }
+      return;
+    }
+    if (e.target.closest('#weekAll')) { const on = $$('#weekList [data-wk]').some(c => !c.checked); $$('#weekList [data-wk]').forEach(c => { c.checked = on; }); return; }
+    if (e.target.closest('#weekDl')) {
+      const list = weekSel(); if (!list.length) return toast('حدد إعلان واحد على الأقل', true);
+      try { const files = await weekBlobs(list, 'جارٍ تجهيز الإعلان');
+        for (const f of files) { saveBlob(f.blob, weekName(f.x)); await new Promise(r => setTimeout(r, 450)); }
+        toast(`⬇️ نزلت ${files.length} صورة — في المدونة: «إدراج ← صور» واخترها كلها، أو اسحبها للصفحة`);
+      } catch (err) { toast('تعذّر التجهيز', true); } finally { overlay.hide(); }
+      return;
+    }
+    if (e.target.closest('#weekShare')) {
+      const list = weekSel(); if (!list.length) return toast('حدد إعلان واحد على الأقل', true);
+      try {
+        const files = (await weekBlobs(list, 'جارٍ تجهيز الإعلان')).map(f => new File([f.blob], weekName(f.x), { type: 'image/png' }));
+        overlay.hide();
+        const end = new Date(weekStart); end.setUTCDate(end.getUTCDate() + 4);
+        const text = `إعلانات مناقشات الرسائل العلمية — كلية الشريعة\nمن الأحد ${hfmt(weekStart)} إلى الخميس ${hfmt(end)}`;
+        if (matchMedia('(pointer: coarse)').matches && navigator.canShare && navigator.canShare({ files })) {
+          copyText(text);
+          try { await navigator.share({ files, text }); }
+          catch (err) { if (err.name === 'NotAllowedError') toast('الصور جاهزة ✓ — اضغط «📤 مشاركة للواتساب» مرة ثانية'); else if (err.name !== 'AbortError') toast('تعذّر فتح المشاركة', true); }
+        } else {
+          for (const f of files) { saveBlob(f, f.name); await new Promise(r => setTimeout(r, 450)); }
+          copyText(text);
+          toast('في الكمبيوتر: نزلت الصور — افتح واتساب ويب واسحبها للمحادثة (النص منسوخ، الصقه)');
+        }
+      } catch (err) { toast('تعذّر التجهيز', true); } finally { overlay.hide(); }
+    }
+  });
   const rowMsgState = r => applyRow({ ...state, degree: '', student: '', title: '', day: '', date: '', time: '', place: DEFAULTS.place, placeNote: DEFAULTS.placeNote,
     link: DEFAULTS.link, committee: [], committeeLink: '', recordingLink: '' }, parseRow(gridToObj(grid[r])));
   $('#sheet').addEventListener('click', e => {
@@ -2276,7 +2364,7 @@
   async function sendBuildImg(readyBlob) {
     const s = SEND.s, kind = SEND.kind, tok = ++sendTok, img = $('#sendImg');
     SEND.blob = null; SEND.file = null; img.removeAttribute('src');
-    $('#sendImgNote').textContent = kind === 'record' ? 'جارٍ تجهيز صورة اليوتيوب...' : 'جارٍ تجهيز الإعلان الرسمي...';
+    $('#sendImgNote').textContent = kind === 'record' ? 'جارٍ تجهيز صورة اليوتيوب...' : 'جارٍ تجهيز صورة الحالة...';
     try {
       let blob = readyBlob;
       if (!blob) { const cv = await capture(s, sendFmt(kind), 2); blob = await new Promise(r => cv.toBlob(r, 'image/jpeg', 0.93)); }
@@ -2284,7 +2372,7 @@
       SEND.blob = blob; SEND.file = new File([blob], `${safeName(s.student || 'اعلان')}${kind === 'record' ? '-يوتيوب' : ''}.jpg`, { type: 'image/jpeg' });
       if (img._url) URL.revokeObjectURL(img._url);
       img._url = URL.createObjectURL(blob); img.src = img._url;
-      $('#sendImgNote').textContent = kind === 'record' ? 'صورة اليوتيوب (للتسجيل) — جاهزة ✓' : 'الإعلان الرسمي (للدعوة) — جاهز ✓';
+      $('#sendImgNote').textContent = kind === 'record' ? 'صورة اليوتيوب (للتسجيل) — جاهزة ✓' : 'صورة الحالة (للدعوة) — جاهزة ✓';
     } catch (e) { if (tok === sendTok) $('#sendImgNote').textContent = 'تعذّر تجهيز الصورة'; }
   }
   $$('[data-send]').forEach(b => b.onclick = () => { const was = SEND.kind; sendSetKind(b.dataset.send); if (SEND.kind !== was && SEND.s) sendBuildImg(); });

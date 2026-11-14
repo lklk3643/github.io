@@ -914,8 +914,8 @@
   const SEND = { s: null, kind: 'invite', blob: null, file: null };
   const SEND_FMT = SFMTS[0];   // مثل المناقشات: تُرسل الصورة الأساسية الكاملة (برنامج الندوة)
   const canShareFiles = () => { try { return matchMedia('(pointer: coarse)').matches && !!(navigator.canShare && navigator.canShare({ files: [new File([new Blob(['x'])], 'x.jpg', { type: 'image/jpeg' })] })); } catch (e) { return false; } };
-  // «دعوة» = برنامج الندوة كامل، «تسجيل» = صورة اليوتيوب — ثابت مهما كان المقاس المختار
-  const sendFmt = kind => kind === 'record' ? (SFMTS.find(f => f.id === 'youtube') || SEND_FMT) : SEND_FMT;
+  // «دعوة» = صورة الحالة (ستوري)، «تسجيل» = صورة اليوتيوب — ثابت مهما كان المقاس المختار
+  const sendFmt = kind => SFMTS.find(f => f.id === (kind === 'record' ? 'youtube' : 'story')) || SEND_FMT;
   async function sendImage(s, kind) { const { canvas } = await capture(s, sendFmt(kind), 2); return toBlob(canvas, 'image/jpeg', 0.93); }
   function sendSetKind(kind) {
     SEND.kind = kind;
@@ -941,14 +941,14 @@
   async function sendBuildImg(readyBlob) {
     const s = SEND.s, kind = SEND.kind, tok = ++sendTok, img = $('#sendImg');
     SEND.blob = null; SEND.file = null; img.removeAttribute('src');
-    $('#sendImgNote').textContent = kind === 'record' ? 'جارٍ تجهيز صورة اليوتيوب...' : 'جارٍ تجهيز برنامج الندوة...';
+    $('#sendImgNote').textContent = kind === 'record' ? 'جارٍ تجهيز صورة اليوتيوب...' : 'جارٍ تجهيز صورة الحالة...';
     try {
       const blob = readyBlob || await sendImage(s, kind);
       if (tok !== sendTok) return;
       SEND.blob = blob; SEND.file = new File([blob], `${fileBase(s, sendFmt(kind))}.jpg`, { type: 'image/jpeg' });
       if (img._url) URL.revokeObjectURL(img._url);
       img._url = URL.createObjectURL(blob); img.src = img._url;
-      $('#sendImgNote').textContent = kind === 'record' ? 'صورة اليوتيوب (للتسجيل) — جاهزة ✓' : 'برنامج الندوة كامل (للدعوة) — جاهز ✓';
+      $('#sendImgNote').textContent = kind === 'record' ? 'صورة اليوتيوب (للتسجيل) — جاهزة ✓' : 'صورة الحالة (للدعوة) — جاهزة ✓';
     } catch (e) { if (tok === sendTok) $('#sendImgNote').textContent = 'تعذّر تجهيز الصورة'; }
   }
   $$('[data-send]').forEach(b => b.onclick = () => { const was = SEND.kind; sendSetKind(b.dataset.send); if (SEND.kind !== was && SEND.s) sendBuildImg(); });

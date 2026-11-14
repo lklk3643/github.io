@@ -224,6 +224,7 @@
       </div>
       <div class="ds-tools">
         <div class="ds-group"><span class="ds-label">الإعلانات</span>
+          <button class="btn sm primary" id="gWeek" title="إعلانات الأسبوع (الأحد ← الخميس) بالإعلان الرسمي: تحميل، نسخ ولصق، مشاركة للواتساب">📅 إعلانات الأسبوع</button>
           <button class="btn sm" id="gSelAll">☑️ تحديد الكل</button>
           <button class="btn sm" id="gSelNone">إلغاء التحديد</button>
           <button class="btn sm primary" id="gDl">📦 تحميل المحدد</button>
@@ -433,6 +434,21 @@
     <p class="hint" style="margin:0 0 8px">أي مناقشة حذفها أي موظف تطلع هنا. «رجّعها» يرجّعها للجدول والبث.</p>
     <div id="trashShared" class="trash-list"></div>
   </div></div>
+  <div class="modal" id="mWeek"><div class="box" style="width:min(760px,100%)">
+    <h2>📅 إعلانات الأسبوع <span id="weekCount" class="hint"></span> <button class="btn sm" data-close>✕</button></h2>
+    <div class="hbar" style="align-items:center">
+      <button class="btn sm" data-wknav="-1">▶ الأسبوع السابق</button>
+      <b id="weekRange" style="flex:1;text-align:center"></b>
+      <button class="btn sm" data-wknav="1">الأسبوع الجاي ◀</button>
+    </div>
+    <p class="hint" style="margin:8px 0">كل الإعلانات بالإعلان الرسمي. <b>المدونة:</b> «📋 نسخ» ثم الصقه في الصفحة، أو «⬇️ تحميل الكل» واسحب الصور للمدونة (أو إدراج ← صور). <b>الواتساب:</b> «📤 مشاركة للواتساب» يرسلها كلها مرة وحدة من الجوال.</p>
+    <div class="hbar">
+      <button class="btn sm" id="weekAll">☑️ تحديد / إلغاء الكل</button>
+      <button class="btn sm primary" id="weekDl">⬇️ تحميل الكل</button>
+      <button class="btn sm wa-btn" id="weekShare">📤 مشاركة للواتساب</button>
+    </div>
+    <div id="weekList" class="trash-list"></div>
+  </div></div>
   <div class="modal" id="mRowLog"><div class="box" style="width:min(720px,100%)">
     <h2>🕘 سجل المناقشة: <span id="rowLogTitle"></span> <button class="btn sm" data-close>✕</button></h2>
     <p class="hint" style="margin:0 0 10px">مين أضاف المناقشة، ومين عدّل وش، ومتى. الأحدث فوق.</p>
@@ -525,6 +541,6 @@
   <script src="assets/js/poster.js?v=202611141201"></script>
   <script src="assets/js/details.js?v=202611130010"></script>
   <script src="assets/js/people.js?v=202611141201"></script>
-  <script src="assets/js/app.js?v=202611142101"></script>
+  <script src="assets/js/app.js?v=202611142201"></script>
 </body>
 </html>
