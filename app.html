@@ -9,7 +9,7 @@
     if (!(sessionStorage.getItem('qu_session') || localStorage.getItem('qu_session'))) location.replace('index.html');
   </script>
   <link rel="stylesheet" href="assets/fonts/fonts.css?v=202610170020">
-  <link rel="stylesheet" href="assets/css/app.css?v=202611140301">
+  <link rel="stylesheet" href="assets/css/app.css?v=202611140601">
   <link rel="stylesheet" href="assets/css/poster.css?v=202610170020">
 </head>
 <body>
@@ -264,7 +264,10 @@
       </div>
       <div class="ds-newbar">
         <button class="btn primary" id="gNew" title="ينقلك لسطر الإضافة الفاضي أول الجدول">➕ مناقشة جديدة</button>
+        <input type="search" id="gFind" class="ds-find" placeholder="🔎 ابحث بالطالب أو الدكتور أو العنوان (يشمل المنتهية)">
+        <span class="hint" id="gFindInfo"></span>
         <button class="btn sm" id="gShowPast" hidden title="المناقشات اللي مضى تاريخها مخفية عشان الجدول يكون أخف وأوضح"></button>
+        <button class="btn sm" id="gMorePast" hidden></button>
         <span>أو اكتب مباشرة في <b>السطر الأول الفاضي</b> بالجدول — ينحفظ تلقائياً، وأول ما تكتب التاريخ ينتقل لمكانه</span>
       </div>
       <div class="gridbox">
@@ -497,6 +500,6 @@
   <script src="assets/js/poster.js?v=202611140401"></script>
   <script src="assets/js/details.js?v=202611130010"></script>
   <script src="assets/js/people.js?v=202611140101"></script>
-  <script src="assets/js/app.js?v=202611140501"></script>
+  <script src="assets/js/app.js?v=202611140601"></script>
 </body>
 </html>

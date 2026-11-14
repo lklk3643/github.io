@@ -769,14 +769,37 @@
   }
   // المناقشات المنتهية مخفية افتراضياً: الجدول خفيف (بدل آلاف الخانات) ويعرض اللي يهم الموظف — زر «عرض المنتهية» يظهرها
   const pastShown = () => { try { return localStorage.getItem(userKey('showpast')) === '1'; } catch (e) { return false; } };
-  const hideRow = (r, i) => !pastShown() && isPast(r) && !gridSel.has(i) && i !== activeRow;
+  // المنتهية تُعرض بدفعات (الأحدث أولاً) والبحث يشمل الكل — حتى لا يرسم الجدول آلاف الخانات مرة وحدة
+  const PAST_STEP = 50, FIND_MAX = 120;
+  let pastLimit = PAST_STEP, pastVis = new Set(), findQ = '', findHits = null;
+  const fnorm = v => String(v || '').replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/[ً-ٰٟـ]/g, '').replace(/[إأآٱ]/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه').replace(/\s+/g, '');
+  function planRows() {
+    pastVis = new Set(); findHits = null;
+    const q = fnorm(findQ);
+    if (q) {
+      findHits = new Set();
+      for (let i = 0; i < grid.length && findHits.size < FIND_MAX; i++) if (!isEmptyRow(grid[i]) && fnorm(grid[i].join(' ')).includes(q)) findHits.add(i);
+      return;
+    }
+    if (!pastShown()) return;
+    grid.map((r, i) => [isPast(r) ? gridDateKey(r) : -1, i]).filter(x => x[0] >= 0).sort((a, b) => b[0] - a[0] || a[1] - b[1])
+      .slice(0, pastLimit).forEach(x => pastVis.add(x[1]));
+  }
+  const hideRow = (r, i) => {
+    if (i === 0 && isEmptyRow(r)) return false;                              // سطر الإضافة الجاهز
+    if (gridSel.has(i) || i === activeRow) return false;
+    if (findHits) return !findHits.has(i);
+    return isPast(r) && !pastVis.has(i);
+  };
   function pastBtn() {
-    const b = $('#gShowPast'); if (!b) return;
+    const b = $('#gShowPast'), more = $('#gMorePast'), info = $('#gFindInfo'); if (!b) return;
     const n = grid.filter(r => isPast(r)).length;
-    b.hidden = !n; b.textContent = pastShown() ? `🙈 إخفاء المنتهية (${n})` : `📜 عرض المنتهية (${n})`;
+    b.hidden = !n || !!findHits; b.textContent = pastShown() ? `🙈 إخفاء المنتهية` : `📜 عرض المنتهية (${n})`;
+    if (more) { const left = n - pastVis.size; more.hidden = !pastShown() || !!findHits || left <= 0; more.textContent = `⬇️ عرض أقدم (باقي ${left})`; }
+    if (info) info.textContent = findHits ? (findHits.size ? `النتائج: ${findHits.size}${findHits.size >= FIND_MAX ? ' (أول النتائج — دقّق البحث)' : ''}` : 'ما فيه نتائج — جرّب جزء من الاسم') : '';
   }
   function renderGrid() {
-    ensureBlankTop();
+    ensureBlankTop(); planRows();
     computeConflicts();
     const cls = c => /العنوان/.test(c) ? 'w-title' : /رابط/.test(c) ? 'w-link' : c === 'الكاتب' ? 'w-sm w-auto' : /الجنس|اليوم|الوقت|الدور/.test(c) ? 'w-sm' : '';
     $('#sheet').innerHTML = `<thead><tr><th class="n">#</th><th class="act">عرض / نسخ</th>${GCOLS.map(c => `<th class="${/^عضو/.test(c) ? 'mem' : ''}">${c}</th>`).join('')}</tr></thead>
@@ -1295,8 +1318,10 @@
   $('#gSelAll').onclick = () => { grid.forEach((r, i) => { if (!isEmptyRow(r) && !hideRow(r, i)) gridSel.add(i); }); renderGrid(); };
   { const b = $('#gShowPast'); if (b) b.onclick = () => {
     try { localStorage.setItem(userKey('showpast'), pastShown() ? '0' : '1'); } catch (e) { /* اختياري */ }
-    overlay.show('جارٍ تجهيز الجدول...'); setTimeout(() => { renderGrid(); overlay.hide(); }, 30);
+    pastLimit = PAST_STEP; renderGrid();
   }; }
+  { const m = $('#gMorePast'); if (m) m.onclick = () => { pastLimit += PAST_STEP; renderGrid(); }; }
+  { const f = $('#gFind'); let ft; if (f) f.addEventListener('input', () => { clearTimeout(ft); ft = setTimeout(() => { findQ = f.value.trim(); renderGrid(); }, 250); }); }
   $('#gSelNone').onclick = () => { gridSel.clear(); renderGrid(); };
   const selectedGridStates = () => gridItems(true).map(r => ({ label: r.data.student || `سطر ${r.n}`, state: applyRow(state, r.data) }));
   $('#gDl').onclick = () => $('#exRows').click();

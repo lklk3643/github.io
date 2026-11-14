@@ -387,3 +387,5 @@ a.btn { text-decoration: none; }
 /* سطر الإضافة الفاضي أول الجدول */
 .sheet tr.newrow td { background: #eef8f1; border-bottom: 2px dashed #6aa984; }
 .sheet tr.newrow input::placeholder { color: #2f7a4e; font-weight: 600; opacity: 1; }
+
+.ds-find { flex: 1 1 260px; max-width: 420px; padding: 9px 12px; border: 1px solid #8fa3a2; border-radius: 10px; font: inherit; font-size: 14px; }
