@@ -10,7 +10,7 @@
     if (!(sessionStorage.getItem('qu_session') || localStorage.getItem('qu_session'))) location.replace('index.html');
   </script>
   <link rel="stylesheet" href="assets/fonts/fonts.css?v=202610170020">
-  <link rel="stylesheet" href="assets/css/app.css?v=202611141801">
+  <link rel="stylesheet" href="assets/css/app.css?v=202611142401">
   <link rel="stylesheet" href="assets/css/poster.css?v=202610170020">
 </head>
 <body>
@@ -224,7 +224,6 @@
       </div>
       <div class="ds-tools">
         <div class="ds-group"><span class="ds-label">الإعلانات</span>
-          <button class="btn sm primary" id="gWeek" title="إعلانات الأسبوع (الأحد ← الخميس) بالإعلان الرسمي: تحميل، نسخ ولصق، مشاركة للواتساب">📅 إعلانات الأسبوع</button>
           <button class="btn sm" id="gSelAll">☑️ تحديد الكل</button>
           <button class="btn sm" id="gSelNone">إلغاء التحديد</button>
           <button class="btn sm primary" id="gDl">📦 تحميل المحدد</button>
@@ -276,6 +275,7 @@
       </div>
       <div class="ds-newbar">
         <button class="btn primary" id="gNew" title="ينقلك لسطر الإضافة الفاضي أول الجدول">➕ مناقشة جديدة</button>
+        <button class="btn week-btn" id="gWeek" title="مناقشات وندوات الأسبوع (الأحد ← الخميس): تنزيل، واتساب، المدونة">📅 إعلانات الأسبوع</button>
         <button class="btn save-btn" id="gSave" title="الحفظ تلقائي دايماً — هذا الزر للتأكيد ويرسل الحين">💾 حفظ</button>
         <input type="search" id="gFind" class="ds-find" placeholder="🔎 ابحث باسم الطالب أو الدكتور أو العنوان (يشمل المنتهية)">
         <span class="hint" id="gFindInfo"></span>
@@ -437,16 +437,16 @@
   <div class="modal" id="mWeek"><div class="box" style="width:min(760px,100%)">
     <h2>📅 إعلانات الأسبوع <span id="weekCount" class="hint"></span> <button class="btn sm" data-close>✕</button></h2>
     <div class="hbar" style="align-items:center">
-      <button class="btn sm" data-wknav="-1">▶ الأسبوع السابق</button>
+      <button class="btn sm" data-wknav="-1">▶ السابق</button>
       <b id="weekRange" style="flex:1;text-align:center"></b>
-      <button class="btn sm" data-wknav="1">الأسبوع الجاي ◀</button>
+      <button class="btn sm" data-wknav="1">الجاي ◀</button>
     </div>
-    <p class="hint" style="margin:8px 0">كل الإعلانات بالإعلان الرسمي. <b>المدونة:</b> «📋 نسخ» ثم الصقه في الصفحة، أو «⬇️ تحميل الكل» واسحب الصور للمدونة (أو إدراج ← صور). <b>الواتساب:</b> «📤 مشاركة للواتساب» يرسلها كلها مرة وحدة من الجوال.</p>
-    <div class="hbar">
-      <button class="btn sm" id="weekAll">☑️ تحديد / إلغاء الكل</button>
-      <button class="btn sm primary" id="weekDl">⬇️ تحميل الكل</button>
-      <button class="btn sm wa-btn" id="weekShare">📤 مشاركة للواتساب</button>
+    <div class="week-acts">
+      <button class="week-act" data-wkact="dl"><b>⬇️ تنزيل</b><small>كل إعلان صورة لحاله</small></button>
+      <button class="week-act wa" data-wkact="wa"><b>💬 واتساب</b><small>للجروب أو القناة مرة وحدة</small></button>
+      <button class="week-act" data-wkact="blog"><b>🌐 المدونة</b><small>كلها في صورة وحدة: انسخ والصق</small></button>
     </div>
+    <div class="hbar"><button class="btn sm" id="weekAll">☑️ تحديد / إلغاء الكل</button><span class="hint">كل إعلان بتصميمه الأصلي (المناقشة: الإعلان الرسمي، الندوة: البرنامج)</span></div>
     <div id="weekList" class="trash-list"></div>
   </div></div>
   <div class="modal" id="mRowLog"><div class="box" style="width:min(720px,100%)">
@@ -541,6 +541,6 @@
   <script src="assets/js/poster.js?v=202611141201"></script>
   <script src="assets/js/details.js?v=202611130010"></script>
   <script src="assets/js/people.js?v=202611141201"></script>
-  <script src="assets/js/app.js?v=202611142201"></script>
+  <script src="assets/js/app.js?v=202611142301"></script>
 </body>
 </html>

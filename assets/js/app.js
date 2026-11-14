@@ -2224,48 +2224,98 @@
   $('#copyInvite').onclick = () => copyMsg('invite', state);
   $('#copyRecord').onclick = () => copyMsg('record', state, () => $('[data-k=recordingLink]').focus());
   // رسائل سطر من الجدول: بيانات السطر فقط (لا تُستعار العنوان أو اللجنة من التصميم المفتوح)
-  // ---------- إعلانات الأسبوع (الأحد ← الخميس) بالإعلان الرسمي: تحميل، نسخ ولصق (مدونة/واتساب ويب)، مشاركة للواتساب ----------
+  // ---------- إعلانات الأسبوع (الأحد ← الخميس): المناقشات + الندوات بإعلانها الأصلي — تنزيل، واتساب، المدونة ----------
   let weekStart = null, weekItems = [];
-  const DAYN = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
   const hfmt = d => new Intl.DateTimeFormat('ar-SA-u-ca-islamic-umalqura', { day: 'numeric', month: 'long' }).format(d);
+  const isoDay = d => d.toISOString().slice(0, 10);
   function thisWeek() {                                         // الجمعة والسبت: الأسبوع الجاي
     const t = new Date(); const d = new Date(Date.UTC(t.getFullYear(), t.getMonth(), t.getDate()));
     const wd = d.getUTCDay(); d.setUTCDate(d.getUTCDate() - wd + (wd >= 5 ? 7 : 0)); return d;
   }
-  function weekPosters(start) {
-    const end = new Date(start); end.setUTCDate(end.getUTCDate() + 4);
+  const weekEnd = () => { const e = new Date(weekStart); e.setUTCDate(e.getUTCDate() + 4); return e; };
+  function weekDefenses(start, end) {
     const out = [];
     grid.forEach((r, i) => {
       if (isEmptyRow(r) || !r[CI('الطالب')]) return;
       const g = hijriToGreg(r[CI('التاريخ')]); if (!g) return;
       const [y, m, d] = g.split('/').map(Number), t = Date.UTC(y, m - 1, d);
-      if (t >= start.getTime() && t <= end.getTime()) out.push({ i, t, key: gridDateKey(r) });
+      if (t >= start.getTime() && t <= end.getTime()) out.push({ kind: 'def', i, t, order: gridDateKey(r), title: r[CI('الطالب')],
+        line: `${r[CI('اليوم')] || ''} ${r[CI('التاريخ')] || ''} · ${r[CI('الوقت')] || ''}`, sub: r[CI('الدرجة')] || 'مناقشة' });
     });
-    return out.sort((a, b) => a.key - b.key);
-  }
-  function renderWeek() {
-    const end = new Date(weekStart); end.setUTCDate(end.getUTCDate() + 4);
-    $('#weekRange').textContent = `من الأحد ${hfmt(weekStart)} إلى الخميس ${hfmt(end)}`;
-    weekItems = weekPosters(weekStart).map(x => ({ ...x, blob: null }));
-    $('#weekList').innerHTML = weekItems.length ? weekItems.map((x, k) => {
-      const r = grid[x.i];
-      return `<div class="trash-it week-it"><input type="checkbox" checked data-wk="${k}"><span><b>${esc(r[CI('الطالب')])}</b> — ${esc(r[CI('الدرجة')] || '')}<br>
-        <small class="hint">${esc(r[CI('اليوم')] || '')} ${esc(r[CI('التاريخ')] || '')} · ${esc(r[CI('الوقت')] || '')}</small></span>
-        <span style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn sm" data-wkcopy="${k}">📋 نسخ</button><button class="btn sm" data-wkdl="${k}">⬇️</button></span></div>`;
-    }).join('') : '<p class="hint">ما فيه مناقشات مسجلة في هذا الأسبوع.</p>';
-    $('#weekCount').textContent = weekItems.length ? `(${weekItems.length})` : '';
-  }
-  const weekSel = () => weekItems.filter((x, k) => { const c = $(`[data-wk="${k}"]`); return c && c.checked; });
-  async function weekBlob(x) {
-    if (!x.blob) { const cv = await capture(rowMsgState(x.i), getFormat('exact'), 2); x.blob = await new Promise(r => cv.toBlob(r, 'image/png')); }
-    return x.blob;
-  }
-  const weekName = x => `${safeName(grid[x.i][CI('الطالب')] || 'اعلان')}.png`;
-  async function weekBlobs(list, label) {
-    const out = [];
-    for (let n = 0; n < list.length; n++) { overlay.show(`${label} ${n + 1} من ${list.length}...`); out.push({ x: list[n], blob: await weekBlob(list[n]) }); }
     return out;
   }
+  async function weekSeminars(start, end) {
+    try {
+      const j = await fetch('/api/feed/seminars.json?t=' + Date.now(), { cache: 'no-store' }).then(r => r.json());
+      const a = isoDay(start), b = isoDay(end);
+      return (j.seminars || []).filter(x => x && x.id && x.date >= a && x.date <= b && x.status !== 'cancelled').map(x => {
+        const [y, m, d] = x.date.split('-').map(Number), t = Date.UTC(y, m - 1, d), h = (x.start || '00:00').split(':').map(Number);
+        return { kind: 'sem', id: x.id, t, order: (y * 10000 + m * 100 + d) * 10000 + (h[0] || 0) * 100 + (h[1] || 0), title: x.title || 'ندوة',
+          line: `${hfmt(new Date(t))} · ${x.start || ''}${x.end ? '–' + x.end : ''}`, sub: '🎤 ندوة' + (x.organizer ? ' — ' + x.organizer : '') };
+      });
+    } catch (e) { return []; }
+  }
+  async function renderWeek() {
+    const end = weekEnd();
+    $('#weekRange').textContent = `من الأحد ${hfmt(weekStart)} إلى الخميس ${hfmt(end)}`;
+    $('#weekList').innerHTML = '<p class="hint">جارٍ التحميل...</p>';
+    const ws = weekStart;
+    const list = [...weekDefenses(weekStart, end), ...(await weekSeminars(weekStart, end))].sort((a, b) => a.t - b.t || a.order - b.order);
+    if (ws !== weekStart) return;
+    weekItems = list.map(x => ({ ...x, blob: null }));
+    $('#weekList').innerHTML = weekItems.length ? weekItems.map((x, k) => `<div class="trash-it week-it"><input type="checkbox" checked data-wk="${k}">
+      <span><b>${x.kind === 'sem' ? '🎤 ' : ''}${esc(x.title)}</b> — ${esc(x.sub)}<br><small class="hint">${esc(x.line)}</small></span>
+      <span style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn sm" data-wkcopy="${k}">📋 نسخ</button><button class="btn sm" data-wkdl="${k}">⬇️</button></span></div>`).join('')
+      : '<p class="hint">ما فيه مناقشات ولا ندوات مسجلة في هذا الأسبوع.</p>';
+    const nd = weekItems.filter(x => x.kind === 'def').length, ns = weekItems.length - nd;
+    $('#weekCount').textContent = weekItems.length ? `(${nd ? nd + ' مناقشة' : ''}${nd && ns ? ' و' : ''}${ns ? ns + ' ندوة' : ''})` : '';
+  }
+  const weekSel = () => weekItems.filter((x, k) => { const c = $(`[data-wk="${k}"]`); return c && c.checked; });
+  // صورة ندوة: من صفحة الندوات في إطار مخفي (نفس تصميمها بالضبط)
+  let semFrame = null, semReady = null; const semWait = new Map();
+  function semFrameReady() {
+    if (semReady) return semReady;
+    semReady = new Promise((res, rej) => {
+      const f = document.createElement('iframe'); semFrame = f;
+      f.src = 'seminars.html?embed=render'; f.setAttribute('aria-hidden', 'true'); f.tabIndex = -1;
+      f.style.cssText = 'position:fixed;left:-12000px;top:0;width:1280px;height:900px;border:0;opacity:0;pointer-events:none';
+      const to = setTimeout(() => { semReady = null; rej(new Error('صفحة الندوات ما فتحت')); }, 45000);
+      addEventListener('message', e => {
+        if (e.origin !== location.origin || !e.data) return;
+        if (e.data.type === 'qsem-ready') { clearTimeout(to); res(); }
+        if (e.data.type === 'qsem-blob' && semWait.has(e.data.id)) { const w = semWait.get(e.data.id); semWait.delete(e.data.id); e.data.blob ? w.res(e.data.blob) : w.rej(new Error(e.data.error)); }
+      });
+      document.body.appendChild(f);
+    });
+    return semReady;
+  }
+  async function semBlob(id) {
+    await semFrameReady();
+    return new Promise((res, rej) => { semWait.set(id, { res, rej }); semFrame.contentWindow.postMessage({ type: 'qsem-render', id, fmt: 'programme', scale: 2 }, location.origin); });
+  }
+  async function weekBlob(x) {
+    if (!x.blob) {
+      if (x.kind === 'sem') x.blob = await semBlob(x.id);
+      else { const cv = await capture(rowMsgState(x.i), getFormat('exact'), 2); x.blob = await new Promise(r => cv.toBlob(r, 'image/png')); }
+    }
+    return x.blob;
+  }
+  const weekName = x => `${x.kind === 'sem' ? 'ندوة-' : ''}${safeName(x.title || 'اعلان')}.png`;
+  async function weekBlobs(list) {
+    const out = [];
+    for (let n = 0; n < list.length; n++) { overlay.show(`جارٍ تجهيز ${n + 1} من ${list.length}: ${list[n].title}`); out.push({ x: list[n], blob: await weekBlob(list[n]) }); }
+    return out;
+  }
+  // للمدونة: كل إعلانات الأسبوع في صورة وحدة فوق بعض (مثل صفحة المدونة) — لصقة وحدة
+  async function weekCombined(files) {
+    const W = 1400, GAP = 28, bms = await Promise.all(files.map(f => createImageBitmap(f.blob)));
+    const hs = bms.map(b => Math.round(b.height * W / b.width)), H = hs.reduce((a, b) => a + b, 0) + GAP * (bms.length - 1);
+    const c = document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d');
+    g.fillStyle = '#ffffff'; g.fillRect(0, 0, W, H);
+    let y = 0; bms.forEach((b, k) => { g.drawImage(b, 0, y, W, hs[k]); y += hs[k] + GAP; });
+    return new Promise(r => c.toBlob(r, 'image/png'));
+  }
+  const weekText = () => `إعلانات مناقشات الرسائل العلمية والندوات — كلية الشريعة\nمن الأحد ${hfmt(weekStart)} إلى الخميس ${hfmt(weekEnd())}`;
   function openWeek(start) { weekStart = start || thisWeek(); renderWeek(); openModal('#mWeek'); }
   { const b = $('#gWeek'); if (b) b.onclick = () => openWeek(); }
   $('#mWeek').addEventListener('click', async e => {
@@ -2276,41 +2326,43 @@
       const x = weekItems[+(cp ? cp.dataset.wkcopy : dl.dataset.wkdl)];
       try {
         if (cp) {
-          if (!navigator.clipboard || !window.ClipboardItem) return toast('النسخ غير مدعوم في هذا المتصفح — استخدم ⬇️ التحميل', true);
+          if (!navigator.clipboard || !window.ClipboardItem) return toast('النسخ غير مدعوم في هذا المتصفح — استخدم ⬇️', true);
           overlay.show('جارٍ نسخ الإعلان...');
           await navigator.clipboard.write([new ClipboardItem({ 'image/png': weekBlob(x) })]);
-          toast('📋 انسخ ✓ — الصقه الحين في المدونة أو الواتساب (Ctrl+V)');
+          toast('📋 انسخ ✓ — الصقه في المدونة أو الواتساب (Ctrl+V)');
         } else { overlay.show('جارٍ تجهيز الإعلان...'); saveBlob(await weekBlob(x), weekName(x)); }
       } catch (err) { toast('تعذّر — جرّب ⬇️ التحميل', true); } finally { overlay.hide(); }
       return;
     }
     if (e.target.closest('#weekAll')) { const on = $$('#weekList [data-wk]').some(c => !c.checked); $$('#weekList [data-wk]').forEach(c => { c.checked = on; }); return; }
-    if (e.target.closest('#weekDl')) {
-      const list = weekSel(); if (!list.length) return toast('حدد إعلان واحد على الأقل', true);
-      try { const files = await weekBlobs(list, 'جارٍ تجهيز الإعلان');
-        for (const f of files) { saveBlob(f.blob, weekName(f.x)); await new Promise(r => setTimeout(r, 450)); }
-        toast(`⬇️ نزلت ${files.length} صورة — في المدونة: «إدراج ← صور» واخترها كلها، أو اسحبها للصفحة`);
-      } catch (err) { toast('تعذّر التجهيز', true); } finally { overlay.hide(); }
-      return;
-    }
-    if (e.target.closest('#weekShare')) {
-      const list = weekSel(); if (!list.length) return toast('حدد إعلان واحد على الأقل', true);
-      try {
-        const files = (await weekBlobs(list, 'جارٍ تجهيز الإعلان')).map(f => new File([f.blob], weekName(f.x), { type: 'image/png' }));
+    const act = e.target.closest('[data-wkact]'); if (!act) return;
+    const list = weekSel(); if (!list.length) return toast('حدد إعلان واحد على الأقل', true);
+    try {
+      const files = await weekBlobs(list);
+      if (act.dataset.wkact === 'dl') {
         overlay.hide();
-        const end = new Date(weekStart); end.setUTCDate(end.getUTCDate() + 4);
-        const text = `إعلانات مناقشات الرسائل العلمية — كلية الشريعة\nمن الأحد ${hfmt(weekStart)} إلى الخميس ${hfmt(end)}`;
-        if (matchMedia('(pointer: coarse)').matches && navigator.canShare && navigator.canShare({ files })) {
-          copyText(text);
-          try { await navigator.share({ files, text }); }
-          catch (err) { if (err.name === 'NotAllowedError') toast('الصور جاهزة ✓ — اضغط «📤 مشاركة للواتساب» مرة ثانية'); else if (err.name !== 'AbortError') toast('تعذّر فتح المشاركة', true); }
+        for (const f of files) { saveBlob(f.blob, weekName(f.x)); await new Promise(r => setTimeout(r, 450)); }
+        toast(`⬇️ نزلت ${files.length} صورة`);
+      } else if (act.dataset.wkact === 'wa') {
+        const fs = files.map(f => new File([f.blob], weekName(f.x), { type: 'image/png' }));
+        overlay.hide(); copyText(weekText());
+        if (matchMedia('(pointer: coarse)').matches && navigator.canShare && navigator.canShare({ files: fs })) {
+          try { await navigator.share({ files: fs, text: weekText() }); }
+          catch (err) { if (err.name === 'NotAllowedError') toast('الصور جاهزة ✓ — اضغط «💬 واتساب» مرة ثانية'); else if (err.name !== 'AbortError') toast('تعذّر فتح المشاركة', true); }
         } else {
-          for (const f of files) { saveBlob(f, f.name); await new Promise(r => setTimeout(r, 450)); }
-          copyText(text);
-          toast('في الكمبيوتر: نزلت الصور — افتح واتساب ويب واسحبها للمحادثة (النص منسوخ، الصقه)');
+          for (const f of fs) { saveBlob(f, f.name); await new Promise(r => setTimeout(r, 450)); }
+          toast('في الكمبيوتر: نزلت الصور — اسحبها لمحادثة الجروب في واتساب ويب (النص منسوخ، الصقه)');
         }
-      } catch (err) { toast('تعذّر التجهيز', true); } finally { overlay.hide(); }
-    }
+      } else if (act.dataset.wkact === 'blog') {
+        overlay.show('جارٍ تجميع الإعلانات في صورة وحدة...');
+        const one = await weekCombined(files);
+        let copied = false;
+        try { if (navigator.clipboard && window.ClipboardItem) { await navigator.clipboard.write([new ClipboardItem({ 'image/png': one })]); copied = true; } } catch (err) { /* نزّلها */ }
+        overlay.hide();
+        if (copied) toast(`🌐 انسخت ${files.length} إعلانات في صورة وحدة ✓ — الصقها في المدونة (Ctrl+V). وإذا ما قبلها: «⬇️ تنزيل» ثم إدراج ← صور`);
+        else { saveBlob(one, `اعلانات-الاسبوع-${isoDay(weekStart)}.png`); toast('🌐 نزلت صورة وحدة فيها إعلانات الأسبوع — في المدونة: إدراج ← صور ← رفع'); }
+      }
+    } catch (err) { toast('تعذّر التجهيز: ' + (err.message || ''), true); } finally { overlay.hide(); }
   });
   const rowMsgState = r => applyRow({ ...state, degree: '', student: '', title: '', day: '', date: '', time: '', place: DEFAULTS.place, placeNote: DEFAULTS.placeNote,
     link: DEFAULTS.link, committee: [], committeeLink: '', recordingLink: '' }, parseRow(gridToObj(grid[r])));

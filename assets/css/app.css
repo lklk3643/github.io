@@ -507,3 +507,19 @@ a.btn { text-decoration: none; }
 @media (max-width: 760px) {
   .chips .chip, #previewFormats .chip, .seg button, .chips button { min-height: 36px; padding: 7px 12px; font-size: 13.5px; }
 }
+
+/* زر «إعلانات الأسبوع» ونافذته: ثلاث خيارات كبيرة واضحة */
+.week-btn { background: #5b4b9a; border-color: #5b4b9a; color: #fff; font-weight: 700; }
+.week-btn:hover { background: #4a3d80; border-color: #4a3d80; color: #fff; }
+.week-acts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 12px 0; }
+.week-act { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 14px 8px; border-radius: 14px; border: 1.5px solid var(--line);
+  background: var(--panel); color: var(--text); cursor: pointer; font: inherit; }
+.week-act b { font-size: 16px; }
+.week-act small { font-size: 12px; color: var(--muted); text-align: center; }
+.week-act:hover { border-color: var(--brand); }
+.week-act.wa { border-color: #167a41; }
+@media (max-width: 520px) { .week-acts { grid-template-columns: 1fr; } .week-act { flex-direction: row; justify-content: space-between; padding: 12px 14px; } }
+/* النوافذ فوق كل شي (أزرار القفز وشارة الحفظ ما تغطي النافذة)، والشارة في الزاوية اليمين بالجوال بعيد عن أزرار القفز */
+.modal { z-index: 200; }
+body:has(.modal.open) .grid-jump, body:has(.modal.open) .cloud-badge { display: none; }
+@media (max-width: 980px) { .cloud-badge { left: auto; right: 12px; } }

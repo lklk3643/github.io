@@ -1111,5 +1111,20 @@
     });
   }
   openSem(blank());
-  refreshPublished();
+  const pubReady = refreshPublished();
+  // ?embed=render: صفحة المناقشات تفتح هذي الصفحة مخفية وتطلب صورة ندوة (لـ«إعلانات الأسبوع»)
+  if (new URLSearchParams(location.search).get('embed') === 'render') {
+    addEventListener('message', async e => {
+      if (e.origin !== location.origin || !e.data || e.data.type !== 'qsem-render') return;
+      const { id, fmt, scale } = e.data;
+      try {
+        await pubReady;
+        const s = merged().find(x => x.id === id); if (!s) throw new Error('ما لقيت الندوة');
+        const { canvas } = await capture(clean(s), fmtOf(fmt || 'programme'), scale || 2);
+        const blob = await toBlob(canvas, 'image/png');
+        e.source.postMessage({ type: 'qsem-blob', id, blob }, location.origin);
+      } catch (err) { e.source.postMessage({ type: 'qsem-blob', id, error: String(err && err.message || err) }, location.origin); }
+    });
+    parent.postMessage({ type: 'qsem-ready' }, location.origin);
+  }
 })();
