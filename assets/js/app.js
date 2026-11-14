@@ -729,18 +729,26 @@
     $('#gridCount').textContent = `(${total} إعلان)`;
     $('#gSelCount').textContent = sel ? `محدد: ${sel}` : '';
   }
+  // الاستيراد من ملف يضيف للجدول المشترك ولا يمسح شي (كان يستبدل الجدول كله عند الجميع بدون تأكيد)
   function setRows(list) {
-    gridSnap('استيراد ملف'); toTrash(grid, 'استبدال بالاستيراد');
-    grid = list.map(o => parseRow(o)).filter(d => !isWeekendRow(d)).map(d => dataToGrid(d)).filter(r => !isEmptyRow(r));
-    grid.forEach(r => { if (!r[WCOL]) stamp(r); });
-    grid = sortRows(grid);
+    const rows = list.map(o => parseRow(o)).filter(d => !isWeekendRow(d)).map(d => dataToGrid(d)).filter(r => !isEmptyRow(r));
+    if (!rows.length) return toast('لم يتم العثور على أعمدة مطابقة – استخدم الملف النموذجي', true);
+    const key = r => String(r[CI('الطالب')] || '').trim() + '|' + String(r[CI('التاريخ')] || '').replace(/[^0-9]/g, '');
+    const have = new Set(grid.filter(r => !isEmptyRow(r)).map(key));
+    const add = rows.filter(r => !have.has(key(r))), dup = rows.length - add.length;
+    if (!add.length) return toast(`كل الأسطر اللي في الملف موجودة في الجدول أصلاً (${QN.row(rows.length)}) — ما تغيّر شي`);
+    if (!confirm(`بنضيف ${QN.row(add.length)} من الملف للجدول${dup ? ` (و${QN.row(dup)} موجودة أصلاً ما تتكرر)` : ''}.\nما ينحذف ولا يتغير أي شي موجود. نكمل؟`)) return;
+    gridSnap('استيراد ملف');
+    add.forEach(r => { if (!r[WCOL]) stamp(r); });
+    const addSet = new Set(add);
+    grid = sortRows(grid.filter(r => !isEmptyRow(r)).concat(add));
     gridSel.clear();
-    grid.forEach((_, i) => gridSel.add(i));
+    grid.forEach((r, i) => { if (addSet.has(r)) gridSel.add(i); });
     try { localStorage.setItem(userKey('grid'), JSON.stringify(grid)); } catch (e) { /* مساحة */ }
     syncRows();
     renderGrid();
     $('#dataSheet').scrollIntoView({ behavior: 'smooth' });
-    toast(grid.length ? `تم استيراد ${grid.length} إعلان إلى الجدول ✓` : 'لم يتم العثور على أعمدة مطابقة – استخدم الملف النموذجي', !grid.length);
+    toast(`✓ أُضيف ${QN.row(add.length)} للجدول${dup ? ` — و${QN.row(dup)} موجودة أصلاً` : ''}`);
   }
 
   // ---------- فواصل الأسابيع (إجازة أسبوعية: الجمعة والسبت) ----------
@@ -1022,8 +1030,11 @@
     if (isEmptyRow(grid[r])) return toast('هذا السطر فاضي', true);
     const data = parseRow(gridToObj(grid[r]));
     // عرض سطر = تصميم مستقل مرتبط بالسطر: نفك الارتباط بنسخة السجل اللي كانت مفتوحة حتى ما ينكتب السطر الجديد فوقها
+    if (editingId && histAutoT) { clearTimeout(histAutoT); saveToHistory({ quiet: true }); }   // تعديل لسا ما انحفظ في التصميم المفتوح: نحفظه قبل نفك الارتباط
     clearTimeout(histAutoT); setEditing(null);
-    state = applyRow(state, data); activeRow = r;
+    const clean0 = { ...state, degree: '', title: '', student: '', day: '', date: '', time: '', place: DEFAULTS.place, placeNote: DEFAULTS.placeNote, link: DEFAULTS.link,
+      committeeLink: '', recordingLink: '', notes: '', committee: [] };
+    state = applyRow(clean0, data); activeRow = r;
     $('#editingLabel').textContent = `يعرض سطر الجدول: ${data.student || 'السطر ' + (r + 1)}`;
     rowSnap = gridOfState();
     $$('#sheet tbody tr').forEach(tr => tr.classList.toggle('active', +tr.dataset.r === r));
@@ -1226,7 +1237,23 @@
     let g; try { g = JSON.parse(e.detail.value); } catch (err) { return; }
     if (!Array.isArray(g)) return;
     const lead = []; for (const r of grid) { if (isEmptyRow(r)) lead.push(r); else break; }   // سطر جديد فاضي أضافه الموظف للتو: يبقى فوق
-    grid = lead.concat(sortRows(g.filter(Array.isArray))); gridSel.clear(); activeRow = -1; renderGrid(); updateGridInfo();
+    // تعديلات الزميل تنطبق على نسخ «↶ تراجع» كمان، حتى التراجع يرجّع تعديلي أنا بس وما يحذف شغل زميلي
+    const J = r => JSON.stringify(r), prev = grid.filter(r => !isEmptyRow(r)), next = g.filter(r => Array.isArray(r) && !isEmptyRow(r));
+    const cnt = a => { const m = new Map(); a.forEach(r => { const k = J(r); m.set(k, (m.get(k) || 0) + 1); }); return m; };
+    const cp = cnt(prev), cn = cnt(next), addR = [], delR = new Map();
+    cn.forEach((n, k) => { for (let i = 0; i < n - (cp.get(k) || 0); i++) addR.push(JSON.parse(k)); });
+    cp.forEach((n, k) => { const d = n - (cn.get(k) || 0); if (d > 0) delR.set(k, d); });
+    if (addR.length || delR.size) [gUndoS, gRedoS].forEach(st => st.forEach(it => {
+      const left = new Map(delR), out = [];
+      for (const r of JSON.parse(it.g)) { const k = J(r), d = left.get(k) || 0; if (d > 0) { left.set(k, d - 1); continue; } out.push(r); }
+      it.g = J(out.concat(addR));
+    }));
+    // السطر المفتوح في التصميم يبقى مرتبط (نلقاه بالطالب + التاريخ بعد التحديث)
+    const openKey = activeRow >= 0 && grid[activeRow] ? J([grid[activeRow][CI('الطالب')], grid[activeRow][CI('التاريخ')]]) : null;
+    grid = lead.concat(sortRows(g.filter(Array.isArray))); gridSel.clear();
+    activeRow = openKey ? grid.findIndex(r => J([r[CI('الطالب')], r[CI('التاريخ')]]) === openKey) : -1;
+    renderGrid(); updateGridInfo();
+    if (activeRow >= 0) $$('#sheet tbody tr').forEach(tr => tr.classList.toggle('active', +tr.dataset.r === activeRow));
     const by = e.detail.by; if (by && String(by).toLowerCase() !== String(session.u).toLowerCase()) toast(`🔄 تحدّث الجدول — آخر تعديل: ${by}`);
   });
   $('#gSort').onclick = () => {
@@ -2188,12 +2215,17 @@
     return '';
   }
   function hijriText(date) { const m = toLatin(date).match(/(\d{4})\D+(\d{1,2})\D+(\d{1,2})/); return m ? `${+m[3]}_ ${+m[2]}_ ${m[1]}هـ` : String(date || '').trim(); }
+  function dayFromDate(date) {
+    const g = hijriToGreg(date); if (!g) return '';
+    const [y, m, d] = String(g).split('/').map(Number); if (!y || !m || !d) return '';
+    return ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'][new Date(Date.UTC(y, m - 1, d)).getUTCDay()];
+  }
   function msgVars(s) {
     const female = /طالبة/.test(s.by || '') || /أنثى|انثى/.test(s.gender || '');
     const deg = String(s.degree || '').trim().replace(/^ال(ماجستير|دكتوراه)/, '$1');
     return {
       'نوع_الرسالة': deg ? `رسالة ${deg}` : 'رسالة علمية', 'للباحث': female ? 'للباحثة' : 'للباحث', 'الطالب': String(s.student || '').trim(),
-      'العنوان': String(s.title || '').replace(/\s*\n\s*/g, ' – ').trim(), 'اليوم': String(s.day || '').trim(), 'التاريخ': hijriText(s.date),
+      'العنوان': String(s.title || '').replace(/\s*\n\s*/g, ' – ').trim(), 'اليوم': String(s.day || '').trim() || dayFromDate(s.date), 'التاريخ': hijriText(s.date),
       'الميلادي': hijriToGreg(s.date), 'الوقت': String(s.time || '').trim(), 'المكان': String(s.place || '').trim(),
       'رابط_البث': String(s.link || '').trim() || DEFAULTS.link, 'رابط_اللجنة': String(s.committeeLink || '').trim(), 'رابط_التسجيل': recLinks(s.recordingLink)
     };
@@ -2239,6 +2271,7 @@
       const out = [];
       grid.forEach((r, i) => {
         if (isEmptyRow(r) || !r[CI('الطالب')]) return;
+        if (/تأجيل|تاجيل|مؤجل|ملغ|إلغاء/.test(String(r[CI('الملاحظات')] || ''))) return;   // المؤجلة والملغاة ما تنشر
         const g = hijriToGreg(r[CI('التاريخ')]); if (!g) return;
         const [y, m, d] = g.split('/').map(Number), t = Date.UTC(y, m - 1, d);
         if (t >= start.getTime() && t <= end.getTime()) out.push({ i, t, order: gridDateKey(r), title: r[CI('الطالب')], sub: r[CI('الدرجة')] || '',

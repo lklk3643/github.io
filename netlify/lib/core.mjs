@@ -222,6 +222,14 @@ function mergeGrid(base, mine, theirs) {
   const added = [];
   for (const [k, n] of nm) { const add = n - (nb.get(k) || 0) - Math.max(0, (have.get(k) || 0) - (nb.get(k) || 0)); for (let i = 0; i < add; i++) added.push(JSON.parse(k)); }
   // نفس المناقشة (الطالب + التاريخ) عدّلها اثنان بنفس اللحظة: يبقى سطر واحد — تعديل صاحب هذا الحفظ (الأحدث)
+  // نفس السطر عدّله اثنان: دمج خانة بخانة — الخانة اللي غيّرها صاحب هذا الحفظ تؤخذ منه، والباقي من نسخة زميله
+  { const baseBy = new Map(base.filter(r => !emptyRow(r)).map(r => [rowKey(r), r]).filter(([k]) => k));
+    const theirsBy = new Map(out.filter(r => !nb.has(JSON.stringify(r))).map(r => [rowKey(r), r]).filter(([k]) => k));
+    for (let i = 0; i < added.length; i++) {
+      const k = rowKey(added[i]), b = baseBy.get(k), t = theirsBy.get(k);
+      if (!k || !b || !t) continue;
+      added[i] = added[i].map((v, j) => (String(v ?? '') !== String(b[j] ?? '') ? v : (t[j] ?? '')));
+    } }
   const mineKeys = new Set(added.map(rowKey).filter(Boolean));
   const out2 = out.filter(r => { const k = rowKey(r); return !k || !mineKeys.has(k) || nb.has(JSON.stringify(r)); });
   const lead = []; for (const r of mine) { if (emptyRow(r)) lead.push(r); else break; }
@@ -557,14 +565,26 @@ export async function handle(req, store) {
 
   // --- الندوات: الحفظ = النشر (تظهر في OBS مباشرة)
   if (path === 'seminars' && method === 'POST') {
-    const { upsert = [], remove = [] } = await body();
+    const { upsert = [], remove = [], base = {} } = await body();
     await seminarsDoc(store, origin);                         // يضمن نقل البيانات القديمة أول مرة
     await backupNow(store, 'day', me.name || me.u, await sharedDoc(store));
     const semLog = [];
     for (const id of Array.isArray(remove) ? remove : []) { const old = await getJSON(store, semKey(id)); if (old) semLog.push({ t: 'del', k: 'sem:' + id, st: old.title || 'ندوة', d: old.date || '', sem: old }); }
     for (const s of Array.isArray(upsert) ? upsert : []) if (s && s.id && !(await getJSON(store, semKey(s.id)))) semLog.push({ t: 'add', k: 'sem:' + s.id, st: s.title || 'ندوة', d: s.date || '' });
     await auditAdd(store, me.name || me.u, semLog);
-    for (const s of Array.isArray(upsert) ? upsert : []) if (s && s.id) await setJSON(store, semKey(s.id), { ...s, id: String(s.id), by: me.u });
+    const SKIP = new Set(['by', 'updated']), same = (a, b) => JSON.stringify(a ?? '') === JSON.stringify(b ?? '');
+    for (const s of Array.isArray(upsert) ? upsert : []) {
+      if (!s || !s.id) continue;
+      const cur = await getJSON(store, semKey(s.id)), b = base && Object.prototype.hasOwnProperty.call(base, s.id) ? base[s.id] : undefined;
+      if (!cur && b) continue;                                   // كانت موجودة لما فتحها، وحذفها زميل بعدها: لا ترجع
+      let out = { ...s };
+      if (cur && b) {                                            // الحقل اللي غيّره هذا الموظف منه، والباقي من أحدث نسخة (تعديلات الزملاء)
+        out = { ...cur };
+        for (const k of new Set([...Object.keys(s), ...Object.keys(b)])) if (!SKIP.has(k) && !same(s[k], b[k])) out[k] = s[k];
+        out.updated = s.updated || cur.updated;
+      }
+      await setJSON(store, semKey(s.id), { ...out, id: String(s.id), by: me.u });
+    }
     for (const id of Array.isArray(remove) ? remove : []) await store.delete(semKey(id));
     return json(await seminarsDoc(store, origin));
   }

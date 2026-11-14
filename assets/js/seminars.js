@@ -51,8 +51,14 @@
     clearTimeout(t._h); t._h = setTimeout(() => { t.className = 'toast'; }, Math.min(9000, Math.max(3500, String(msg).length * 55)));
   }
   function el(tag, cls, text) { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = String(text); return n; }
-  function loadLocal() { try { const v = JSON.parse(localStorage.getItem(LOCAL_KEY)); if (v && v.items) return { items: v.items, deleted: v.deleted || [] }; } catch (e) { /* تالف */ } return { items: {}, deleted: [] }; }
-  function saveLocal() { localStorage.setItem(LOCAL_KEY, JSON.stringify(local)); }
+  function loadLocal() { try { const v = JSON.parse(localStorage.getItem(LOCAL_KEY)); if (v && v.items) return { items: v.items, deleted: v.deleted || [], base: v.base || {} }; } catch (e) { /* تالف */ } return { items: {}, deleted: [], base: {} }; }
+  // base: نسخة كل ندوة لما بدأ الموظف يعدّلها — الخادم يدمج حقل بحقل معها حتى ما تنكتب تعديلات الزملاء
+  function saveLocal() {
+    local.base = local.base || {};
+    for (const id of Object.keys(local.items)) if (!(id in local.base)) local.base[id] = published.seminars.find(x => x.id === id) || null;
+    for (const id of Object.keys(local.base)) if (!(id in local.items)) delete local.base[id];
+    localStorage.setItem(LOCAL_KEY, JSON.stringify(local));
+  }
   const newId = () => 's' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
   const hijri = (iso) => { if (!iso) return ''; try { return new Intl.DateTimeFormat('ar-SA-u-ca-islamic-umalqura-nu-latn', { day: 'numeric', month: 'numeric', year: 'numeric', timeZone: 'UTC' }).format(new Date(iso + 'T12:00:00Z')).replace(/[‎‏]/g, '').replace(/\s*هـ$/, '') + ' هـ'; } catch (e) { return ''; } };
   const weekday = (iso) => iso ? new Intl.DateTimeFormat('ar-SA', { weekday: 'long', timeZone: 'UTC' }).format(new Date(iso + 'T12:00:00Z')) : '';
@@ -125,9 +131,11 @@
     if (!pendingCount() || pubBusy) return;
     pubBusy = true;
     try {
-      const out = await QCloud.seminars(Object.values(local.items).map(clean), local.deleted);
+      const sent = JSON.stringify(local);
+      const out = await QCloud.seminars(Object.values(local.items).map(clean), local.deleted, local.base || {});
       published = { v: out.v, seminars: (out.seminars || []).map(clean) };
-      local = { items: {}, deleted: [] }; saveLocal();
+      if (JSON.stringify(local) === sent) local = { items: {}, deleted: [], base: {} };   // لو كتب أثناء الإرسال تبقى تعديلاته الجديدة
+      saveLocal();
       renderList(); renderPub();
       if (!quiet) toast('✓ وصلت للبث — تظهر في OBS خلال دقائق');
     } catch (e) { renderPub(); toast('تعذر الاتصال الآن — محفوظة على هذا الجهاز وتُرسل تلقائياً عند عودة الاتصال', true); setTimeout(() => publishCloud(true), 15000); }
@@ -1132,6 +1140,17 @@
     });
   }
   openSem(blank());
+  // تحديث مباشر: ندوات الزملاء تظهر بدون إعادة تحميل (كل 20 ثانية، وما يقاطع الكتابة)
+  if (CLOUD()) setInterval(async () => {
+    if (document.hidden || pubBusy || pendingCount()) return;
+    const ae = document.activeElement; if (ae && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)) return;
+    const before = JSON.stringify(published.seminars);
+    try { const { data } = await fetchPublished(); published = { v: data.v || '', seminars: (data.seminars || []).map(clean) }; } catch (e) { return; }
+    if (JSON.stringify(published.seminars) === before) return;
+    const fresh = current && published.seminars.find(x => x.id === current.id);
+    if (current && !fresh && merged().every(x => x.id !== current.id) && (current.title || current.date)) { renderList(); renderPub(); return; }
+    if (fresh) openSem(fresh, false); else { renderList(); renderPub(); }
+  }, 20000);
   // أول ما تفتح الصفحة: أقرب ندوة جاية (أو آخر ندوة) بدل إعلان فاضي — مثل المناقشات اللي تفتح على تصميم مليان
   refreshPublished().then(() => {
     const c = clean(current || blank()); if (c.title || c.date || c.participants.length) return;   // الموظف بدأ يكتب: لا نغيّر عليه
@@ -1146,7 +1165,7 @@
     ui: { toast, busy: m => busy(true, m), done: () => busy(false) },
     list: (start, end) => {
       const iso = d => d.toISOString().slice(0, 10), a = iso(start), b = iso(end);
-      return merged().filter(x => x && x.date && x.date >= a && x.date <= b && x.status !== 'cancelled').map(x => {
+      return merged().filter(x => x && x.date && x.date >= a && x.date <= b && x.status !== 'cancelled' && x.status !== 'postponed').map(x => {
         const [y, m, d] = x.date.split('-').map(Number), t = Date.UTC(y, m - 1, d), h = String(x.start || '00:00').split(':').map(Number);
         return { id: x.id, t, order: (h[0] || 0) * 100 + (h[1] || 0), title: x.title || 'ندوة', sub: x.organizer || '',
           line: `${hijri(x.date)} · ${x.start || ''}${x.end ? '–' + x.end : ''}` };

@@ -147,5 +147,5 @@ window.QN = {
     } catch (e) { /* بدون اتصال */ }
   }, 15000);
   QCloud.details = (entries) => api('details', { method: 'POST', body: JSON.stringify({ entries }) }).then(r => r.ok);
-  QCloud.seminars = (upsert, remove) => api('seminars', { method: 'POST', body: JSON.stringify({ upsert, remove }) }).then(r => r.ok ? r.json() : Promise.reject(new Error(r.status)));
+  QCloud.seminars = (upsert, remove, base) => api('seminars', { method: 'POST', body: JSON.stringify({ upsert, remove, base: base || {} }) }).then(r => r.ok ? r.json() : Promise.reject(new Error(r.status)));
 })();
