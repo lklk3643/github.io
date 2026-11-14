@@ -760,14 +760,23 @@
     return out;
   }
 
+  // أول الجدول دايماً سطر فاضي جاهز: الموظف يكتب مناقشة جديدة فيه على طول بدون أي زر
+  function ensureBlankTop() {
+    if (grid.length && isEmptyRow(grid[0])) return false;
+    grid.unshift(emptyRow());
+    try { if (activeRow >= 0) activeRow++; const s = [...gridSel]; gridSel.clear(); s.forEach(i => gridSel.add(i + 1)); } catch (e) { /* قبل التهيئة */ }
+    return true;
+  }
   function renderGrid() {
-    if (!grid.length) grid = Array.from({ length: 5 }, emptyRow);
+    ensureBlankTop();
     computeConflicts();
     const cls = c => /العنوان/.test(c) ? 'w-title' : /رابط/.test(c) ? 'w-link' : c === 'الكاتب' ? 'w-sm w-auto' : /الجنس|اليوم|الوقت|الدور/.test(c) ? 'w-sm' : '';
     $('#sheet').innerHTML = `<thead><tr><th class="n">#</th><th class="act">عرض / نسخ</th>${GCOLS.map(c => `<th class="${/^عضو/.test(c) ? 'mem' : ''}">${c}</th>`).join('')}</tr></thead>
       <tbody>${grid.map((r, i) => `${(b => b ? `<tr class="wk-sep"><td colspan="${GCOLS.length + 2}"><span>🌙 إجازة أسبوعية</span> الجمعة ${b.fri} · السبت ${b.sat}${b.gap ? ` <small>(بعدها ${b.gap === 1 ? 'أسبوع' : b.gap + ' أسابيع'} بدون مناقشات)</small>` : ''}</td></tr>` : '')(weekBreak(i))}<tr data-r="${i}" class="${gridSel.has(i) ? 'sel' : ''} ${i === activeRow ? 'active' : ''} ${missingOf(r).length ? 'incomplete' : ''} ${isPast(r) ? 'past' : ''} ${conflicts.has(i) ? 'conflict' : ''}"><td class="n"><label><input type="checkbox" data-gsel ${gridSel.has(i) ? 'checked' : ''}>${i + 1}</label>${warnHtml(r)}${conflictHtml(i)}</td><td class="act"><button data-view title="عرض في التصميم">👁</button><button data-dup title="تكرار السطر (نفس اللجنة لطالب آخر)">⧉</button><button data-msg="invite" class="msg-b" title="نسخ رسالة الدعوة">دعوة</button><button data-wa="invite" class="wa-i" title="إرسال الدعوة بالواتساب">💬</button><button data-msg="record" class="msg-b ${r[GCOLS.indexOf('رابط التسجيل')] ? 'has' : ''}" title="نسخ رسالة التسجيل">تسجيل</button><button data-wa="record" class="wa-i" title="إرسال التسجيل بالواتساب">💬</button></td>${
         GCOLS.map((c, j) => `<td><input type="text" class="${cls(c)}" data-c="${j}" value="${esc(r[j] || '')}"${pickOf(c) ? ` inputmode="none" data-pick="${pickOf(c)}"` : ''}${c === 'الكاتب' ? ' readonly tabindex="-1" title="يتعبّى تلقائياً باسم المستخدم اللي كتب السطر أو عدّله آخر مرة"' : ''}${c === 'رابط البث' ? ' dir="ltr" placeholder="يوتيوب (افتراضي)"' : c === 'رابط اللجنة' ? ' dir="ltr" placeholder="زوم (اختياري)"' : c === 'رابط التسجيل' ? ' dir="ltr" placeholder="بعد المناقشة"' : ''}></td>`).join('')}</tr>`).join('')}</tbody>`;
     updateGridInfo();
+    { const nr = $('#sheet tr[data-r="0"]'), si = nr && nr.querySelector(`input[data-c="${GCOLS.indexOf('الطالب')}"]`);
+      if (nr && isEmptyRow(grid[0])) { nr.classList.add('newrow'); if (si) si.placeholder = '✏️ مناقشة جديدة: اكتب اسم الطالب هنا'; } }
     const b = $('#gConflicts'); if (b) { b.hidden = !conflicts.size; b.textContent = `🔴 ${conflicts.size} سطر فيه تعارض`; }
     formConflictCheck();
   }
@@ -1024,7 +1033,8 @@
     const nx = cellAt(to, c); if (nx) { nx.focus(); nx.select(); }
   });
   function addOnTop() {
-    grid.unshift(emptyRow()); gridSel.clear(); activeRow = -1; renderGrid(); gridChanged();
+    if (!ensureBlankTop() && !$('#sheet tr.newrow')) grid.unshift(emptyRow());
+    gridSel.clear(); activeRow = -1; renderGrid();
     const w = $('.gridwrap'); if (w) w.scrollTo({ top: 0, behavior: 'smooth' });
     const tr = $('#sheet tr[data-r="0"]'), inp = tr && tr.querySelector(`input[data-c="${CI('الطالب')}"]`);
     if (tr) { tr.scrollIntoView({ behavior: 'smooth', block: 'center' }); tr.classList.add('flash'); setTimeout(() => tr.classList.remove('flash'), 1600); }
@@ -1066,7 +1076,7 @@
       toast(wk.checked ? '🌙 تظهر الإجازة الأسبوعية بين الأسابيع (وفي الملف المصدَّر)' : 'أُخفيت فواصل الأسابيع — الصفوف ورا بعض'); }; }
   // ترتيب تلقائي بالتاريخ ثم الوقت (الأسطر الفاضية تبقى في الآخر)، مع الحفاظ على التحديد والسطر المفتوح
   function autoSort(focusRow) {
-    const order = grid.map((r, i) => [isEmptyRow(r) ? 1 : 0, gridDateKey(r), i, r])
+    const order = grid.map((r, i) => [isEmptyRow(r) ? 0 : 1, gridDateKey(r), i, r])   // الفاضية فوق (سطر الإضافة)
       .sort((a, b) => a[0] - b[0] || cmpKey(a[1], b[1]) || a[2] - b[2]);
     if (order.every((x, i) => x[2] === i)) return false;
     gridSnap('ترتيب تلقائي');
@@ -1094,6 +1104,17 @@
       if (!row || (a && a.closest && a.closest('tr') && grid[+a.closest('tr').dataset.r] === row)) return;
       sortPending = null; autoSort(row);
     }, 250);
+  });
+  $('#sheet').addEventListener('focusout', e => {
+    const tr = e.target.closest && e.target.closest('tr'); if (!tr || tr.dataset.r !== '0') return;
+    setTimeout(() => {
+      if (sortPending || isEmptyRow(grid[0])) return;                       // الترتيب بالتاريخ يتكفّل بإعادة الرسم
+      const a = document.activeElement, atr = a && a.closest && a.closest('#sheet tr[data-r]');
+      if (atr && atr.dataset.r === '0') return;                              // ما زال في نفس السطر
+      const r = atr ? +atr.dataset.r : -1, c = a && a.dataset ? a.dataset.c : null;
+      renderGrid();
+      if (r >= 0 && c != null) { const n = $(`#sheet tr[data-r="${r + 1}"] input[data-c="${c}"]`); if (n) n.focus(); }
+    }, 320);
   });
   // أزرار القفز لبداية/نهاية الجدول
   function jumpGrid(end) {

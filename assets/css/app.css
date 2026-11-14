@@ -383,4 +383,7 @@ a.btn { text-decoration: none; }
 .sheet tr.past td input[type=text] { color: #5f7574; }
 /* زر «مناقشة جديدة»: الإجراء الأساسي في الجدول، ظاهر جنب العنوان */
 #gNew { font-size: 15px; padding: 9px 18px; }
-.ds-head { align-items: center; }
+.ds-newbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin: 8px 0 8px; font-size: 14px; color: #3d5554; }
+/* سطر الإضافة الفاضي أول الجدول */
+.sheet tr.newrow td { background: #eef8f1; border-bottom: 2px dashed #6aa984; }
+.sheet tr.newrow input::placeholder { color: #2f7a4e; font-weight: 600; opacity: 1; }

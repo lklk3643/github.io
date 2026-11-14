@@ -9,7 +9,7 @@
     if (!(sessionStorage.getItem('qu_session') || localStorage.getItem('qu_session'))) location.replace('index.html');
   </script>
   <link rel="stylesheet" href="assets/fonts/fonts.css?v=202610170020">
-  <link rel="stylesheet" href="assets/css/app.css?v=202611140101">
+  <link rel="stylesheet" href="assets/css/app.css?v=202611140301">
   <link rel="stylesheet" href="assets/css/poster.css?v=202610170020">
 </head>
 <body>
@@ -217,9 +217,8 @@
     <section class="panel datasheet" id="dataSheet">
       <div class="ds-head">
         <h3>📋 جدول بيانات الإعلانات <span class="hint" id="gridCount"></span></h3>
-        <button class="btn primary" id="gNew" title="يضيف سطر فاضي في أول الجدول ويحط المؤشر في خانة الطالب">➕ مناقشة جديدة</button>
         <button class="btn sm conf-btn" id="gConflicts" hidden></button>
-        <span class="hint">كل سطر = مناقشة. لإضافة مناقشة اضغط «➕ مناقشة جديدة» ويطلع لك سطر فاضي أول الجدول. اكتب اسم الدكتور وتطلع لك الأسماء تختار منها. أو الصق من Excel (Ctrl+V). كل شي ينحفظ تلقائياً.</span>
+        <span class="hint">كل سطر = مناقشة. لإضافة مناقشة اكتب في السطر الأول الفاضي بالجدول. اكتب اسم الدكتور وتطلع لك الأسماء تختار منها. أو الصق من Excel (Ctrl+V). كل شي ينحفظ تلقائياً.</span>
       </div>
       <div class="ds-tools">
         <div class="ds-group"><span class="ds-label">الصفوف</span>
@@ -262,6 +261,10 @@
         <span><b class="chip warn">ناقص</b> مناقشة ينقصها شي لتصميم الإعلان (مثل العنوان أو اللجنة)</span>
         <span><b class="chip conf">تعارض</b> مناقشة بنفس الوقت (فرق أقل من ساعة) والقاعة أو الرابط أو نفس الدكتور مع سطر ثاني</span>
         <span class="hint">اضغط على العلامة لمعرفة التفاصيل. لإخفاء التنبيهات عن المناقشات المنتهية شيل الصح من «⚠️ تنبيهات المنتهية». 👁 يعرض السطر في التصميم.</span>
+      </div>
+      <div class="ds-newbar">
+        <button class="btn primary" id="gNew" title="ينقلك لسطر الإضافة الفاضي أول الجدول">➕ مناقشة جديدة</button>
+        <span>أو اكتب مباشرة في <b>السطر الأول الفاضي</b> بالجدول — ينحفظ تلقائياً، وأول ما تكتب التاريخ ينتقل لمكانه</span>
       </div>
       <div class="gridbox">
         <div class="gridwrap"><table class="sheet" id="sheet"></table></div>
@@ -493,6 +496,6 @@
   <script src="assets/js/poster.js?v=202610170020"></script>
   <script src="assets/js/details.js?v=202611130010"></script>
   <script src="assets/js/people.js?v=202611140101"></script>
-  <script src="assets/js/app.js?v=202611140201"></script>
+  <script src="assets/js/app.js?v=202611140301"></script>
 </body>
 </html>

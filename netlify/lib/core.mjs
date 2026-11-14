@@ -211,6 +211,8 @@ async function writeSharedRows(store, grid) {
 }
 // دمج ثلاثي بالأسطر: ما حذفه/عدّله صاحب الحفظ منذ آخر نسخة رآها يُطبَّق على أحدث نسخة، وما أضافه غيره يبقى
 function mergeGrid(base, mine, theirs) {
+  // ما عدّل أحد غيره منذ آخر نسخة رآها: جدوله هو الجديد كما هو (بترتيبه وسطر الإضافة الفاضي أوله)
+  if (JSON.stringify(theirs.filter(r => !emptyRow(r))) === JSON.stringify(base.filter(r => !emptyRow(r)))) return mine;
   const count = a => { const m = new Map(); for (const r of a) { const k = JSON.stringify(r); m.set(k, (m.get(k) || 0) + 1); } return m; };
   const nb = count(base.filter(r => !emptyRow(r))), nm = count(mine.filter(r => !emptyRow(r)));
   const drop = new Map(); for (const [k, n] of nb) { const d = n - (nm.get(k) || 0); if (d > 0) drop.set(k, d); }
@@ -222,7 +224,8 @@ function mergeGrid(base, mine, theirs) {
   // نفس المناقشة (الطالب + التاريخ) عدّلها اثنان بنفس اللحظة: يبقى سطر واحد — تعديل صاحب هذا الحفظ (الأحدث)
   const mineKeys = new Set(added.map(rowKey).filter(Boolean));
   const out2 = out.filter(r => { const k = rowKey(r); return !k || !mineKeys.has(k) || nb.has(JSON.stringify(r)); });
-  return out2.concat(added, mine.filter(emptyRow));          // صفوف المحرّر الفارغة تبقى عنده
+  const lead = []; for (const r of mine) { if (emptyRow(r)) lead.push(r); else break; }
+  return lead.concat(out2, added, mine.slice(lead.length).filter(emptyRow));   // صفوف المحرّر الفارغة تبقى عنده (سطر الإضافة أول الجدول)
 }
 
 export async function handle(req, store) {
