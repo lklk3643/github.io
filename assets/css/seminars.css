@@ -137,7 +137,10 @@
 .qc-row { display: grid; grid-template-columns: 1.15fr 1fr 150px; gap: 8px; }   /* الوقت ضيّق كما في إعلانات الجامعة، فتتسع أسماء الملقين */
 .qc { background: #fff; border-radius: 16px; padding: 14px 18px; display: flex; align-items: center; font-size: 24px; color: var(--d); min-height: 74px; }
 .qc-topic { font-weight: 700; line-height: 1.35; }
-.qc-time { justify-content: center; font-weight: 700; font-size: 21px; white-space: nowrap; padding-inline: 10px; }
+.qc-time { justify-content: center; font-weight: 700; font-size: 22px; white-space: nowrap; padding-inline: 8px; text-align: center; }
+.qc-time .tm, .qt-time .tm { display: flex; flex-direction: column; align-items: center; line-height: 1.25; }
+.qc-time .tm bdi + bdi, .qt-time .tm bdi + bdi { font-weight: 500; opacity: .85; }
+.qc-time .tm bdi + bdi::before, .qt-time .tm bdi + bdi::before { content: 'إلى '; font-size: .8em; }
 .qc-wide { grid-column: 1 / span 2; justify-content: center; font-weight: 700; }
 .qc-grad, .qc-session { background: linear-gradient(90deg, #2b7574 0%, #1f5e86 100%); color: #fff; }
 .qc-grad { justify-content: center; font-weight: 700; font-size: 26px; text-align: center; }
@@ -248,3 +251,19 @@
 .qs-safe { position: absolute; left: 507px; top: 508.5px; width: 1546px; height: 423px; border: 6px dashed #e0413a; pointer-events: none; z-index: 5; }
 #previewFormats .chip { border: 1px solid var(--line); padding: 5px 12px; font-size: 13px; font-weight: 500; line-height: 1.5; }
 #previewFormats .chip.active { border-color: var(--brand); }
+
+/* الترويسة الرسمية: ثلاث أعمدة (النص يمين | الشعار بالوسط | فاضي) — كان النص مثبّتاً فوق الشعار ويغطيه */
+.qp2-head.official { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; column-gap: 28px; }
+.qp2-head.official .qp2-official { position: static; justify-self: start; text-wrap: balance; }
+/* أيقونتا التاريخ والمكان: بالوسط وبيضاء (قاعدة «.qp2-line span» كانت تغلبها) */
+.qp2-line .qp2-ic { display: flex; color: #fff; font-size: inherit; }
+/* الجدول بدون عمود التخصص: الاسم والعنوان أعرض حتى ما تنكسر الأسماء */
+.qt.nospec th:nth-child(1) { width: 6%; } .qt.nospec th:nth-child(2) { width: 42%; } .qt.nospec th:nth-child(3) { width: 36%; } .qt.nospec th:nth-child(4) { width: 16%; }
+.qt td .pp b, .qt td .pp small { text-wrap: balance; }
+.qc-time.none, .qt-time.none { visibility: hidden; }
+.qp2-head.official { padding-inline: 40px; column-gap: 22px; }
+.qp2-head.official .qp2-logo { height: 128px; }
+.qp2-head.official .qp2-official { font-size: 20px; line-height: 1.5; }
+.qp2-head.official .qp2-official div { white-space: nowrap; }
+.qp2-head.official .qp2-official div:nth-child(n+4) { white-space: normal; text-wrap: balance; }
+.qc-wide { text-wrap: balance; }

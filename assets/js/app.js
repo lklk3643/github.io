@@ -547,7 +547,7 @@
     $('#mHistory').classList.remove('open'); printStates(list);
   };
   $('#histDel').onclick = async () => {
-    if (!confirm(`حذف ${histSel.size} تصميم من السجل نهائياً؟`)) return;
+    if (!confirm(`حذف ${QN.design(histSel.size)} من السجل نهائياً؟`)) return;
     for (const id of histSel) { await HDB.del(id); if (id === editingId) setEditing(null); }
     histSel.clear(); renderHistory();
   };
@@ -824,7 +824,7 @@
     computeConflicts();
     const cls = c => /العنوان/.test(c) ? 'w-title' : /رابط/.test(c) ? 'w-link' : c === 'الكاتب' ? 'w-sm w-auto' : /الجنس|اليوم|الوقت|الدور/.test(c) ? 'w-sm' : '';
     $('#sheet').innerHTML = `<thead><tr><th class="n">#</th><th class="act">عرض / نسخ</th>${GCOLS.map(c => `<th class="${/^عضو/.test(c) ? 'mem' : ''}">${c}</th>`).join('')}</tr></thead>
-      <tbody>${grid.map((r, i) => hideRow(r, i) ? '' : `${(b => b ? `<tr class="wk-sep"><td colspan="${GCOLS.length + 2}"><span>🌙 إجازة أسبوعية</span> الجمعة ${b.fri} · السبت ${b.sat}${b.gap ? ` <small>(بعدها ${b.gap === 1 ? 'أسبوع' : b.gap + ' أسابيع'} بدون مناقشات)</small>` : ''}</td></tr>` : '')(weekBreak(i))}<tr data-r="${i}" class="${gridSel.has(i) ? 'sel' : ''} ${i === activeRow ? 'active' : ''} ${missingOf(r).length ? 'incomplete' : ''} ${isPast(r) ? 'past' : ''} ${conflicts.has(i) ? 'conflict' : ''}"><td class="n"><label><input type="checkbox" data-gsel ${gridSel.has(i) ? 'checked' : ''}>${i + 1}</label>${warnHtml(r)}${conflictHtml(i)}</td><td class="act"><button data-view title="عرض في التصميم">👁</button><button data-dup title="تكرار السطر (نفس اللجنة لطالب آخر)">⧉</button><button data-log title="سجل التعديلات: مين أضافها ومين عدّلها ومتى">🕘</button><button data-msg="invite" class="msg-b" title="نسخ رسالة الدعوة">دعوة</button><button data-wa="invite" class="wa-i" title="إرسال الدعوة بالواتساب">💬</button><button data-msg="record" class="msg-b ${r[GCOLS.indexOf('رابط التسجيل')] ? 'has' : ''}" title="نسخ رسالة التسجيل">تسجيل</button><button data-wa="record" class="wa-i" title="إرسال التسجيل بالواتساب">💬</button></td>${
+      <tbody>${grid.map((r, i) => hideRow(r, i) ? '' : `${(b => b ? `<tr class="wk-sep"><td colspan="${GCOLS.length + 2}"><span>🌙 إجازة أسبوعية</span> الجمعة ${b.fri} · السبت ${b.sat}${b.gap ? ` <small>(بعدها ${b.gap === 1 ? 'أسبوع' : QN.week(b.gap)} بدون مناقشات)</small>` : ''}</td></tr>` : '')(weekBreak(i))}<tr data-r="${i}" class="${gridSel.has(i) ? 'sel' : ''} ${i === activeRow ? 'active' : ''} ${missingOf(r).length ? 'incomplete' : ''} ${isPast(r) ? 'past' : ''} ${conflicts.has(i) ? 'conflict' : ''}"><td class="n"><label><input type="checkbox" data-gsel ${gridSel.has(i) ? 'checked' : ''}>${i + 1}</label>${warnHtml(r)}${conflictHtml(i)}</td><td class="act"><button data-view title="عرض في التصميم">👁</button><button data-dup title="تكرار السطر (نفس اللجنة لطالب آخر)">⧉</button><button data-log title="سجل التعديلات: مين أضافها ومين عدّلها ومتى">🕘</button><button data-msg="invite" class="msg-b" title="نسخ رسالة الدعوة">دعوة</button><button data-wa="invite" class="wa-i" title="إرسال الدعوة بالواتساب">💬</button><button data-msg="record" class="msg-b ${r[GCOLS.indexOf('رابط التسجيل')] ? 'has' : ''}" title="نسخ رسالة التسجيل">تسجيل</button><button data-wa="record" class="wa-i" title="إرسال التسجيل بالواتساب">💬</button></td>${
         GCOLS.map((c, j) => `<td><input type="text" class="${cls(c)}" data-c="${j}" value="${esc(r[j] || '')}"${pickOf(c) ? ` inputmode="none" data-pick="${pickOf(c)}"` : ''}${c === 'الكاتب' ? ' readonly tabindex="-1" title="يتعبّى تلقائياً باسم المستخدم اللي كتب السطر أو عدّله آخر مرة"' : ''}${c === 'رابط البث' ? ' dir="ltr" placeholder="يوتيوب (افتراضي)"' : c === 'رابط اللجنة' ? ' dir="ltr" placeholder="زوم (اختياري)"' : c === 'رابط التسجيل' ? ' dir="ltr" placeholder="بعد المناقشة"' : ''}></td>`).join('')}</tr>`).join('')}</tbody>`;
     updateGridInfo(); pastBtn(); try { if (presence.length) paintPresence(); } catch (e) { /* قبل التهيئة */ }
     // الجوال: أول ما ينفتح الجدول يتحرك أفقياً لين تبان خانة «الطالب» في سطر الإضافة (بدل ما تكون برّا الشاشة)
@@ -836,7 +836,7 @@
     }
     { const nr = $('#sheet tr[data-r="0"]'), si = nr && nr.querySelector(`input[data-c="${GCOLS.indexOf('الطالب')}"]`);
       if (nr && isEmptyRow(grid[0])) { nr.classList.add('newrow'); if (si) si.placeholder = '✏️ مناقشة جديدة: اكتب اسم الطالب هنا'; } }
-    const b = $('#gConflicts'); if (b) { b.hidden = !conflicts.size; b.textContent = `🔴 ${conflicts.size} سطر فيه تعارض`; }
+    const b = $('#gConflicts'); if (b) { b.hidden = !conflicts.size; b.textContent = `🔴 ${QN.row(conflicts.size)} ${conflicts.size === 1 ? 'فيه' : 'فيها'} تعارض`; }
     formConflictCheck();
   }
   let activeRow = -1, rowSnap = null;
@@ -951,7 +951,7 @@
     });
     const rowsWith = conflicts.size;
     const b = $('#gConflicts');
-    if (b) { b.hidden = !rowsWith; b.textContent = `🔴 ${rowsWith} سطر فيه تعارض`; }
+    if (b) { b.hidden = !rowsWith; b.textContent = `🔴 ${QN.row(rowsWith)} ${rowsWith === 1 ? 'فيه' : 'فيها'} تعارض`; }
     formConflictCheck();
   }
   let confT;
@@ -1020,7 +1020,10 @@
     const r = +e.target.closest('tr').dataset.r;
     if (isEmptyRow(grid[r])) return toast('هذا السطر فاضي', true);
     const data = parseRow(gridToObj(grid[r]));
+    // عرض سطر = تصميم مستقل مرتبط بالسطر: نفك الارتباط بنسخة السجل اللي كانت مفتوحة حتى ما ينكتب السطر الجديد فوقها
+    clearTimeout(histAutoT); setEditing(null);
     state = applyRow(state, data); activeRow = r;
+    $('#editingLabel').textContent = `يعرض سطر الجدول: ${data.student || 'السطر ' + (r + 1)}`;
     rowSnap = gridOfState();
     $$('#sheet tbody tr').forEach(tr => tr.classList.toggle('active', +tr.dataset.r === r));
     fillForm(); changed();
@@ -1089,7 +1092,7 @@
       stamp(grid[r]);
     });
     renderGrid(); gridChanged(); autoSort();
-    toast(asNew ? `✓ أُضيفت أسطر جديدة أول الجدول (${data.length}) — وما انكتب فوق المناقشات الموجودة` : `تم لصق ${data.length} سطر ✓`);
+    toast(asNew ? `✓ أُضيفت أسطر جديدة أول الجدول (${data.length}) — وما انكتب فوق المناقشات الموجودة` : `تم لصق ${QN.row(data.length)} ✓`);
   });
   $('#sheet').addEventListener('keydown', e => {
     const inp = e.target; if (inp.dataset.c == null) return;
@@ -1206,6 +1209,7 @@
     const r = $('#dataSheet').getBoundingClientRect();
     if (r.top > innerHeight * 0.6 || r.bottom < 120) $('#dataSheet').scrollIntoView({ behavior: 'smooth', block: 'start' });
     w.scrollTo({ top: end ? w.scrollHeight : 0, left: 0, behavior: 'smooth' });
+    if (end) { let k = 0; const again = () => { if (++k > 6) return; if (w.scrollTop + w.clientHeight < w.scrollHeight - 4) w.scrollTo({ top: w.scrollHeight, left: 0 }); setTimeout(again, 500); }; setTimeout(again, 700); }
     if (tr) { tr.classList.add('flash'); setTimeout(() => tr.classList.remove('flash'), 1600); }
   }
   $('#gTop').onclick = () => jumpGrid(false); $('#gBottom').onclick = () => jumpGrid(true);
@@ -1311,7 +1315,7 @@
     const at = Date.now(); writeTrash([...readTrash(), ...rows.map(r => ({ r: r.slice(), at, why, by: session.u }))]); return rows.length;
   }
   writeTrash(readTrash());
-  const ago = t => { const m = Math.round((Date.now() - t) / 6e4); return m < 1 ? 'الآن' : m < 60 ? `قبل ${m} دقيقة` : m < 1440 ? `قبل ${Math.round(m / 60)} ساعة` : new Date(t).toLocaleDateString('ar-SA-u-ca-islamic-umalqura'); };
+  const ago = t => { const m = Math.round((Date.now() - t) / 6e4); return m < 1 ? 'الآن' : m < 60 ? `قبل ${QN.min(m)}` : m < 1440 ? `قبل ${QN.hour(Math.round(m / 60))}` : new Date(t).toLocaleDateString('ar-SA-u-ca-islamic-umalqura'); };
   function renderTrash() {
     const t = readTrash(), q = nrm($('#trashSearch').value);
     const list = t.map((x, i) => ({ x, i })).reverse().filter(({ x }) => !q || nrm(x.r.join(' ')).includes(q));
@@ -1393,7 +1397,7 @@
     try {
       const { backups } = await capi('backups');
       box.innerHTML = backups.length ? backups.map(b => `<div class="trash-it"><span><b>${b.kind === 'day' ? '📅 نسخة يومية' : '🛡️ ' + esc(b.note || 'نسخة قبل عملية')}</b><br>
-        <small class="hint">${new Date(b.at).toLocaleString('ar-SA-u-ca-islamic-umalqura', { dateStyle: 'medium', timeStyle: 'short' })} · ${b.rows} مناقشة · ${b.seminars} ندوة${b.by ? ' · ' + esc(b.by) : ''}</small></span>
+        <small class="hint">${new Date(b.at).toLocaleString('ar-SA-u-ca-islamic-umalqura', { dateStyle: 'medium', timeStyle: 'short' })} · ${QN.def(b.rows)} · ${QN.sem(b.seminars)}${b.by ? ' · ' + esc(b.by) : ''}</small></span>
         <span style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn sm" data-bkdl="${esc(b.key)}">⬇️ تنزيل</button><button class="btn sm danger" data-bkrestore="${esc(b.key)}">↩️ استرجاع</button></span></div>`).join('')
         : '<p class="hint">أول نسخة تنحفظ تلقائياً مع أول تعديل اليوم.</p>';
     } catch (e) { box.innerHTML = `<p class="hint">${esc(e.message)}</p>`; }
@@ -1411,7 +1415,7 @@
       const w = prompt('الاسترجاع يرجّع كل المناقشات والندوات لوضع هذي النسخة عند كل الموظفين.\n(الوضع الحالي ينحفظ قبلها كنسخة، فتقدر ترجع له)\nللتأكيد اكتب كلمة: استرجاع');
       if ((w || '').trim() !== 'استرجاع') return toast('ما صار استرجاع');
       try { const r = await capi('backups/restore', { method: 'POST', body: JSON.stringify({ key: rs.dataset.bkrestore }) });
-        toast(`✓ رجعت النسخة: ${r.rows} مناقشة و${r.seminars} ندوة — تتحدث الصفحة الحين`); setTimeout(() => location.reload(), 1800);
+        toast(`✓ رجعت النسخة: ${QN.def(r.rows)} و${QN.sem(r.seminars)} — تتحدث الصفحة الحين`); setTimeout(() => location.reload(), 1800);
       } catch (err) { toast(err.message, true); }
     }
   });
@@ -1420,27 +1424,27 @@
   $('#trashRestore').onclick = () => {
     const sel = new Set(trashSel()); if (!sel.size) return toast('حدد الأسطر اللي تبي ترجعها', true);
     const t = readTrash(), back = t.filter((_, i) => sel.has(i)).map(x => x.r);
-    gridSnap(`استرجاع ${back.length} سطر`);
+    gridSnap(`استرجاع ${QN.row(back.length)}`);
     const have = new Set(grid.map(r => JSON.stringify(r))); // بدون تكرار: لا مع الجدول ولا بين الأسطر المسترجعة
     const add = back.filter(r => { const k = JSON.stringify(r); if (have.has(k)) return false; have.add(k); return true; });
     grid = sortRows([...grid, ...add]);
     writeTrash(t.filter((_, i) => !sel.has(i)));
     gridSel.clear(); activeRow = -1; renderGrid(); gridChanged(); renderTrash();
-    toast(`↩️ رجع ${add.length} سطر للجدول بمكانه بالترتيب${back.length > add.length ? ` (${back.length - add.length} مكررة ما انضافت)` : ''}`);
+    toast(`↩️ رجع ${QN.row(add.length)} للجدول بمكانه بالترتيب${back.length > add.length ? ` (${back.length - add.length} مكررة ما انضافت)` : ''}`);
   };
   $('#trashPurge').onclick = () => {
     const sel = new Set(trashSel()); if (!sel.size) return toast('حدد الأسطر أولاً', true);
-    if (!confirm(`حذف ${sel.size} سطر نهائياً؟ ما يمكن ترجيعها بعدها.`)) return;
+    if (!confirm(`حذف ${QN.row(sel.size)} نهائياً؟ ما يمكن ترجيعها بعدها.`)) return;
     writeTrash(readTrash().filter((_, i) => !sel.has(i))); renderTrash();
   };
 
   $('#gDel').onclick = () => {
     if (!gridSel.size) return toast('حدد الصفوف من المربعات بجانب الأرقام', true);
-    if (!confirm(`حذف ${gridSel.size} سطر؟ (تقدر ترجعها من «المحذوفات» أو «تراجع»)`)) return;
-    gridSnap(`حذف ${gridSel.size} سطر`);
+    if (!confirm(`حذف ${QN.row(gridSel.size)}؟ (تقدر ترجعها من «المحذوفات» أو «تراجع»)`)) return;
+    gridSnap(`حذف ${QN.row(gridSel.size)}`);
     const n = toTrash(grid.filter((_, i) => gridSel.has(i)), 'حذف');
     grid = grid.filter((_, i) => !gridSel.has(i)); gridSel.clear(); activeRow = -1; renderGrid(); gridChanged();
-    toast(`🗑️ حُذف ${n} سطر — محفوظة في «المحذوفات»`, false, { label: '↶ تراجع', fn: gridUndo });
+    toast(`🗑️ حُذف ${QN.row(n)} — محفوظة في «المحذوفات»`, false, { label: '↶ تراجع', fn: gridUndo });
   };
   $('#gClear').onclick = () => {
     if (session.role !== 'super') return toast('«مسح الكل» للمدير العام فقط — لحذف مناقشة حدّدها واضغط «حذف المحدد»', true);
@@ -1449,7 +1453,7 @@
     gridSnap('مسح الكل');
     const n = toTrash(grid, 'مسح الكل');
     grid = []; gridSel.clear(); activeRow = -1; renderGrid(); gridChanged();
-    toast(`🧹 انمسح الجدول (${n} سطر محفوظة في «المحذوفات»)`, false, { label: '↶ تراجع', fn: gridUndo });
+    toast(`🧹 انمسح الجدول (${QN.row(n)} محفوظة في «المحذوفات»)`, false, { label: '↶ تراجع', fn: gridUndo });
   };
   $('#gExport').onclick = () => {
     const ws = XLSX.utils.aoa_to_sheet(exportAoa());
@@ -2157,10 +2161,9 @@
 
   // ---------- دليل الاستخدام ----------
   $('#btnHelp').onclick = () => openModal('#mHelp');
-  if (!localStorage.getItem(userKey('helpSeen'))) {
-    setTimeout(() => openModal('#mHelp'), 800);
-    try { localStorage.setItem(userKey('helpSeen'), '1'); } catch (e) { /* اختياري */ }
-  }
+  // أول دخول: تطلع «الجولة السريعة» بس (نافذتين فوق بعض تربك)، والدليل من زره وفيه زر يعيد الجولة
+  try { localStorage.setItem(userKey('helpSeen'), '1'); } catch (e) { /* اختياري */ }
+  { const t = $('#btnTourAgain'); if (t) t.onclick = () => { $('#mHelp').classList.remove('open'); if (window.QTour) QTour(); }; }
 
 
   // ---------- رسائل واتساب: الدعوة والتسجيل ----------

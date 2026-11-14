@@ -260,7 +260,7 @@
     if (!rowsView.length) { const tr = el('tr'); const td = el('td', null, q ? 'لا نتائج للبحث' : 'لا توجد ندوات بعد. اضغط «➕ ندوة».'); td.colSpan = GCOLS.length + 3; tr.appendChild(td); tb.appendChild(tr); }
     T.appendChild(tb);
     $('#gridCount').textContent = `(${all.length})`;
-    const b = $('#gConflicts'); b.hidden = !nConf; b.textContent = `🔴 ${nConf} سطر فيه تعارض`;
+    const b = $('#gConflicts'); b.hidden = !nConf; b.textContent = `🔴 ${QN.row(nConf)} ${nConf === 1 ? 'فيه' : 'فيها'} تعارض`;
     updSel();
   }
   function updSel() {
@@ -376,7 +376,7 @@
   }
   function delSelected() {
     if (!gridSel.size) return toast('حدد الأسطر أولاً من مربعات الجدول', true);
-    if (!confirm(`حذف ${gridSel.size} ندوة؟ تُحذف من الجميع بعد النشر.`)) return;
+    if (!confirm(`حذف ${QN.sem(gridSel.size)}؟ تنحذف من عند الجميع ومن البث.`)) return;
     gridSel.forEach(id => { delete local.items[id]; if (published.seminars.some(x => x.id === id) && !local.deleted.includes(id)) local.deleted.push(id); });
     if (current && gridSel.has(current.id)) current = blank();
     gridSel.clear(); saveLocal(); openSem(current || blank()); renderPub();
@@ -426,8 +426,8 @@
     const inner = el('div', 'qs-inner');
     const logo = el('img', 'qs-logo'); logo.src = LOGO; logo.alt = ''; inner.appendChild(logo);
     inner.appendChild(el('div', 'qs-pill', `تُقيم ${s.organizer || 'كلية الشريعة'}`));
-    inner.appendChild(el('p', 'qs-kicker', 'ندوة علمية بعنوان'));
-    inner.appendChild(el('h1', 'qs-title', s.title || 'عنوان الندوة'));
+    inner.appendChild(el('p', 'qs-kicker', `${s.series || 'ندوة'} بعنوان`));
+    inner.appendChild(el('h1', 'qs-title', s.title ? quoted(s.title) : 'عنوان الندوة'));
     if (s.subtitle) inner.appendChild(el('p', 'qs-sub', s.subtitle));
     if (STATUS_AR[s.status]) inner.appendChild(el('div', 'qs-status ' + s.status, STATUS_AR[s.status]));
     const speakers = s.participants.filter(isSpeaker);
@@ -438,13 +438,13 @@
         const r = el('div', 'qs-person');
         r.appendChild(el('div', 'n', p.name));
         const tm = [t12(p.start), t12(p.end)].filter(Boolean).join(' – ');
-        r.appendChild(el('div', 'tm', tm || p.role));
+        if (tm) r.appendChild(el('div', 'tm', tm));
         const sub = [p.title, tm ? p.role : ''].filter(Boolean).join(' — ');
         if (sub) r.appendChild(el('div', 'r', sub));
         if (p.topic) r.appendChild(el('div', 'tp', p.topic));
         box.appendChild(r);
       });
-      if (speakers.length > max) box.appendChild(el('div', 'qs-person qw-more', `و${speakers.length - max} متحدثين آخرين`));
+      if (speakers.length > max) box.appendChild(el('div', 'qs-person qw-more', `و${QPlural(speakers.length - max, 'متحدث آخر', 'متحدثان آخران', 'متحدثين آخرين', 'متحدثاً آخر')}`));
       inner.appendChild(box);
     }
     const facts = el('div', 'qs-facts');
@@ -490,7 +490,7 @@
       if (p.title) r.appendChild(el('div', 'r', p.title));
       box.appendChild(r);
     });
-    if (speakers.length > n) box.appendChild(el('div', 'qs-person qw-more', `و${speakers.length - n} متحدثين آخرين`));
+    if (speakers.length > n) box.appendChild(el('div', 'qs-person qw-more', `و${QPlural(speakers.length - n, 'متحدث آخر', 'متحدثان آخران', 'متحدثين آخرين', 'متحدثاً آخر')}`));
     return box;
   }
   // يصغّر خط العنوان حتى يتسع العمود، ثم يقلل المتحدثين؛ ويعلّم الإعلان إذا بقي شيء لا يتسع
@@ -577,6 +577,12 @@
     pin: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="10" r="2.6"/></svg>',
     clock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
   };
+  function timeCell(p, cls, tag) {
+    const d = el(tag || 'div', cls), a = t12s(p.start).replace(/^0/, ''), b = t12s(p.end).replace(/^0/, '');
+    if (!a && !b) d.classList.add('none');
+    const box = el('span', 'tm'); [a, b].filter(Boolean).forEach(t => { const x = el('bdi', null, t); x.dir = 'rtl'; box.appendChild(x); });
+    d.appendChild(box); return d;
+  }
   const timeRange = (p) => { const a = t12s(p.start), b = t12s(p.end); return a && b ? `${a} - ${b}` : (a || b); };
   function t12s(hm) { if (!/^\d{1,2}:\d{2}$/.test(hm || '')) return ''; let [h, m] = hm.split(':').map(Number); const suf = h < 12 ? 'ص' : 'م'; h = h % 12 || 12; return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')} ${suf}`; }
   function hijriLong(iso) { try { return new Intl.DateTimeFormat('ar-SA-u-ca-islamic-umalqura-nu-latn', { day: '2-digit', month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(iso + 'T12:00:00Z')).replace(/[\u200e\u200f]/g, '').replace(/\s*هـ$/, '') + 'هـ'; } catch (e) { return ''; } }
@@ -641,17 +647,17 @@
       } else if (p.kind === 'paper') {
         row.appendChild(el('div', 'qc qc-topic', p.topic || '—'));
         const c = el('div', 'qc qc-person'); c.appendChild(person(p.name, p.title)); row.appendChild(c);
-        row.appendChild(el('div', 'qc qc-time', timeRange(p)));
+        row.appendChild(timeCell(p, 'qc qc-time'));
       } else if (p.kind === 'opening') {
         row.appendChild(el('div', 'qc qc-grad', p.topic || 'الافتتاح'));
         const c = el('div', 'qc qc-person'); if (p.name) c.appendChild(person(p.name, p.title)); row.appendChild(c);
-        row.appendChild(el('div', 'qc qc-time', timeRange(p)));
+        row.appendChild(timeCell(p, 'qc qc-time'));
       } else if (p.kind === 'discussion') {
         row.appendChild(el('div', 'qc qc-wide', p.topic || 'المداخلات والتعقيبات'));
-        row.appendChild(el('div', 'qc qc-time', timeRange(p)));
+        row.appendChild(timeCell(p, 'qc qc-time'));
       } else { // break / closing
         row.appendChild(el('div', 'qc qc-grad qc-wide', p.topic || KINDS[p.kind].topic));
-        row.appendChild(el('div', 'qc qc-grad qc-time', timeRange(p)));
+        row.appendChild(timeCell(p, 'qc qc-grad qc-time'));
       }
       band.appendChild(row);
     }
@@ -659,9 +665,10 @@
 
   function renderTable(band, items) {
     let table = null, n = 0;
+    const hasSpec = items.some(p => p.kind === 'paper' && p.specialty);
     const newTable = () => {
-      table = el('table', 'qt');
-      const tr = el('tr'); ['م', 'عنوان الورقة البحثية', 'الأستاذ الملقي', 'التخصص', 'الوقت'].forEach(h => tr.appendChild(el('th', null, h)));
+      table = el('table', 'qt' + (hasSpec ? '' : ' nospec'));
+      const tr = el('tr'); ['م', 'عنوان الورقة البحثية', 'الأستاذ الملقي', hasSpec ? 'التخصص' : null, 'الوقت'].filter(Boolean).forEach(h => tr.appendChild(el('th', null, h)));
       const th = el('thead'); th.appendChild(tr); table.appendChild(th); table.appendChild(el('tbody'));
       band.appendChild(table); n = 0;
     };
@@ -675,7 +682,7 @@
       if (!table && p.kind !== 'paper') {          // افتتاح/استراحة/ختام خارج الجداول: شريط مستقل
         const row = el('div', 'qc-row qt-bar');
         row.appendChild(el('div', 'qc qc-grad qc-wide', [p.topic || KINDS[p.kind].topic, p.kind === 'opening' && p.name ? '— ' + p.name : ''].filter(Boolean).join(' ')));
-        row.appendChild(el('div', 'qc qc-time' + (p.kind === 'discussion' ? '' : ' qc-grad'), timeRange(p)));
+        row.appendChild(timeCell(p, 'qc qc-time' + (p.kind === 'discussion' ? '' : ' qc-grad')));
         band.appendChild(row); continue;
       }
       if (!table) newTable();
@@ -684,13 +691,13 @@
         n++; const num = el('td', 'qt-n'); num.appendChild(el('span', null, n)); tr.appendChild(num);
         tr.appendChild(el('td', 'qt-topic', p.topic));
         const c = el('td'); c.appendChild(person(p.name, p.title)); tr.appendChild(c);
-        tr.appendChild(el('td', 'qt-spec', p.specialty || ''));
+        if (hasSpec) tr.appendChild(el('td', 'qt-spec', p.specialty || ''));
       } else {
-        const td = el('td', 'qt-span'); td.colSpan = 4;
+        const td = el('td', 'qt-span'); td.colSpan = hasSpec ? 4 : 3;
         td.textContent = [p.topic || KINDS[p.kind].topic, p.kind === 'opening' && p.name ? '— ' + p.name : ''].filter(Boolean).join(' ');
         tr.appendChild(td);
       }
-      tr.appendChild(el('td', 'qt-time', timeRange(p)));
+      tr.appendChild(timeCell(p, 'qt-time', 'td'));
       table.querySelector('tbody').appendChild(tr);
     }
   }
@@ -728,8 +735,7 @@
 
   // ---------- التحميل والمشاركة (مثل صفحة المناقشات: مربعات مقاسات، وأكثر من 3 ملفات تنزل في ملف مضغوط) ----------
   const FMTS_KEY = 'qu_sem_fmts';
-  let defaultFmts = ['programme'];
-  try { const saved = JSON.parse(localStorage.getItem(FMTS_KEY)); if (Array.isArray(saved) && saved.length) defaultFmts = saved; } catch (e) { /* افتراضي */ }
+  const defaultFmts = ['programme'];   // الافتراضي دايماً التصميم الأصلي (برنامج الندوة) — مثل «الإعلان الرسمي» في المناقشات
   {
     const box = $('#exportFormats');
     SFMTS.forEach(f => {
@@ -737,7 +743,12 @@
       const sp = el('span', null, f.name); sp.appendChild(el('small', null, f.h ? `${f.w}×${f.h}` : 'الطول حسب المحتوى'));
       lb.appendChild(cb); lb.appendChild(sp); box.appendChild(lb);
     });
-    box.addEventListener('change', () => { try { localStorage.setItem(FMTS_KEY, JSON.stringify($$('#exportFormats input:checked').map(i => i.value))); } catch (e) { /* اختياري */ } });
+    box.addEventListener('change', e => {
+      try { localStorage.setItem(FMTS_KEY, JSON.stringify($$('#exportFormats input:checked').map(i => i.value))); } catch (err) { /* اختياري */ }
+      // حددت مقاساً للتحميل: المعاينة تتحول له (فالمشاركة والنسخ تطلع بنفس المقاس)
+      const t = e.target; if (t && t.checked) pickSize(t.value, false);
+      else { const first = $('#exportFormats input:checked'); if (first) pickSize(first.value, false); }
+    });
     const pf = $('#previewFormats'); pf.textContent = '';
     SFMTS.forEach(f => { const b = el('button', 'chip' + (f.id === size ? ' active' : ''), fmtLabel(f)); b.type = 'button'; b.dataset.size = f.id; pf.appendChild(b); });
   }
@@ -1071,7 +1082,14 @@
   };
   $('#linkDefault').onclick = () => { $('#f_link').value = YT; readForm(true); };
   // المعاينة
-  $$('#previewFormats [data-size]').forEach(b => b.onclick = () => { $$('#previewFormats [data-size]').forEach(x => x.classList.toggle('active', x === b)); size = b.dataset.size; renderPoster(); });
+  // من «المعاينة»: يصير هو المقاس المحدد للتحميل (تقدر تضيف غيره من قسم التحميل)
+  function pickSize(id, syncExport) {
+    const b = $(`#previewFormats [data-size="${id}"]`); if (!b) return;
+    $$('#previewFormats [data-size]').forEach(x => x.classList.toggle('active', x === b)); size = id;
+    if (syncExport) { $$('#exportFormats input').forEach(i => { i.checked = i.value === id; }); try { localStorage.setItem(FMTS_KEY, JSON.stringify([id])); } catch (e) { /* اختياري */ } }
+    renderPoster();
+  }
+  $$('#previewFormats [data-size]').forEach(b => b.onclick = () => pickSize(b.dataset.size, true));
   $('#stage').onclick = zoom;
   // التحميل والمشاركة
   $('#exCurrent').onclick = downloadCurrent;
@@ -1114,7 +1132,14 @@
     });
   }
   openSem(blank());
-  refreshPublished();
+  // أول ما تفتح الصفحة: أقرب ندوة جاية (أو آخر ندوة) بدل إعلان فاضي — مثل المناقشات اللي تفتح على تصميم مليان
+  refreshPublished().then(() => {
+    const c = clean(current || blank()); if (c.title || c.date || c.participants.length) return;   // الموظف بدأ يكتب: لا نغيّر عليه
+    const all = merged().filter(x => x.date && x.status !== 'cancelled'); if (!all.length) return;
+    const t = todayIso(), key = x => x.date + ' ' + (x.start || '');
+    const up = all.filter(x => x.date >= t).sort((a, b) => key(a).localeCompare(key(b)));
+    openSem(up[0] || all.sort((a, b) => key(b).localeCompare(key(a)))[0]);
+  });
   // «📅 مشاركة صور الأسبوع» (assets/js/week.js): ندوات هذا القسم فقط، ببرنامج الندوة (تصميمها الأصلي)
   if (window.QWeek) QWeek({
     button: $('#btnWeek'), noun: 'ندوة', heading: 'كل ندوة ببرنامجها (التصميم الأصلي)',
@@ -1128,6 +1153,6 @@
       });
     },
     blob: async x => { const s = merged().find(y => y.id === x.id); const { canvas } = await capture(clean(s), fmtOf('programme'), 2); return toBlob(canvas, 'image/png'); },
-    name: x => `ندوة-${String(x.title || 'ندوة').replace(/[\\/:*?"<>|]+/g, '-').slice(0, 80)}.png`,
+    name: x => { const t = String(x.title || 'ندوة').replace(/[\\/:*?"<>|]+/g, '-').slice(0, 80); return `${/^ندوة/.test(t) ? '' : 'ندوة-'}${t}.png`; },
   });
 })();

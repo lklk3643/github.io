@@ -80,7 +80,7 @@
 .qp-table td { background: color-mix(in srgb, var(--l) 70%, #fff); color: #173f41; font-size: 27px; font-weight: 500; }
 .qp-table td.qp-c-name { text-align: right; }
 .qp-table th:nth-child(1) { width: 36%; } .qp-table th:nth-child(2) { width: 40%; } .qp-table th:nth-child(3) { width: 24%; }
-.qp-table td { white-space: normal; }
+.qp-table td { white-space: normal; text-wrap: balance; }
 
 /* المعلومات */
 .qp-info { display: flex; align-items: center; justify-content: space-around; gap: 12px; padding: 14px 26px;
@@ -91,8 +91,8 @@
 .qp-info-text { display: flex; flex-direction: column; font-size: 29px; font-weight: 600; line-height: 1.35; color: #12393b; }
 .qp-info-text span { font-size: 25px; font-weight: 500; }
 .qp-sep { width: 2px; align-self: stretch; background: color-mix(in srgb, var(--l) 60%, #b9cfce); margin: 6px 0; }
-.qp-qr .qr-wrap { width: 150px; height: 150px; background: #fff; padding: 6px; border-radius: 10px; flex: none; }
-.qp[data-layout="wide"] .qp-qr .qr-wrap, .qp[data-layout="banner"] .qp-qr .qr-wrap { width: 170px; height: 170px; }
+.qp-qr .qr-wrap { width: 168px; height: 168px; background: #fff; padding: 6px; border-radius: 10px; flex: none; }
+.qp[data-layout="wide"] .qp-qr .qr-wrap, .qp[data-layout="banner"] .qp-qr .qr-wrap { width: 200px; height: 200px; }
 /* المقاسات الطولية (ستوري، A4، منشور، مربع): العرض ما يكفي أربع خانات بسطر واحد، فكان «9 صباحاً» و«امسح للبث» ينكسرون.
    صفّين: اليوم | الوقت | المكان، وتحتها الباركود وعبارته في سطر واحد بالوسط */
 .qp[data-layout="tall"] .qp-info { display: grid; grid-template-columns: auto 2px auto 2px minmax(0, 1fr); column-gap: 22px; row-gap: 14px;
@@ -105,7 +105,7 @@
 .qp[data-layout="tall"] .qp-info > .qp-sep:nth-child(6) { display: none; }
 .qp[data-layout="tall"] .qp-qr { grid-column: 1 / -1; justify-content: center; gap: 22px; padding-top: 14px;
   border-top: 2px solid color-mix(in srgb, var(--l) 60%, #b9cfce); }
-.qp[data-layout="tall"] .qp-qr .qr-wrap { width: 132px; height: 132px; }
+.qp[data-layout="tall"] .qp-qr .qr-wrap { width: 160px; height: 160px; }
 .qp[data-layout="tall"] .qp-qr .qp-info-text { flex-direction: row; align-items: baseline; gap: 10px; }
 
 /* التذييل */

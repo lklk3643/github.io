@@ -7,6 +7,10 @@
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const hfmt = d => new Intl.DateTimeFormat('ar-SA-u-ca-islamic-umalqura', { day: 'numeric', month: 'long' }).format(d);
   const sleep = t => new Promise(r => setTimeout(r, t));
+  // العدد بالعربي الصحيح: مناقشة واحدة، مناقشتان، 3–10 مناقشات، 11+ مناقشة
+  const FORMS = { 'مناقشة': ['مناقشة واحدة', 'مناقشتان', 'مناقشات'], 'ندوة': ['ندوة واحدة', 'ندوتان', 'ندوات'] };
+  let NOUN = 'مناقشة';
+  const count = n => { const f = FORMS[NOUN] || [NOUN, NOUN, NOUN]; return n === 1 ? f[0] : n === 2 ? f[1] : n <= 10 ? `${n} ${f[2]}` : `${n} ${NOUN}`; };
   function thisWeek() {
     const t = new Date(), d = new Date(Date.UTC(t.getFullYear(), t.getMonth(), t.getDate()));
     const wd = d.getUTCDay(); d.setUTCDate(d.getUTCDate() - wd + (wd >= 5 ? 7 : 0)); return d;
@@ -24,11 +28,11 @@
   }
 
   window.QWeek = function (cfg) {
-    const ui = cfg.ui || {};
+    const ui = cfg.ui || {}; NOUN = cfg.noun || NOUN;
     const toast = ui.toast || ((m) => alert(m)), show = ui.busy || (() => {}), hide = ui.done || (() => {});
     const m = document.createElement('div'); m.className = 'modal'; m.id = 'mWeek';
     m.innerHTML = `<div class="box" style="width:min(760px,100%)">
-      <h2>📅 مشاركة صور الإعلانات لهذا الأسبوع <span class="hint wk-count"></span> <button class="btn sm" data-close>✕</button></h2>
+      <h2>📅 مشاركة صور الإعلانات لهذا الأسبوع <span class="hint wk-count" style="white-space:nowrap"></span> <button class="btn sm" data-close>✕</button></h2>
       <div class="hbar" style="align-items:center"><button class="btn sm" data-wknav="-1">▶ السابق</button>
         <b class="wk-range" style="flex:1;text-align:center"></b><button class="btn sm" data-wknav="1">الجاي ◀</button></div>
       <div class="week-acts">
@@ -54,7 +58,7 @@
         <span><b>${esc(x.title)}</b>${x.sub ? ' — ' + esc(x.sub) : ''}<br><small class="hint">${esc(x.line || '')}</small></span>
         <span style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn sm" data-wkcopy="${k}">📋 نسخ</button><button class="btn sm" data-wkdl="${k}">⬇️</button></span></div>`).join('')
         : `<p class="hint">ما فيه ${cfg.noun === 'ندوة' ? 'ندوات' : 'مناقشات'} مسجلة في هذا الأسبوع.</p>`;
-      $('.wk-count').textContent = items.length ? `(${items.length} ${cfg.noun})` : '';
+      $('.wk-count').textContent = items.length ? `(${count(items.length)})` : '';
     }
     const blobOf = async x => (x._blob = x._blob || await cfg.blob(x));
     const selected = () => items.filter((x, k) => { const c = m.querySelector(`[data-wk="${k}"]`); return c && c.checked; });

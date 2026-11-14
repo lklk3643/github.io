@@ -239,7 +239,15 @@
           s -= 0.5; d.style.fontSize = s + 'px'; d.style.lineHeight = (lh0 * s / s0) + 'px';
         }
       } else {
-        while (d.scrollWidth > d.clientWidth + 1 && s > 9) { s -= 0.5; d.style.fontSize = s + 'px'; }
+        // نصغّر شوي بس (حتى 82%)؛ وإذا ما كفى نكسره سطرين بخط قريب من الأصل بدل ما يصغر لين ما ينقرأ (المكان الطويل، الصفة الطويلة)
+        const s0 = s;
+        while (d.scrollWidth > d.clientWidth + 1 && s > s0 * 0.82) { s -= 0.5; d.style.fontSize = s + 'px'; }
+        if (d.scrollWidth > d.clientWidth + 1) {
+          s = s0 * 0.92; d.style.fontSize = s + 'px';
+          d.style.whiteSpace = 'normal'; d.style.lineHeight = '1.08'; d.style.textWrap = 'balance';
+          d.style.textAlign = d.style.justifyContent === 'center' ? 'center' : 'start';
+          while ((d.scrollHeight > d.clientHeight + 1 || d.scrollWidth > d.clientWidth + 1) && s > 9) { s -= 0.5; d.style.fontSize = s + 'px'; }
+        }
       }
     });
     return 1;

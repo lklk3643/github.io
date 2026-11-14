@@ -28,7 +28,8 @@
   });
   top.insertAdjacentElement('afterend', sec);
   // شريط الأقسام يلتصق تحت الشريط العلوي مهما كان ارتفاعه (يتغير بين الجوال والآيباد والكمبيوتر)
-  const fixTop = () => document.documentElement.style.setProperty('--tb-h', top.offsetHeight + 'px');
+  // --sticky-h = الشريط العلوي + شريط الأقسام: كل تمرير لقسم (أزرار الجوال السفلية) يوقف تحتهم مو تحتهم مخفي
+  const fixTop = () => { const R = document.documentElement.style; R.setProperty('--tb-h', top.offsetHeight + 'px'); R.setProperty('--sticky-h', (top.offsetHeight + sec.offsetHeight) + 'px'); };
   fixTop(); addEventListener('resize', fixTop);
   if (window.ResizeObserver) new ResizeObserver(fixTop).observe(top);
 
