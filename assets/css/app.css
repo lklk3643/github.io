@@ -65,7 +65,7 @@
 html { background: var(--bg); }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
-html, body { margin: 0; height: 100%; }
+html, body { margin: 0; min-height: 100%; }   /* min-height لا height: حتى تنحسب المسافة تحت المحتوى (الجوال: ما يختفي آخر الجدول تحت الشريط السفلي) */
 body { background: var(--bg); color: var(--text); font-size: 14px; }
 button, input, select, textarea { font: inherit; color: inherit; }
 a { color: var(--brand); }
@@ -482,3 +482,28 @@ a.btn { text-decoration: none; }
 .chip.pres { background: #fff4d6; color: #7a5200; border-color: #f0c96a; }
 [data-theme="dark"] .chip.pres { background: #4a3a10; color: #ffe2a0; border-color: #7a5f20; }
 .tour-steps { margin: 6px 0 10px; padding-inline-start: 22px; line-height: 2; font-size: 15px; }
+
+/* الجوال: آخر الصفحة ما يختفي تحت شريط الأزرار السفلي — المسافة = طول الشريط الفعلي (--mnav-h يحسبها nav.js) + هامش */
+@media (max-width: 980px) {
+  body { padding-bottom: calc(var(--mnav-h, 76px) + 28px) !important; }
+  .ds-outer { padding-bottom: 28px; }
+  .toast { bottom: calc(var(--mnav-h, 76px) + 12px); }
+  .grid-jump { bottom: calc(var(--mnav-h, 76px) + 14px); }
+}
+@media (max-width: 760px) {
+  /* الجدول بارتفاع الشاشة ناقص الشريط العلوي والسفلي: يتمرر داخله، والصفحة تتمرر حوله */
+  .gridwrap { max-height: calc(100dvh - var(--mnav-h, 76px) - 120px); min-height: 220px; }
+  .grid-jump button { opacity: .85; }
+}
+
+/* شارة الحفظ: صغيرة ثابتة في الزاوية، وفوق الشريط السفلي في الجوال */
+.cloud-badge { position: fixed; left: 12px; bottom: 12px; z-index: 50; font-size: 12.5px; font-weight: 600; padding: 6px 12px; border-radius: 999px;
+  background: var(--panel); color: var(--text); border: 1px solid var(--line); box-shadow: 0 4px 14px rgba(0,0,0,.12); transition: opacity .6s; pointer-events: none; }
+.cloud-badge.warn { background: #fff4e5; color: #8a4b00; border-color: #f0c38a; }
+[data-theme="dark"] .cloud-badge.warn { background: #3d2a0e; color: #ffd9a0; border-color: #7a5420; }
+.cloud-badge.fade { opacity: 0; }
+@media (max-width: 980px) { .cloud-badge { bottom: calc(var(--mnav-h, 76px) + 10px); } }
+/* الجوال: أزرار الاختيار الصغيرة (المقاسات، طالب/طالبة) بحجم يناسب الإصبع */
+@media (max-width: 760px) {
+  .chips .chip, #previewFormats .chip, .seg button, .chips button { min-height: 36px; padding: 7px 12px; font-size: 13.5px; }
+}

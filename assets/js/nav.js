@@ -49,3 +49,14 @@
   document.addEventListener('click', (e) => { if (!top.contains(e.target)) close(); });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
 })();
+
+// طول شريط الأزرار السفلي في الجوال (مع مساحة شريط الإيماءات) → متغير CSS --mnav-h، حتى ما يغطي آخر الصفحة
+(function () {
+  function fit() {
+    const m = document.querySelector('.mnav');
+    const h = m && getComputedStyle(m).display !== 'none' ? Math.ceil(m.getBoundingClientRect().height) : 0;
+    document.documentElement.style.setProperty('--mnav-h', h + 'px');
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', fit); else fit();
+  addEventListener('load', fit); addEventListener('resize', fit); addEventListener('orientationchange', () => setTimeout(fit, 300));
+})();
