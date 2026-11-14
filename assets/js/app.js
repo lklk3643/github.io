@@ -97,7 +97,8 @@
     $('#titleSizeVal').textContent = state.opt.titleSize + 'px';
     $('#linkRow').hidden = !state.opt.qr;
     updLinkWarn();
-    $$('[data-c]').forEach(el => { el.value = state.theme[el.dataset.c]; });
+    // ألوان التصميم فقط — خانات الجدول تستخدم data-c بعد (رقم العمود)، فلازم التحديد بنوع الخانة وإلا تنكتب «undefined» في الجدول
+    $$('input[type=color][data-c]').forEach(el => { el.value = state.theme[el.dataset.c]; });
     $$('[data-gender]').forEach(b => b.classList.toggle('active', (b.dataset.gender === 'f') === /طالبة/.test(state.by)));
     renderMembers();
     renderUploads();
@@ -114,7 +115,7 @@
     $('#titleSizeVal').textContent = state.opt.titleSize + 'px';
     changed();
   }));
-  $$('[data-c]').forEach(el => el.addEventListener('input', () => { state.theme[el.dataset.c] = el.value; changed(); }));
+  $$('input[type=color][data-c]').forEach(el => el.addEventListener('input', () => { state.theme[el.dataset.c] = el.value; changed(); }));
 
   const GENDER = {
     m: { by: 'من قبل طالب الدراسات العليا', presenterLabel: 'يقدمها:' },
