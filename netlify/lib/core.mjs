@@ -228,6 +228,31 @@ function mergeGrid(base, mine, theirs) {
   return lead.concat(out2, added, mine.slice(lead.length).filter(emptyRow));   // صفوف المحرّر الفارغة تبقى عنده (سطر الإضافة أول الجدول)
 }
 
+// تنظيف قبل الاستخدام الرسمي (مرة واحدة): يحذف المناقشات والندوات التجريبية، مع نسخة كاملة منها في trash/
+const CLEAN_FLAG = 'cleanup-official-2026-11-14';
+const TEST_STUDENTS = new Set(['عبدالرحمن بن سليمان الحربي', 'نورة بنت عبدالله القحطاني', 'محمد بن إبراهيم الرشيدي', 'ريم بنت خالد العنزي']);
+const isTestRow = r => { const st = String(r[GCOLS.indexOf('الطالب')] || '').trim(); return TEST_STUDENTS.has(st) || /^اختبار/.test(st); };
+async function cleanupOnce(store, origin) {
+  if (await getJSON(store, CLEAN_FLAG)) return;
+  const sh = await sharedDoc(store), g = parseGrid(sh.grid);
+  const removed = g.filter(r => !emptyRow(r) && isTestRow(r)), keep = g.filter(r => !isTestRow(r));
+  // صفوف ملف الحجز الثابت التجريبية («اختبار مناقشات») حتى لو ما كانت في الجدول
+  const base = (await staticFile(origin, '/assets/data/defenses.json')) || { rows: [] };
+  const gone = new Set(sh.gone || []);
+  removed.forEach(r => { const k = rowKey(r); if (k) gone.add(k); });
+  (base.rows || []).filter(r => TEST_STUDENTS.has(String(r['الطالب'] || '').trim()) || /^اختبار/.test(String(r['الطالب'] || '').trim()))
+    .forEach(r => gone.add(keyOf(r['الطالب'], r['التاريخ'])));
+  const sems = [];
+  const { blobs } = await store.list({ prefix: 'sem/' });
+  for (const b of blobs) { const x = await getJSON(store, b.key); if (x && /^(test|demo)-/.test(String(x.id || ''))) { sems.push(x); await store.delete(b.key); } }
+  await setJSON(store, 'trash/' + CLEAN_FLAG, { at: new Date().toISOString(), rows: removed, seminars: sems, goneAdded: [...gone].filter(k => !(sh.gone || []).includes(k)) });
+  if (removed.length || gone.size !== (sh.gone || []).length) {
+    sh.grid = JSON.stringify(keep); sh.gone = [...gone].slice(-3000); sh.ver = (sh.ver || 0) + 1; sh.by = 'تنظيف التجارب'; sh.at = Date.now();
+    await setJSON(store, 'state/_shared', sh); await writeSharedRows(store, keep);
+  }
+  await setJSON(store, CLEAN_FLAG, { at: new Date().toISOString(), rows: removed.length, seminars: sems.length });
+}
+
 export async function handle(req, store) {
   const url = new URL(req.url);
   const origin = url.origin;
@@ -236,6 +261,7 @@ export async function handle(req, store) {
   if (method === 'OPTIONS') return new Response(null, { status: 204, headers: { ...PUBLIC, 'access-control-allow-methods': 'GET', 'access-control-allow-headers': '*' } });
   const body = async () => { try { return await req.json(); } catch (e) { return {}; } };
   await ensureDemo(store, origin);
+  await cleanupOnce(store, origin);
 
   // --- عام: ملفات OBS
   if (method === 'GET' && path === 'feed/defenses.json') return json(await feedDefenses(store, origin), 200, PUBLIC);

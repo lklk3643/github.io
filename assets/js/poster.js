@@ -52,6 +52,7 @@
     { id: 'exact', name: 'مطابق للأصل 100%', w: 1045, h: 1505, layout: 'exact' },
     { id: 'a4', name: 'A4 قابل للتخصيص', w: 1080, h: 1527, layout: 'tall', building: 215, footer: 70 },
     { id: 'story', name: 'ستوري / حالات', w: 1080, h: 1920, layout: 'tall', building: 330, footer: 80 },
+    { id: 'post', name: 'منشور طولي (إنستقرام)', w: 1080, h: 1350, layout: 'tall', building: 190, footer: 64 },
     { id: 'square', name: 'منشور مربع', w: 1080, h: 1080, layout: 'tall', building: 150, footer: 60 },
     { id: 'youtube', name: 'صورة يوتيوب المصغّرة', w: 1280, h: 720, layout: 'wide', building: 150, footer: 54, behind: true },
     { id: 'ytbanner', name: 'غلاف قناة يوتيوب', w: 2560, h: 1440, layout: 'banner', building: 300, footer: 100, behind: true, compact: true, safe: { w: 1546, h: 423 } },

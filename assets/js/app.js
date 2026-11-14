@@ -767,14 +767,22 @@
     try { if (activeRow >= 0) activeRow++; const s = [...gridSel]; gridSel.clear(); s.forEach(i => gridSel.add(i + 1)); } catch (e) { /* قبل التهيئة */ }
     return true;
   }
+  // المناقشات المنتهية مخفية افتراضياً: الجدول خفيف (بدل آلاف الخانات) ويعرض اللي يهم الموظف — زر «عرض المنتهية» يظهرها
+  const pastShown = () => { try { return localStorage.getItem(userKey('showpast')) === '1'; } catch (e) { return false; } };
+  const hideRow = (r, i) => !pastShown() && isPast(r) && !gridSel.has(i) && i !== activeRow;
+  function pastBtn() {
+    const b = $('#gShowPast'); if (!b) return;
+    const n = grid.filter(r => isPast(r)).length;
+    b.hidden = !n; b.textContent = pastShown() ? `🙈 إخفاء المنتهية (${n})` : `📜 عرض المنتهية (${n})`;
+  }
   function renderGrid() {
     ensureBlankTop();
     computeConflicts();
     const cls = c => /العنوان/.test(c) ? 'w-title' : /رابط/.test(c) ? 'w-link' : c === 'الكاتب' ? 'w-sm w-auto' : /الجنس|اليوم|الوقت|الدور/.test(c) ? 'w-sm' : '';
     $('#sheet').innerHTML = `<thead><tr><th class="n">#</th><th class="act">عرض / نسخ</th>${GCOLS.map(c => `<th class="${/^عضو/.test(c) ? 'mem' : ''}">${c}</th>`).join('')}</tr></thead>
-      <tbody>${grid.map((r, i) => `${(b => b ? `<tr class="wk-sep"><td colspan="${GCOLS.length + 2}"><span>🌙 إجازة أسبوعية</span> الجمعة ${b.fri} · السبت ${b.sat}${b.gap ? ` <small>(بعدها ${b.gap === 1 ? 'أسبوع' : b.gap + ' أسابيع'} بدون مناقشات)</small>` : ''}</td></tr>` : '')(weekBreak(i))}<tr data-r="${i}" class="${gridSel.has(i) ? 'sel' : ''} ${i === activeRow ? 'active' : ''} ${missingOf(r).length ? 'incomplete' : ''} ${isPast(r) ? 'past' : ''} ${conflicts.has(i) ? 'conflict' : ''}"><td class="n"><label><input type="checkbox" data-gsel ${gridSel.has(i) ? 'checked' : ''}>${i + 1}</label>${warnHtml(r)}${conflictHtml(i)}</td><td class="act"><button data-view title="عرض في التصميم">👁</button><button data-dup title="تكرار السطر (نفس اللجنة لطالب آخر)">⧉</button><button data-msg="invite" class="msg-b" title="نسخ رسالة الدعوة">دعوة</button><button data-wa="invite" class="wa-i" title="إرسال الدعوة بالواتساب">💬</button><button data-msg="record" class="msg-b ${r[GCOLS.indexOf('رابط التسجيل')] ? 'has' : ''}" title="نسخ رسالة التسجيل">تسجيل</button><button data-wa="record" class="wa-i" title="إرسال التسجيل بالواتساب">💬</button></td>${
+      <tbody>${grid.map((r, i) => hideRow(r, i) ? '' : `${(b => b ? `<tr class="wk-sep"><td colspan="${GCOLS.length + 2}"><span>🌙 إجازة أسبوعية</span> الجمعة ${b.fri} · السبت ${b.sat}${b.gap ? ` <small>(بعدها ${b.gap === 1 ? 'أسبوع' : b.gap + ' أسابيع'} بدون مناقشات)</small>` : ''}</td></tr>` : '')(weekBreak(i))}<tr data-r="${i}" class="${gridSel.has(i) ? 'sel' : ''} ${i === activeRow ? 'active' : ''} ${missingOf(r).length ? 'incomplete' : ''} ${isPast(r) ? 'past' : ''} ${conflicts.has(i) ? 'conflict' : ''}"><td class="n"><label><input type="checkbox" data-gsel ${gridSel.has(i) ? 'checked' : ''}>${i + 1}</label>${warnHtml(r)}${conflictHtml(i)}</td><td class="act"><button data-view title="عرض في التصميم">👁</button><button data-dup title="تكرار السطر (نفس اللجنة لطالب آخر)">⧉</button><button data-msg="invite" class="msg-b" title="نسخ رسالة الدعوة">دعوة</button><button data-wa="invite" class="wa-i" title="إرسال الدعوة بالواتساب">💬</button><button data-msg="record" class="msg-b ${r[GCOLS.indexOf('رابط التسجيل')] ? 'has' : ''}" title="نسخ رسالة التسجيل">تسجيل</button><button data-wa="record" class="wa-i" title="إرسال التسجيل بالواتساب">💬</button></td>${
         GCOLS.map((c, j) => `<td><input type="text" class="${cls(c)}" data-c="${j}" value="${esc(r[j] || '')}"${pickOf(c) ? ` inputmode="none" data-pick="${pickOf(c)}"` : ''}${c === 'الكاتب' ? ' readonly tabindex="-1" title="يتعبّى تلقائياً باسم المستخدم اللي كتب السطر أو عدّله آخر مرة"' : ''}${c === 'رابط البث' ? ' dir="ltr" placeholder="يوتيوب (افتراضي)"' : c === 'رابط اللجنة' ? ' dir="ltr" placeholder="زوم (اختياري)"' : c === 'رابط التسجيل' ? ' dir="ltr" placeholder="بعد المناقشة"' : ''}></td>`).join('')}</tr>`).join('')}</tbody>`;
-    updateGridInfo();
+    updateGridInfo(); pastBtn();
     { const nr = $('#sheet tr[data-r="0"]'), si = nr && nr.querySelector(`input[data-c="${GCOLS.indexOf('الطالب')}"]`);
       if (nr && isEmptyRow(grid[0])) { nr.classList.add('newrow'); if (si) si.placeholder = '✏️ مناقشة جديدة: اكتب اسم الطالب هنا'; } }
     const b = $('#gConflicts'); if (b) { b.hidden = !conflicts.size; b.textContent = `🔴 ${conflicts.size} سطر فيه تعارض`; }
@@ -1284,7 +1292,11 @@
     const tr = $(`#sheet tr[data-r="${first}"]`); if (tr) { tr.scrollIntoView({ behavior: 'smooth', block: 'center' }); tr.classList.add('flash'); setTimeout(() => tr.classList.remove('flash'), 1600); }
     toast('🔴 ' + conflictText(first, conflicts.get(first))[0], true);
   };
-  $('#gSelAll').onclick = () => { grid.forEach((r, i) => { if (!isEmptyRow(r)) gridSel.add(i); }); renderGrid(); };
+  $('#gSelAll').onclick = () => { grid.forEach((r, i) => { if (!isEmptyRow(r) && !hideRow(r, i)) gridSel.add(i); }); renderGrid(); };
+  { const b = $('#gShowPast'); if (b) b.onclick = () => {
+    try { localStorage.setItem(userKey('showpast'), pastShown() ? '0' : '1'); } catch (e) { /* اختياري */ }
+    overlay.show('جارٍ تجهيز الجدول...'); setTimeout(() => { renderGrid(); overlay.hide(); }, 30);
+  }; }
   $('#gSelNone').onclick = () => { gridSel.clear(); renderGrid(); };
   const selectedGridStates = () => gridItems(true).map(r => ({ label: r.data.student || `سطر ${r.n}`, state: applyRow(state, r.data) }));
   $('#gDl').onclick = () => $('#exRows').click();

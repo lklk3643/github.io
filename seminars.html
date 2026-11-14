@@ -10,7 +10,7 @@
   </script>
   <link rel="stylesheet" href="assets/fonts/fonts.css?v=202611130001">
   <link rel="stylesheet" href="assets/css/app.css?v=202611130003">
-  <link rel="stylesheet" href="assets/css/seminars.css?v=202611130003">
+  <link rel="stylesheet" href="assets/css/seminars.css?v=202611140401">
 </head>
 <body class="sem-page">
   <div class="topbar">
@@ -88,10 +88,16 @@
             </div>
           </div>
 
-          <div class="group-title">رسالة واتساب</div>
+          <div class="group-title">رسائل واتساب (الدعوة والتسجيل)</div>
+          <div class="field"><label for="f_rec">رابط التسجيل — يُضاف بعد انتهاء الندوة</label>
+            <input type="url" id="f_rec" data-k="recording_link" dir="ltr" placeholder="https://youtube.com/live/..."></div>
           <div class="msg-actions">
             <button class="btn primary" id="copyInvite">📋 نسخ رسالة الدعوة</button>
-            <button class="btn wa-btn wa-mini" id="waInvite" title="إرسال بالواتساب (الصورة + الرسالة)">💬 واتساب</button>
+            <button class="btn wa-btn wa-mini" id="waInvite" title="إرسال الدعوة بالواتساب (الصورة + الرسالة)">💬 واتساب</button>
+          </div>
+          <div class="msg-actions" style="margin-top:6px">
+            <button class="btn" id="copyRecord">📋 نسخ رسالة التسجيل</button>
+            <button class="btn wa-btn wa-mini" id="waRecord" title="إرسال التسجيل بالواتساب (الصورة + الرسالة)">💬 واتساب</button>
           </div>
 
           <div class="group-title">ملاحظات</div>
@@ -136,11 +142,8 @@
           </span>
         </div>
         <span class="label">المعاينة:</span>
-        <div class="chips" id="previewFormats">
-          <button class="chip active" data-size="programme">برنامج الندوة</button>
-          <button class="chip" data-size="post">منشور 1080×1350</button>
-          <button class="chip" data-size="story">ستوري 1080×1920</button>
-        </div>
+        <div class="chips" id="previewFormats"></div>
+        <div class="sizebadge" id="sizeBadge"></div>
       </div>
 
       <div class="panel" style="overflow:hidden" id="previewPanel">
@@ -149,6 +152,7 @@
 
       <div class="panel export" id="exportPanel">
         <h3>التحميل</h3>
+        <div class="fmt-grid" id="exportFormats"></div>
         <div class="export-actions">
           <select id="exType">
             <option value="png">PNG (أعلى جودة)</option>
@@ -170,7 +174,7 @@
           <button class="btn" id="captionBtn">📝 نص للنشر</button>
           <button class="btn" id="zoomBtn">🔍 عرض بحجم كامل</button>
         </div>
-        <p class="hint" style="margin:10px 0 0">المقاس حسب «المعاينة» فوق. «تحميل المحدد» يحمّل كل ندوة محددة في الجدول بملف مستقل داخل ملف مضغوط.</p>
+        <p class="hint" style="margin:10px 0 0">يمكنك تحديد أكثر من مقاس ليتم تحميلها دفعة واحدة (أكثر من 3 ملفات تنزل في ملف مضغوط). «تحميل المحدد» يحمّل الندوات المحددة في الجدول بالمقاسات المختارة. عند اختيار PDF تحصل على ملف PDF لكل ندوة فيه صفحة لكل مقاس.</p>
       </div>
     </main>
   </div>
@@ -214,9 +218,14 @@
   <!-- إرسال بالواتساب: الصورة + الرسالة -->
   <div class="modal" id="mSend"><div class="box" style="width:min(760px,100%)">
     <h2>💬 إرسال بالواتساب <button class="btn sm" data-close>✕</button></h2>
+    <div class="chips" style="margin-bottom:10px">
+      <button class="chip" data-send="invite">✉️ رسالة الدعوة</button>
+      <button class="chip" data-send="record">🎞 رسالة التسجيل</button>
+    </div>
     <div class="send-grid">
       <div class="send-img"><img id="sendImg" alt="صورة الإعلان"><div class="hint" id="sendImgNote">جارٍ تجهيز الصورة...</div></div>
-      <div><textarea id="sendText"></textarea></div>
+      <div><textarea id="sendText"></textarea>
+        <div class="hint" id="sendWarn" style="color:#b06a00" hidden></div></div>
     </div>
     <div class="send-actions">
       <button class="btn wa-btn" id="sendShare">📤 إرسال للواتساب (الصورة + الرسالة)</button>
@@ -251,11 +260,12 @@
     <h2>دليل الاستخدام <button class="btn sm" data-close>✕</button></h2>
     <div class="howto"><b>١) ندوة واحدة</b><ol>
       <li>عبّئ «المحتوى» ثم «البرنامج». المعاينة تتحدث مباشرة، وكل شيء ينحفظ تلقائياً. لا توجد خانة إجبارية.</li>
-      <li>اختر المقاس من «المعاينة»، ثم «⬇️ تحميل التصميم الحالي» أو «💬 واتساب».</li>
+      <li>شوف شكل كل مقاس من «المعاينة». في «التحميل» علّم المقاسات اللي تبيها (واحد أو أكثر)، ثم «⬇️ تحميل التصميم الحالي».</li>
+      <li>«💬 واتساب» يرسل صورة برنامج الندوة مع رسالة الدعوة، وبعد الندوة أضف «رابط التسجيل» وأرسل رسالة التسجيل.</li>
       <li>اضغط «🌐 نشر الندوات» لتظهر لكل الأجهزة ولشاشة البث في القاعة.</li></ol></div>
     <div class="howto"><b>٢) جدول البيانات</b><ol>
       <li>كل سطر = ندوة. عدّل العنوان والتاريخ والوقت والمكان مباشرة في الجدول.</li>
-      <li>👁 يفتح السطر في التصميم، ⧉ ينسخه لندوة مشابهة، 💬 يرسله بالواتساب.</li>
+      <li>👁 يفتح السطر في التصميم، ⧉ ينسخه لندوة مشابهة، «دعوة» و«تسجيل» تنسخ الرسالة، و💬 بجانبها يرسلها بالواتساب مع الصورة.</li>
       <li>حدد الأسطر واضغط «📦 تحميل المحدد».</li></ol></div>
     <div class="howto"><b>٣) رابط البث</b><ol>
       <li>في «المحتوى ← رابط البث» فعّل المربع، ويظهر رمز QR في الإعلان.</li></ol></div>
@@ -282,6 +292,7 @@
     </div>
   </div>
 
+  <div class="export-root" aria-hidden="true"><div id="exportPoster"></div></div>
   <div class="overlay" id="overlay"><div id="overlayText">جارٍ التجهيز...</div><div class="progress"><div id="overlayBar"></div></div></div>
   <nav class="mnav" aria-label="تنقل سريع">
     <button data-go="side">✏️<span>البيانات</span></button>
@@ -300,6 +311,6 @@
   <script src="assets/vendor/qrcode.js?v=202610170020"></script>
   <script src="assets/vendor/jspdf.umd.min.js?v=202610170020"></script>
   <script src="assets/js/people.js?v=202611140101"></script>
-  <script src="assets/js/seminars.js?v=202611140101"></script>
+  <script src="assets/js/seminars.js?v=202611140401"></script>
 </body>
 </html>

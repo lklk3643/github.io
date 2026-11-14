@@ -59,11 +59,11 @@
   const gdate = (iso) => iso ? new Intl.DateTimeFormat('ar-SA-u-ca-gregory-nu-latn', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(iso + 'T12:00:00Z')) : '';
   function t12(hm) { if (!/^\d{1,2}:\d{2}$/.test(hm || '')) return ''; let [h, m] = hm.split(':').map(Number); const s = h < 12 ? 'صباحاً' : (h < 15 && h >= 12 ? 'ظهراً' : 'مساءً'); h = h % 12 || 12; return (m ? `${h}:${String(m).padStart(2, '0')}` : `${h}`) + ' ' + s; }
   const todayIso = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Riyadh' }).format(new Date());
-  const blank = () => ({ id: newId(), title: '', subtitle: '', organizer: 'كلية الشريعة', date: '', start: '', end: '', place: 'قاعة ابن عثيمين', place_note: '(والبث عبر الإنترنت)', link: '', status: 'confirmed', notes: '', participants: [],
+  const blank = () => ({ id: newId(), title: '', subtitle: '', organizer: 'كلية الشريعة', date: '', start: '', end: '', place: 'قاعة ابن عثيمين', place_note: '(والبث عبر الإنترنت)', link: '', recording_link: '', status: 'confirmed', notes: '', participants: [],
     series: '', department: '', public_note: '', poster_header: 'simple', programme_layout: 'cells' });
   const clean = (s) => ({ id: String(s.id), title: String(s.title || '').trim(), subtitle: String(s.subtitle || '').trim(), organizer: String(s.organizer || '').trim(),
     date: String(s.date || ''), start: String(s.start || ''), end: String(s.end || ''), place: String(s.place || '').trim(), place_note: String(s.place_note || '').trim(),
-    link: String(s.link || '').trim(), status: ['confirmed', 'postponed', 'cancelled'].includes(s.status) ? s.status : 'confirmed', notes: String(s.notes || '').trim(),
+    link: String(s.link || '').trim(), recording_link: String(s.recording_link || '').trim(), status: ['confirmed', 'postponed', 'cancelled'].includes(s.status) ? s.status : 'confirmed', notes: String(s.notes || '').trim(),
     series: String(s.series || '').trim(), department: String(s.department || '').trim(), public_note: String(s.public_note || '').trim(),
     poster_header: s.poster_header === 'official' ? 'official' : 'simple', programme_layout: s.programme_layout === 'table' ? 'table' : 'cells',
     participants: (s.participants || []).map(p => {
@@ -181,7 +181,7 @@
   const GCOLS = [   // [المفتاح, العنوان, نوع الخانة, صنف العرض]
     ['date', 'التاريخ', 'date', 'w-sm'], ['start', 'من', 'time', 'w-sm'], ['end', 'إلى', 'time', 'w-sm'],
     ['title', 'عنوان الندوة', 'text', 'w-title'], ['series', 'النوع', 'text', ''], ['department', 'القسم', 'text', ''],
-    ['place', 'المكان', 'text', ''], ['status', 'الحالة', 'status', 'w-sm'], ['link', 'رابط البث', 'url', 'w-link']];
+    ['place', 'المكان', 'text', ''], ['status', 'الحالة', 'status', 'w-sm'], ['link', 'رابط البث', 'url', 'w-link'], ['recording_link', 'رابط التسجيل', 'url', 'w-link']];
   const gridSel = new Set();
   let rowsView = [];
   const speakersOf = (s) => s.participants.filter(isSpeaker);
@@ -231,7 +231,11 @@
       const ab = (txt, title, fn, cls) => { const b = el('button', cls || null, txt); b.type = 'button'; b.title = title; b.onclick = fn; act.appendChild(b); };
       ab('👁', 'عرض في التصميم', () => { openSem(s); $('#previewPanel').scrollIntoView({ behavior: 'smooth', block: 'start' }); });
       ab('⧉', 'تكرار السطر لندوة مشابهة', () => duplicate(s));
-      ab('💬', 'إرسال بالواتساب', async () => { openSem(s); openSend(); }, 'wa-i');
+      // رسائل السطر: بيانات السطر نفسه (مثل جدول المناقشات): دعوة 💬 تسجيل 💬
+      ab('دعوة', 'نسخ رسالة الدعوة', () => copyMsg('invite', s), 'msg-b');
+      ab('💬', 'إرسال الدعوة بالواتساب', () => sendDirect(s, 'invite'), 'wa-i');
+      ab('تسجيل', 'نسخ رسالة التسجيل', () => copyMsg('record', s), 'msg-b' + (hasRec(s) ? ' has' : ''));
+      ab('💬', 'إرسال التسجيل بالواتساب', () => sendDirect(s, 'record'), 'wa-i');
       tr.appendChild(act);
       GCOLS.forEach(([k, , type, cls]) => {
         const td = el('td'); let inp;
@@ -363,10 +367,45 @@
     if (CLOUD()) { publishCloud(true); toast('حُذفت — وتختفي من البث تلقائياً'); } else toast('حُذفت — اضغط «نشر الندوات» لتطبيق الحذف على الجميع');
   }
   // ---------- الإعلان ----------
+  // المقاسات: نفس قائمة صفحة المناقشات (poster.js FORMATS) + «برنامج الندوة» الذي يطول مع البنود.
+  // tall = التصميم الطولي، wide = تصميم عرضي يُرسم على 1600×900 ثم يُكبّر/يُصغّر (كلها 16:9)،
+  // banner = غلاف القناة: المحتوى داخل المنطقة الآمنة 1546×423 الظاهرة في كل الأجهزة.
+  const SFMTS = [
+    { id: 'programme', name: 'برنامج الندوة', w: 1080, h: 0 },
+    { id: 'post', name: 'منشور', w: 1080, h: 1350, layout: 'tall', max: 5 },
+    { id: 'story', name: 'ستوري / حالات', w: 1080, h: 1920, layout: 'tall', max: 8 },
+    { id: 'a4', name: 'ورقة A4', w: 1080, h: 1527, layout: 'tall', max: 6 },
+    { id: 'square', name: 'منشور مربع', w: 1080, h: 1080, layout: 'tall', max: 3 },
+    { id: 'youtube', name: 'صورة يوتيوب المصغّرة', w: 1280, h: 720, layout: 'wide', max: 4 },
+    { id: 'x', name: 'منشور X', w: 1600, h: 900, layout: 'wide', max: 4 },
+    { id: 'ytbanner', name: 'غلاف قناة يوتيوب', w: 2560, h: 1440, layout: 'banner', max: 4, safe: { w: 1546, h: 423 } },
+  ];
+  const fmtOf = (id) => SFMTS.find(f => f.id === id) || SFMTS[0];
+  // ⁦…⁩ يعزل الأبعاد حتى لا تنقلب «1080×1350» داخل النص العربي
+  const dims = (w, h) => `⁦${w}×${h}⁩`;
+  const fmtLabel = (f) => f.h ? `${f.name} ${dims(f.w, f.h)}` : f.name;
+
   function renderPoster() {
-    const s = clean(current || blank());
-    const P = $('#poster'); P.textContent = ''; P.dataset.size = size;
-    if (size === 'programme') { renderProgramme(P, s); fitStage(); return; }
+    renderInto($('#poster'), clean(current || blank()), fmtOf(size));
+    fitStage();
+  }
+  // يرسم الإعلان بالمقاس f في العنصر P (المعاينة أو عنصر التصدير المخفي)
+  function renderInto(P, s, f) {
+    P.textContent = ''; P.className = 'qs'; P.dataset.size = f.id; P.dataset.layout = f.layout || 'programme';
+    P.style.width = f.w + 'px'; P.style.height = f.h ? f.h + 'px' : '';
+    delete P.dataset.overflow;
+    if (f.id === 'programme') return renderProgramme(P, s);
+    if (f.layout === 'tall') {
+      // يقل عدد المتحدثين المعروضين إذا ما وسعهم المقاس حتى بعد التصغير
+      for (let max = f.max; max >= 1; max--) { if (renderTall(P, s, f, max)) return; }
+      P.dataset.overflow = '1';
+      return;
+    }
+    return renderWide(P, s, f);
+  }
+
+  function renderTall(P, s, f, max) {
+    P.textContent = '';
     P.appendChild(el('div', 'qs-callig', 'ندوة'));
     const inner = el('div', 'qs-inner');
     const logo = el('img', 'qs-logo'); logo.src = LOGO; logo.alt = ''; inner.appendChild(logo);
@@ -379,7 +418,6 @@
     if (speakers.length) {
       const box = el('div', 'qs-people');
       box.appendChild(el('h3', null, 'المشاركون'));
-      const max = size === 'story' ? 8 : 5;
       speakers.slice(0, max).forEach(p => {
         const r = el('div', 'qs-person');
         r.appendChild(el('div', 'n', p.name));
@@ -390,7 +428,7 @@
         if (p.topic) r.appendChild(el('div', 'tp', p.topic));
         box.appendChild(r);
       });
-      if (speakers.length > max) box.appendChild(el('div', 'qs-person', `و${speakers.length - max} متحدثين آخرين`));
+      if (speakers.length > max) box.appendChild(el('div', 'qs-person qw-more', `و${speakers.length - max} متحدثين آخرين`));
       inner.appendChild(box);
     }
     const facts = el('div', 'qs-facts');
@@ -413,13 +451,115 @@
       } catch (e) { /* رابط طويل جداً */ }
     }
     P.appendChild(foot);
-    fitContent(inner, size === 'story' ? 1920 : 1350);
-    fitStage();
+    return fitContent(inner, f.h);
+  }
+
+  // ---------- المقاسات العريضة: يوتيوب المصغّرة و X (16:9) وغلاف القناة ----------
+  function qrBox(link, cls, caption) {
+    if (!link || !/^https?:\/\//i.test(link) || !window.qrcode) return null;
+    try {
+      const q = window.qrcode(0, 'M'); q.addData(link); q.make();
+      const box = el('div', cls);
+      box.innerHTML = q.createSvgTag({ cellSize: 4, margin: 0, scalable: true });   // SVG من مكتبة QR (الرابط مُرمّز كمربعات، لا كنص HTML)
+      box.appendChild(el('div', null, caption));
+      return box;
+    } catch (e) { return null; }   // رابط طويل جداً
+  }
+  const quoted = (t) => t ? (/[«»"]/.test(t) ? t : `«${t}»`) : '«عنوان الندوة»';
+  function speakerCard(speakers, n) {
+    const box = el('div', 'qs-people');
+    box.appendChild(el('h3', null, 'المتحدثون'));
+    speakers.slice(0, n).forEach(p => {
+      const r = el('div', 'qs-person'); r.appendChild(el('div', 'n', p.name));
+      if (p.title) r.appendChild(el('div', 'r', p.title));
+      box.appendChild(r);
+    });
+    if (speakers.length > n) box.appendChild(el('div', 'qs-person qw-more', `و${speakers.length - n} متحدثين آخرين`));
+    return box;
+  }
+  // يصغّر خط العنوان حتى يتسع العمود، ثم يقلل المتحدثين؛ ويعلّم الإعلان إذا بقي شيء لا يتسع
+  function shrinkTitle(col, title, from, to) {
+    for (let fs = from; col.scrollHeight > col.clientHeight + 1 && fs > to; fs -= 2) title.style.fontSize = (fs - 2) + 'px';
+  }
+
+  function renderWide(P, s, f) {
+    const banner = f.layout === 'banner';
+    const speakers = s.participants.filter(isSpeaker);
+    P.classList.add(banner ? 'qb' : 'qw');
+    P.appendChild(el('div', 'qs-callig', 'ندوة'));
+    if (banner) P.appendChild(el('div', 'qb-band'));
+    const b = el('div', 'qs-building'); const bi = el('img'); bi.src = BUILDING; bi.alt = ''; b.appendChild(bi);
+    const stage = el('div', banner ? 'qb-stage' : 'qw-stage');
+    if (banner) {
+      P.appendChild(b);
+      Object.assign(stage.style, { left: (f.w - f.safe.w) / 2 + 'px', top: (f.h - f.safe.h) / 2 + 'px', width: f.safe.w + 'px', height: f.safe.h + 'px' });
+    } else {
+      stage.appendChild(b);
+      stage.style.transform = `scale(${f.w / 1600})`;
+    }
+    P.appendChild(stage);
+
+    // العنوان: الشعار + الجهة + النوع + عنوان الندوة
+    const main = el('div', banner ? 'qb-main' : 'qw-main');
+    const head = el('div', 'qw-head');
+    const logo = el('img', 'qw-logo'); logo.src = LOGO; logo.alt = ''; head.appendChild(logo);
+    head.appendChild(el('div', 'qs-pill', `تُقيم ${s.organizer || 'كلية الشريعة'}`));
+    if (banner) stage.appendChild(head); else main.appendChild(head);
+    main.appendChild(el('p', 'qs-kicker', `${s.series || 'ندوة'} بعنوان`));
+    const title = el('h1', 'qw-title', quoted(s.title)); main.appendChild(title);
+    if (s.subtitle) main.appendChild(el('p', 'qs-sub qw-sub', s.subtitle));
+    if (STATUS_AR[s.status]) main.appendChild(el('div', 'qs-status qw-status ' + s.status, STATUS_AR[s.status]));
+    let names = null;
+    if (banner && speakers.length) { names = el('p', 'qb-names'); main.appendChild(names); }
+    stage.appendChild(main);
+
+    // الموعد والمكان
+    const facts = el('div', banner ? 'qb-facts' : 'qs-facts qw-facts');
+    const fact = (icon, label, big, small) => {
+      const d = el('div'); let t = d;
+      if (banner) { const ic = el('span', 'qp2-ic'); ic.innerHTML = ICON[icon]; d.appendChild(ic); t = el('div'); d.appendChild(t); }
+      else t.appendChild(el('b', null, label));
+      t.appendChild(el('span', null, big || '—')); if (small) t.appendChild(el('small', null, small));
+      facts.appendChild(d);
+    };
+    fact('cal', 'اليوم', s.date ? `${weekday(s.date)} ${hijri(s.date)}` : '', s.date ? gdate(s.date) : '');
+    fact('clock', 'الوقت', [t12(s.start), t12(s.end)].filter(Boolean).join(' – '));
+    fact('pin', 'المكان', s.place, s.place_note);
+    const qr = qrBox(s.link, banner ? 'qb-qr' : 'qs-qr qw-qr', 'شاهد البث');
+    if (banner) { stage.appendChild(facts); if (qr) stage.appendChild(qr); }
+
+    // المتحدثون: عمود جانبي في 16:9، وسطر «بمشاركة» في الغلاف
+    let side = null;
+    if (!banner) {
+      if (speakers.length) { side = el('div', 'qw-side'); stage.appendChild(side); } else stage.classList.add('solo');
+      const bottom = el('div', 'qw-bottom'); bottom.appendChild(facts); if (qr) bottom.appendChild(qr); stage.appendChild(bottom);
+    }
+
+    // الملاءمة: المقاسات ثابتة، فالعنوان يصغر والمتحدثون يقلّون بدل ما يطلع النص برّا الصورة
+    const setNames = (n) => { names.textContent = 'بمشاركة: ' + speakers.slice(0, n).map(p => p.name).join('، ') + (speakers.length > n ? ' وآخرين' : ''); };
+    if (names) setNames(Math.min(3, speakers.length));   // الغلاف: أهم المتحدثين قبل تصغير العنوان كثير
+    shrinkTitle(main, title, banner ? 50 : 60, banner ? 36 : 34);
+    if (side) {
+      for (let n = Math.min(f.max, speakers.length); n >= 1; n--) {
+        side.textContent = ''; side.appendChild(speakerCard(speakers, n));
+        if (side.scrollHeight <= side.clientHeight + 1) break;
+      }
+    }
+    if (names) {
+      for (let n = Math.min(3, speakers.length); n >= 1; n--) {
+        setNames(n);
+        if (main.scrollHeight <= main.clientHeight + 1) break;
+      }
+      if (main.scrollHeight > main.clientHeight + 1) { names.remove(); shrinkTitle(main, title, parseFloat(title.style.fontSize) || 50, 30); }
+    }
+    if (main.scrollHeight > main.clientHeight + 1 || (side && side.scrollHeight > side.clientHeight + 1)) P.dataset.overflow = '1';
+    if (banner) P.appendChild(el('div', 'qs-safe'));   // إطار المنطقة الآمنة: في المعاينة فقط
   }
   // ---------- إعلان برنامج الندوة (الطول يزيد مع عدد البنود) ----------
   const ICON = {
     cal: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>',
     pin: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="10" r="2.6"/></svg>',
+    clock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
   };
   const timeRange = (p) => { const a = t12s(p.start), b = t12s(p.end); return a && b ? `${a} - ${b}` : (a || b); };
   function t12s(hm) { if (!/^\d{1,2}:\d{2}$/.test(hm || '')) return ''; let [h, m] = hm.split(':').map(Number); const suf = h < 12 ? 'ص' : 'م'; h = h % 12 || 12; return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')} ${suf}`; }
@@ -540,72 +680,147 @@
   }
 
   // يصغّر المحتوى ليتسع فوق التذييل مهما زاد عدد المشاركين (مثل تصميم المناقشات)
+  // يعيد false إذا ما اتسع المحتوى حتى بأصغر تصغير مسموح (فيقلّل المتصل عدد المتحدثين)
   function fitContent(inner, H) {
     inner.style.transform = ''; inner.style.width = ''; inner.style.bottom = 'auto';
-    const avail = H - 190, natural = inner.scrollHeight;
+    const avail = H - 190;
+    let natural = inner.scrollHeight;
     if (natural > avail) {
-      const k = Math.max(0.55, avail / natural);
-      inner.style.width = (1080 / k) + 'px';
-      inner.style.transformOrigin = 'top left';
-      inner.style.transform = `scale(${k})`;
+      // التصغير يوسّع السطر فيقصر المحتوى؛ نكرر القياس مرتين حتى يستقر
+      let k = 1;
+      for (let i = 0; i < 3 && natural * k > avail; i++) {
+        k = Math.max(0.55, Math.min(k, avail / natural));
+        inner.style.width = (1080 / k) + 'px';
+        inner.style.transformOrigin = 'top left';
+        inner.style.transform = `scale(${k})`;
+        natural = inner.scrollHeight;
+      }
+      return natural * k <= avail + 1;
     }
+    return true;
   }
-  const posterH = () => size === 'programme' ? Math.ceil($('#poster').scrollHeight) : (size === 'story' ? 1920 : 1350);
+  const posterH = () => fmtOf(size).h || Math.ceil($('#poster').scrollHeight);
   function fitStage() {
-    const st = $('#stage'), P = $('#poster');
+    const st = $('#stage'), P = $('#poster'), f = fmtOf(size);
     const H = posterH();
-    const scale = Math.min(1, (st.clientWidth - 20) / 1080);
+    const scale = Math.min(1, (st.clientWidth - 20) / f.w);
     P.style.transform = `scale(${scale})`;
     st.style.height = Math.ceil(H * scale + 20) + 'px';
+    $('#sizeBadge').textContent = `${f.name} — ${dims(f.w, f.h ? f.h : H)} بكسل` + (f.h ? '' : ' (الطول حسب عدد البنود)') +
+      (f.safe ? ' — الإطار الأحمر هو المنطقة الآمنة الظاهرة على كل الأجهزة (لا يظهر في الصورة)' : '');
   }
 
-  // ---------- التحميل والمشاركة (مثل صفحة المناقشات) ----------
-  const exScale = () => +($('#exScale').value || 2);
-  async function renderBlob(scale) {
-    const P = $('#poster'), H = posterH();
-    const canvas = await htmlToImage.toCanvas(P, { width: 1080, height: H, pixelRatio: scale || exScale(), style: { transform: 'none' }, cacheBust: true });
+  // ---------- التحميل والمشاركة (مثل صفحة المناقشات: مربعات مقاسات، وأكثر من 3 ملفات تنزل في ملف مضغوط) ----------
+  const FMTS_KEY = 'qu_sem_fmts';
+  let defaultFmts = ['programme'];
+  try { const saved = JSON.parse(localStorage.getItem(FMTS_KEY)); if (Array.isArray(saved) && saved.length) defaultFmts = saved; } catch (e) { /* افتراضي */ }
+  {
+    const box = $('#exportFormats');
+    SFMTS.forEach(f => {
+      const lb = el('label', 'fmt'); const cb = el('input'); cb.type = 'checkbox'; cb.value = f.id; cb.checked = defaultFmts.includes(f.id);
+      const sp = el('span', null, f.name); sp.appendChild(el('small', null, f.h ? `${f.w}×${f.h}` : 'الطول حسب المحتوى'));
+      lb.appendChild(cb); lb.appendChild(sp); box.appendChild(lb);
+    });
+    box.addEventListener('change', () => { try { localStorage.setItem(FMTS_KEY, JSON.stringify($$('#exportFormats input:checked').map(i => i.value))); } catch (e) { /* اختياري */ } });
+    const pf = $('#previewFormats'); pf.textContent = '';
+    SFMTS.forEach(f => { const b = el('button', 'chip' + (f.id === size ? ' active' : ''), fmtLabel(f)); b.type = 'button'; b.dataset.size = f.id; pf.appendChild(b); });
+  }
+  const selectedFormats = () => $$('#exportFormats input:checked').map(i => fmtOf(i.value));
+
+  const nextFrame = () => new Promise(r => requestAnimationFrame(() => r()));
+  async function settle(node) {
+    await Promise.all($$('img', node).map(i => i.complete ? 0 : new Promise(r => { i.onload = i.onerror = r; })));
+    if (document.fonts && document.fonts.ready) await document.fonts.ready;
+  }
+  // يرسم الندوة s بالمقاس f في عنصر مخفي ويصوّره (المعاينة ما تتغير)
+  async function capture(s, f, scale) {
+    const E = $('#exportPoster');
+    renderInto(E, s, f); await settle(E);
+    renderInto(E, s, f); await settle(E);    // مرة ثانية بعد تحميل الخطوط: القياس يعتمد على عرض النص الفعلي
+    await nextFrame();
+    const H = f.h || Math.ceil(E.scrollHeight);
+    const ratio = f.w * scale > 6000 ? 1 : scale;
+    const canvas = await htmlToImage.toCanvas(E, { width: f.w, height: H, pixelRatio: ratio, cacheBust: true, backgroundColor: '#ffffff',
+      filter: n => !(n.classList && n.classList.contains('qs-safe')) });
     return { canvas, H };
   }
-  const safe = (t) => String(t || '').replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 50);
-  const fileBase = (s) => { s = s || current || {}; return `${size === 'programme' ? 'برنامج' : 'اعلان'}-${safe(s.title) || 'ندوة'}-${s.date || 'جديدة'}`; };
+  const exScale = () => +($('#exScale').value || 2);
+  const safe = (t) => String(t || '').replace(/[\\/:*?"<>|\n\r]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 50);
+  const fileBase = (s, f) => { s = s || current || {}; f = f || fmtOf(size); return `${f.id === 'programme' ? 'برنامج' : 'اعلان'}-${safe(s.title) || 'ندوة'}-${s.date || 'جديدة'}`; };
   function saveBlob(blob, name) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); }
   const toBlob = (canvas, type, q) => new Promise(r => canvas.toBlob(r, type, q));
-  // ملف واحد بالنوع المختار (PNG / JPG / PDF)
-  async function fileOf(type) {
-    const { canvas, H } = await renderBlob();
-    if (type === 'pdf') {
-      const w = 1080 * 0.75, h = H * 0.75;          // بكسل CSS → نقاط PDF
-      const doc = new window.jspdf.jsPDF({ unit: 'pt', format: [w, h], orientation: 'portrait', compress: true });
-      doc.addImage(canvas.toDataURL('image/jpeg', 0.94), 'JPEG', 0, 0, w, h, undefined, 'FAST');
-      return { blob: doc.output('blob'), ext: 'pdf' };
-    }
-    return type === 'jpg' ? { blob: await toBlob(canvas, 'image/jpeg', 0.92), ext: 'jpg' } : { blob: await toBlob(canvas, 'image/png'), ext: 'png' };
-  }
   function busy(on, text, frac) { const o = $('#overlay'); o.classList.toggle('open', !!on); if (text) $('#overlayText').textContent = text; $('#overlayBar').style.width = Math.round((frac || 0) * 100) + '%'; }
-  async function downloadCurrent() {
-    try { busy(true, 'جارٍ تجهيز الملف...'); const f = await fileOf($('#exType').value); saveBlob(f.blob, fileBase() + '.' + f.ext); }
-    catch (e) { toast('تعذر إنشاء الملف', true); } finally { busy(false); }
+
+  // PDF: صفحة لكل مقاس (A4 بمقاس الورق الحقيقي)
+  const pdfPageSize = (f, H) => f.id === 'a4' ? [595.28, 841.89] : [f.w * 0.75, H * 0.75];
+  function addPdfPage(doc, canvas, f, H) {
+    const [w, h] = pdfPageSize(f, H), o = w > h ? 'landscape' : 'portrait';
+    if (!doc) doc = new window.jspdf.jsPDF({ unit: 'pt', format: [w, h], orientation: o, compress: true });
+    else doc.addPage([w, h], o);
+    doc.addImage(canvas.toDataURL('image/jpeg', 0.94), 'JPEG', 0, 0, w, h, undefined, 'FAST');
+    return doc;
   }
-  async function downloadSelected() {
-    const ids = merged().filter(s => gridSel.has(s.id)).map(s => s.id);
-    if (!ids.length) return toast('حدد الندوات من مربعات الجدول أولاً', true);
-    const keep = current, type = $('#exType').value, zip = new JSZip(), all = merged();
-    try {
-      for (let i = 0; i < ids.length; i++) {
-        busy(true, `جارٍ تجهيز ${i + 1} من ${ids.length}...`, i / ids.length);
-        current = clean(all.find(s => s.id === ids[i])); renderPoster();
-        await new Promise(r => setTimeout(r, 60));
-        const f = await fileOf(type); zip.file(`${String(i + 1).padStart(2, '0')}-${fileBase(current)}.${f.ext}`, f.blob);
+  // ندوات × مقاسات → ملفات {name, blob}
+  async function produce(items, fmts, type, scale) {
+    const files = [], total = items.length * fmts.length;
+    let done = 0, all = null;
+    for (const it of items) {
+      let doc = null;
+      for (const f of fmts) {
+        busy(true, `جارٍ تجهيز ${done + 1} من ${total}: ${it.label} — ${f.name}`, done / total);
+        const { canvas, H } = await capture(it.s, f, scale);
+        if (type === 'pdf') {
+          doc = addPdfPage(doc, canvas, f, H);
+          if (items.length > 1) all = addPdfPage(all, canvas, f, H);
+        } else {
+          const blob = await toBlob(canvas, type === 'jpg' ? 'image/jpeg' : 'image/png', 0.93);
+          files.push({ name: `${safe(it.label)}/${safe(f.name)}-${f.w}x${H}.${type}`, blob });
+        }
+        done++;
       }
-      busy(true, 'جارٍ ضغط الملفات...', 1);
-      saveBlob(await zip.generateAsync({ type: 'blob' }), `اعلانات-الندوات-${todayIso()}.zip`);
-    } catch (e) { toast('تعذر تجهيز الملفات', true); }
-    finally { current = keep; renderPoster(); busy(false); }
+      if (doc) files.push({ name: `${fileBase(it.s, fmts[0])}.pdf`, blob: doc.output('blob') });
+    }
+    if (all) files.push({ name: 'جميع-الإعلانات.pdf', blob: all.output('blob') });
+    busy(true, null, 1);
+    return files;
   }
+  async function deliver(files, zipName) {
+    // ملفات قليلة تنزل منفصلة، والكثيرة في ملف مضغوط (مثل المناقشات)
+    if (files.length <= 3) {
+      for (const f of files) { saveBlob(f.blob, f.name.replace(/\//g, '-')); await new Promise(r => setTimeout(r, 450)); }
+      return;
+    }
+    const zip = new JSZip();
+    files.forEach(f => zip.file(f.name, f.blob));
+    saveBlob(await zip.generateAsync({ type: 'blob' }), zipName);
+  }
+  async function runExport(items, zipName) {
+    const fmts = selectedFormats();
+    if (!fmts.length) { $('#exportFormats').scrollIntoView({ behavior: 'smooth', block: 'center' }); return toast('اختر مقاساً واحداً على الأقل', true); }
+    if (!items.length) return toast('لا توجد تصاميم للتحميل', true);
+    busy(true, 'جارٍ التجهيز...');
+    try {
+      const files = await produce(items, fmts, $('#exType').value, exScale());
+      await deliver(files, zipName);
+      toast(`تم تجهيز ${files.length} ملف ✓`);
+    } catch (e) { console.error(e); toast('حدث خطأ أثناء التحميل: ' + (e.message || e), true); }
+    finally { busy(false); }
+  }
+  function downloadCurrent() {
+    const s = clean(current || blank());
+    runExport([{ label: s.title || 'ندوة', s }], `${safe(s.title) || 'ندوة'}.zip`);
+  }
+  function downloadSelected() {
+    const items = merged().filter(s => gridSel.has(s.id)).map(s => ({ label: `${s.date || 'بدون-تاريخ'}-${s.title || 'ندوة'}`, s: clean(s) }));
+    if (!items.length) { $('#dataSheet').scrollIntoView({ behavior: 'smooth' }); return toast('حدد الندوات من مربعات الجدول أولاً', true); }
+    runExport(items, `اعلانات-الندوات-${todayIso()}.zip`);
+  }
+  // الطباعة والمشاركة والنسخ والعرض: بالمقاس المعروض في «المعاينة»
+  const captureShown = (scale) => capture(clean(current || blank()), fmtOf(size), scale);
   async function printCurrent() {
     const w = window.open('', '_blank'); if (!w) return toast('اسمح بالنوافذ المنبثقة للطباعة', true);
     try {
-      const { canvas } = await renderBlob(2);
+      const { canvas } = await captureShown(2);
       const doc = w.document; doc.title = fileBase();
       const img = doc.createElement('img'); img.src = canvas.toDataURL('image/png'); img.style.cssText = 'width:100%;display:block';
       doc.body.style.margin = '0'; doc.body.appendChild(img);
@@ -614,25 +829,26 @@
   }
   async function shareImage() {
     try {
-      const { canvas } = await renderBlob(2);
+      const { canvas } = await captureShown(2);
       const file = new File([await toBlob(canvas, 'image/jpeg', 0.92)], fileBase() + '.jpg', { type: 'image/jpeg' });
       if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file] }); return; }
       saveBlob(file, file.name); toast('المشاركة غير مدعومة في هذا المتصفح — حُمّلت الصورة');
     } catch (e) { if (e.name !== 'AbortError') toast('تعذرت المشاركة', true); }
   }
   async function copyImage() {
-    try { const { canvas } = await renderBlob(2); await navigator.clipboard.write([new ClipboardItem({ 'image/png': await toBlob(canvas, 'image/png') })]); toast('نُسخت الصورة ✓ — الصقها في المحادثة (Ctrl+V)'); }
+    try { const { canvas } = await captureShown(2); await navigator.clipboard.write([new ClipboardItem({ 'image/png': await toBlob(canvas, 'image/png') })]); toast('نُسخت الصورة ✓ — الصقها في المحادثة (Ctrl+V)'); }
     catch (e) { toast('المتصفح منع نسخ الصورة — استعمل «تحميل»', true); }
   }
   async function zoom() {
-    try { busy(true, 'جارٍ التجهيز...'); const { canvas } = await renderBlob(1); $('#zoomImg').src = canvas.toDataURL('image/png'); $('#mZoom').classList.add('open'); }
+    try { busy(true, 'جارٍ التجهيز...'); const { canvas } = await captureShown(1); $('#zoomImg').src = canvas.toDataURL('image/png'); $('#mZoom').classList.add('open'); }
     catch (e) { toast('تعذر العرض', true); } finally { busy(false); }
   }
 
-  // نص الإعلان (رسالة الدعوة للواتساب / نص النشر)
-  function shareText() {
-    const s = clean(current || blank());
-    const lines = [`تقيم ${s.organizer || 'كلية الشريعة'}${s.department ? ' ممثلة ب' + s.department : ''} ${s.series || 'ندوة'} بعنوان:`, s.title ? (/[«»""]/.test(s.title) ? s.title : `«${s.title}»`) : '«عنوان الندوة»'];
+  // ---------- رسائل واتساب: الدعوة والتسجيل (مثل المناقشات) ----------
+  // رسالة الدعوة = نص الإعلان؛ رسالة التسجيل بنفس صيغة المناقشات
+  function shareText(src) {
+    const s = clean(src || current || blank());
+    const lines = [`تقيم ${s.organizer || 'كلية الشريعة'}${s.department ? ' ممثلة ب' + s.department : ''} ${s.series || 'ندوة'} بعنوان:`, quoted(s.title)];
     if (s.subtitle) lines.push(s.subtitle);
     if (STATUS_AR[s.status]) lines.push(`(${STATUS_AR[s.status]})`);
     const sp = speakersOf(s);
@@ -645,40 +861,120 @@
     if (s.public_note) lines.push(s.public_note);
     return lines.join('\n');
   }
-  function copyText(t) { navigator.clipboard.writeText(t).then(() => toast('نُسخت الرسالة ✓'), () => toast('تعذر النسخ', true)); }
+  // تسجيل من عدة أجزاء (روابط مفصولة بـ | ) → «الجزء 1: ...» كل جزء في سطر
+  function recLinks(v) {
+    const urls = String(v || '').split(/\s*\|\s*|\s+(?=https?:)/).map(x => x.trim()).filter(Boolean);
+    return urls.length > 1 ? urls.map((u, i) => `الجزء ${i + 1}:\n${u}`).join('\n\n') : (urls[0] || '');
+  }
+  function recordText(src) {
+    const s = clean(src || current || blank());
+    const when = s.date ? `، يوم ${weekday(s.date)} ${hijri(s.date)}` : '';
+    return `السلام عليكم ورحمة الله\nمرفق لكم تسجيل ${s.series || 'ندوة'}: ${quoted(s.title)}${when}\n\n${recLinks(s.recording_link)}\n\nولكم خالص الشكر`;
+  }
+  const buildMsg = (kind, s) => kind === 'record' ? recordText(s) : shareText(s);
+  const hasRec = (s) => !!String((s && s.recording_link) || '').trim();
+  async function copyText(text) {
+    try { await navigator.clipboard.writeText(text); return true; }
+    catch (e) {
+      const ta = document.createElement('textarea'); ta.value = text; ta.style.cssText = 'position:fixed;top:-9999px'; document.body.appendChild(ta);
+      ta.select(); let ok = false; try { ok = document.execCommand('copy'); } catch (er) { ok = false; } ta.remove(); return ok;
+    }
+  }
+  async function copyMsg(kind, s) {
+    if (kind === 'record' && !hasRec(s)) return toast('أضف «رابط التسجيل» أولاً (بعد انتهاء الندوة)', true);
+    if (await copyText(buildMsg(kind, s))) toast(kind === 'invite' ? '✓ تم نسخ رسالة الدعوة — الصقها في واتساب' : '✓ تم نسخ رسالة التسجيل — الصقها في واتساب');
+    else toast('تعذر النسخ — استعمل زر «💬 واتساب» وانسخ الرسالة من النافذة', true);
+  }
   function openCaption() {
     const tags = '\n\n#جامعة_القصيم #كلية_الشريعة';
     const fill = () => { $('#captionText').value = shareText() + ($('#capTags').checked ? tags : ''); links(); };
     const links = () => { const t = $('#captionText').value; $('#capWa').href = 'https://wa.me/?text=' + encodeURIComponent(t); $('#capX').href = 'https://twitter.com/intent/tweet?text=' + encodeURIComponent(t); };
-    $('#capTags').onchange = fill; $('#captionText').oninput = links; $('#capCopy').onclick = () => copyText($('#captionText').value);
+    $('#capTags').onchange = fill; $('#captionText').oninput = links; $('#capCopy').onclick = () => copyText($('#captionText').value).then(ok => toast(ok ? '✓ تم نسخ النص' : 'تعذر النسخ', !ok));
     fill(); $('#mCaption').classList.add('open');
   }
-  // واتساب: الصورة الأصلية + الرسالة (الجوال: مشاركة مباشرة، الكمبيوتر: واتساب ويب + نسخ الصورة)
-  let sendFile = null;
-  async function openSend() {
-    $('#sendText').value = shareText(); $('#sendImg').removeAttribute('src'); $('#sendImgNote').hidden = false; $('#sendHint').textContent = '';
+
+  // ---------- إرسال بالواتساب: صورة برنامج الندوة كاملة + نص الرسالة ----------
+  // الجوال/الآيباد: مشاركة مباشرة. الكمبيوتر: واتساب ويب + نسخ الصورة. (نفس سلوك المناقشات)
+  const SEND = { s: null, kind: 'invite', blob: null, file: null };
+  const SEND_FMT = SFMTS[0];   // مثل المناقشات: تُرسل الصورة الأساسية الكاملة (برنامج الندوة)
+  const canShareFiles = () => { try { return !!(navigator.canShare && navigator.canShare({ files: [new File([new Blob(['x'])], 'x.jpg', { type: 'image/jpeg' })] })); } catch (e) { return false; } };
+  async function sendImage(s) { const { canvas } = await capture(s, SEND_FMT, 2); return toBlob(canvas, 'image/jpeg', 0.93); }
+  function sendSetKind(kind) {
+    SEND.kind = kind;
+    $$('[data-send]').forEach(b => b.classList.toggle('active', b.dataset.send === kind));
+    const missing = kind === 'record' && !hasRec(SEND.s);
+    $('#sendWarn').hidden = !missing;
+    $('#sendWarn').textContent = missing ? '⚠️ ما فيه رابط تسجيل. أضفه في خانة «رابط التسجيل» (أو في عمود السطر بالجدول) ثم ارجع هنا.' : '';
+    $('#sendText').value = missing ? '' : buildMsg(kind, SEND.s);
+  }
+  async function openSend(s, kind, readyBlob) {
+    SEND.s = clean(s); SEND.blob = null; SEND.file = null;
+    sendSetKind(kind || (hasRec(SEND.s) ? 'record' : 'invite'));
+    const img = $('#sendImg'); img.removeAttribute('src'); $('#sendImgNote').textContent = 'جارٍ تجهيز الصورة...';
+    const mobile = canShareFiles();
+    $('#sendShare').hidden = !mobile; $('#sendWeb').hidden = mobile;
+    $('#sendHint').textContent = mobile
+      ? 'اضغط «إرسال للواتساب» واختر واتساب ثم المحادثة. إذا ما ظهر النص مع الصورة، الصقه (منسوخ تلقائياً).'
+      : 'في الكمبيوتر: يفتح واتساب ويب بالرسالة، والصورة تنسخ تلقائياً — الصقها في المحادثة (Ctrl+V).';
     $('#mSend').classList.add('open');
     try {
-      const { canvas } = await renderBlob(2);
-      sendFile = new File([await toBlob(canvas, 'image/jpeg', 0.92)], fileBase() + '.jpg', { type: 'image/jpeg' });
-      $('#sendImg').src = URL.createObjectURL(sendFile); $('#sendImgNote').hidden = true;
-    } catch (e) { $('#sendImgNote').textContent = 'تعذر تجهيز الصورة'; }
+      SEND.blob = readyBlob || await sendImage(SEND.s);
+      SEND.file = new File([SEND.blob], `${fileBase(SEND.s, SEND_FMT)}.jpg`, { type: 'image/jpeg' });
+      if (img._url) URL.revokeObjectURL(img._url);
+      img._url = URL.createObjectURL(SEND.blob); img.src = img._url;
+      $('#sendImgNote').textContent = 'صورة برنامج الندوة كاملة — جاهزة ✓';
+    } catch (e) { $('#sendImgNote').textContent = 'تعذّر تجهيز الصورة'; }
   }
+  $$('[data-send]').forEach(b => b.onclick = () => sendSetKind(b.dataset.send));
+  const sendReady = () => {
+    if (!$('#sendText').value.trim()) { toast(SEND.kind === 'record' ? 'أضف رابط التسجيل أولاً' : 'الرسالة فاضية', true); return false; }
+    if (!SEND.file) { toast('لحظة... الصورة تتجهز', true); return false; }
+    return true;
+  };
   $('#sendShare').onclick = async () => {
+    if (!sendReady()) return;
     const text = $('#sendText').value;
-    if (sendFile && navigator.canShare && navigator.canShare({ files: [sendFile] })) { try { await navigator.share({ files: [sendFile], text }); } catch (e) { /* أُلغي */ } return; }
-    $('#sendHint').textContent = 'هذا المتصفح ما يدعم إرسال الصورة مباشرة — استعمل «واتساب ويب» تحت.';
+    copyText(text);   // احتياط: بعض نسخ واتساب تتجاهل النص المرفق مع الصورة
+    try { await navigator.share({ files: [SEND.file], text }); $('#mSend').classList.remove('open'); }
+    catch (e) { if (e.name !== 'AbortError') toast('تعذّر فتح المشاركة — جرّب مرة ثانية أو حمّل الصورة', true); }
   };
   $('#sendWeb').onclick = async () => {
-    const w = window.open('about:blank', '_blank');
+    if (!sendReady()) return;
+    const text = $('#sendText').value;
+    const w = window.open('about:blank', '_blank');   // نفتح النافذة فوراً حتى لا يمنعها المتصفح
     let copied = false;
-    try { if (sendFile) { const bmp = await createImageBitmap(sendFile); const c = document.createElement('canvas'); c.width = bmp.width; c.height = bmp.height; c.getContext('2d').drawImage(bmp, 0, 0); await navigator.clipboard.write([new ClipboardItem({ 'image/png': await toBlob(c, 'image/png') })]); copied = true; } } catch (e) { copied = false; }
-    const url = 'https://web.whatsapp.com/send?text=' + encodeURIComponent($('#sendText').value);
+    try { await navigator.clipboard.write([new ClipboardItem({ [SEND.blob.type]: SEND.blob })]); copied = true; }
+    catch (e) {
+      try {
+        const png = await new Promise(r => { const im = new Image(); im.onload = () => { const c = document.createElement('canvas'); c.width = im.naturalWidth; c.height = im.naturalHeight; c.getContext('2d').drawImage(im, 0, 0); c.toBlob(r, 'image/png'); }; im.src = $('#sendImg').src; });
+        await navigator.clipboard.write([new ClipboardItem({ 'image/png': png })]); copied = true;
+      } catch (er) { copied = false; }
+    }
+    const url = `https://web.whatsapp.com/send?text=${encodeURIComponent(text)}`;
     if (w) w.location.href = url; else location.href = url;
-    $('#sendHint').textContent = copied ? '✓ الصورة منسوخة — اختر المحادثة والصقها (Ctrl+V) ثم أرسل.' : 'أرفق الصورة من «تحميل الصورة».';
+    toast(copied ? '✓ الصورة منسوخة — اختر المحادثة والصقها (Ctrl+V) ثم أرسل' : 'افتح المحادثة وأرفق الصورة من «تحميل الصورة»', !copied);
   };
-  $('#sendCopy').onclick = () => copyText($('#sendText').value);
-  $('#sendDl').onclick = () => { if (sendFile) saveBlob(sendFile, sendFile.name); };
+  $('#sendCopy').onclick = async () => { if (await copyText($('#sendText').value)) toast('✓ تم نسخ الرسالة'); };
+  $('#sendDl').onclick = () => { if (SEND.blob) saveBlob(SEND.blob, SEND.file.name); };
+  // إرسال مباشر: في الجوال/الآيباد يفتح المشاركة فوراً، وإذا طلب الجهاز ضغطة إضافية تظهر نافذة جاهزة
+  async function sendDirect(src, kind) {
+    const s = clean(src || blank());
+    if (kind === 'record' && !hasRec(s)) return toast('أضف «رابط التسجيل» أولاً (بعد انتهاء الندوة)', true);
+    if (!canShareFiles()) return openSend(s, kind);   // الكمبيوتر: نافذة واتساب ويب
+    const text = buildMsg(kind, s);
+    busy(true, 'جارٍ تجهيز الصورة للواتساب...');
+    let blob;
+    try { blob = await sendImage(s); } catch (e) { busy(false); return toast('تعذّر تجهيز الصورة', true); }
+    busy(false);
+    const file = new File([blob], `${fileBase(s, SEND_FMT)}.jpg`, { type: 'image/jpeg' });
+    copyText(text);
+    try { await navigator.share({ files: [file], text }); }
+    catch (e) {
+      if (e.name === 'AbortError') return;
+      await openSend(s, kind, blob);   // الجهاز يحتاج ضغطة جديدة: النافذة جاهزة بزر «إرسال»
+      toast('جاهز ✓ — اضغط «إرسال للواتساب»');
+    }
+  }
 
   // جدول ← Excel / CSV
   function sheetRows() {
@@ -746,7 +1042,7 @@
   };
   $('#linkDefault').onclick = () => { $('#f_link').value = YT; readForm(true); };
   // المعاينة
-  $$('[data-size]').forEach(b => b.onclick = () => { $$('[data-size]').forEach(x => x.classList.toggle('active', x === b)); size = b.dataset.size; renderPoster(); });
+  $$('#previewFormats [data-size]').forEach(b => b.onclick = () => { $$('#previewFormats [data-size]').forEach(x => x.classList.toggle('active', x === b)); size = b.dataset.size; renderPoster(); });
   $('#stage').onclick = zoom;
   // التحميل والمشاركة
   $('#exCurrent').onclick = downloadCurrent;
@@ -757,9 +1053,11 @@
   $('#copyImgBtn').onclick = copyImage;
   $('#captionBtn').onclick = openCaption;
   $('#zoomBtn').onclick = zoom;
-  $('#btnWa').onclick = openSend;
-  $('#waInvite').onclick = openSend;
-  $('#copyInvite').onclick = () => copyText(shareText());
+  $('#btnWa').onclick = () => sendDirect(current, 'invite');
+  $('#waInvite').onclick = () => sendDirect(current, 'invite');
+  $('#waRecord').onclick = () => sendDirect(current, 'record');
+  $('#copyInvite').onclick = () => copyMsg('invite', current);
+  $('#copyRecord').onclick = () => { copyMsg('record', current); if (!hasRec(current)) $('#f_rec').focus(); };
   // الجدول
   $('#search').addEventListener('input', renderGrid);
   // المتصفح أحياناً يحفظ اسم الدخول ويكتبه في خانة البحث فيختفي الجدول: تُفرَّغ إذا لم يكتب فيها المستخدم
