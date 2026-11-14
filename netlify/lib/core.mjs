@@ -109,11 +109,11 @@ async function allRows(store) {
 // جدول حجز القاعة (الملف الثابت) + ما كتبه الموظفون في جداولهم (الأحدث يكمّل الناقص ولا يمسح الموجود)
 async function feedDefenses(store, origin) {
   const base = (await staticFile(origin, '/assets/data/defenses.json')) || { v: '', rows: [], fixes: [], remove: [] };
-  const map = new Map((base.rows || []).map(r => [keyOf(r['الطالب'], r['التاريخ']), { ...r }]));
+  const gone = new Set(((await getJSON(store, 'state/_shared')) || {}).gone || []);
+  const map = new Map((base.rows || []).map(r => [keyOf(r['الطالب'], r['التاريخ']), { ...r }]).filter(([k]) => !gone.has(k)));
   for (const r of await allRows(store)) {
     const k = keyOf(r['الطالب'], r['التاريخ']); if (!r['الطالب'] || !normDate(r['التاريخ'])) continue;
-    const cur = map.get(k) || {};
-    const m = { ...cur }; ROW_FIELDS.forEach(f => { if (String(r[f] || '').trim()) m[f] = r[f]; });
+    const m = { ...(map.get(k) || {}) }; ROW_FIELDS.forEach(f => { m[f] = r[f] || ''; });   // الجدول هو المرجع: الخانة اللي فرّغها الموظف تنفرغ في البث
     map.set(k, m);
   }
   return { ...base, v: new Date().toISOString(), rows: [...map.values()] };
@@ -132,7 +132,8 @@ function detailsFromRow(r) {
 
 async function feedDetails(store, origin) {
   const base = (await staticFile(origin, '/assets/data/defense-details.json')) || { v: '', details: {} };
-  const details = { ...(base.details || {}) };
+  const gone = new Set(((await getJSON(store, 'state/_shared')) || {}).gone || []);
+  const details = Object.fromEntries(Object.entries(base.details || {}).filter(([k]) => !gone.has(k)));
   for (const r of await allRows(store)) { const d = detailsFromRow(r); if (d) details[d.key] = { ...(details[d.key] || {}), ...d }; }
   const { blobs } = await store.list({ prefix: 'details/' });
   for (const b of blobs) { const d = await getJSON(store, b.key); if (d && d.key) details[d.key] = { ...(details[d.key] || {}), ...d }; }
@@ -179,6 +180,7 @@ const SHARED_KEY = /^qu_(gridv|grid|sharedv)_/;
 const sharedName = k => { const m = String(k).match(SHARED_KEY); return m ? m[1] : null; };
 const WCOL = GCOLS.indexOf('الكاتب');
 const emptyRow = r => !Array.isArray(r) || r.every((v, i) => i === WCOL || !String(v || '').trim());
+const rowKey = r => { const st = String(r[GCOLS.indexOf('الطالب')] || '').trim(), d = normDate(r[GCOLS.indexOf('التاريخ')]); return st && d ? keyOf(st, d) : ''; };
 const parseGrid = s => { try { const g = JSON.parse(s || '[]'); return Array.isArray(g) ? g.filter(Array.isArray) : []; } catch (e) { return []; } };
 
 // أول مرة: الجدول المشترك = كل أسطر جداول الحسابات (بلا تكرار)، وتُحذف نسخ OBS القديمة لكل حساب/جهاز
@@ -215,8 +217,12 @@ function mergeGrid(base, mine, theirs) {
   const out = [];
   for (const r of theirs) { if (emptyRow(r)) continue; const k = JSON.stringify(r), d = drop.get(k) || 0; if (d > 0) { drop.set(k, d - 1); continue; } out.push(r); }
   const have = count(out);
-  for (const [k, n] of nm) { const add = n - (nb.get(k) || 0) - Math.max(0, (have.get(k) || 0) - (nb.get(k) || 0)); for (let i = 0; i < add; i++) out.push(JSON.parse(k)); }
-  return out.concat(mine.filter(emptyRow));                  // صفوف المحرّر الفارغة تبقى عنده
+  const added = [];
+  for (const [k, n] of nm) { const add = n - (nb.get(k) || 0) - Math.max(0, (have.get(k) || 0) - (nb.get(k) || 0)); for (let i = 0; i < add; i++) added.push(JSON.parse(k)); }
+  // نفس المناقشة (الطالب + التاريخ) عدّلها اثنان بنفس اللحظة: يبقى سطر واحد — تعديل صاحب هذا الحفظ (الأحدث)
+  const mineKeys = new Set(added.map(rowKey).filter(Boolean));
+  const out2 = out.filter(r => { const k = rowKey(r); return !k || !mineKeys.has(k) || nb.has(JSON.stringify(r)); });
+  return out2.concat(added, mine.filter(emptyRow));          // صفوف المحرّر الفارغة تبقى عنده
 }
 
 export async function handle(req, store) {
@@ -276,7 +282,14 @@ export async function handle(req, store) {
           // بلا نسخة أساس (صفحة قديمة): الحفظ يحل محل الجدول كما كان
           const g = typeof base[k] === 'string' ? mergeGrid(parseGrid(base[k]), parseGrid(v), parseGrid(sh.grid)) : parseGrid(v);
           const s = JSON.stringify(g);
-          if (s !== sh.grid) { sh.grid = s; shChanged = true; await writeSharedRows(store, g); }
+          if (s !== sh.grid) {
+            // مناقشة حُذفت أو تغيّر تاريخها: مفتاحها القديم يُسجَّل حتى لا يرجّعه ملف الحجز الثابت في البث
+            const now = new Set(g.map(rowKey).filter(Boolean));
+            const gone = new Set((sh.gone || []).filter(k => !now.has(k)));
+            for (const r of parseGrid(sh.grid)) { const k = rowKey(r); if (k && !now.has(k)) gone.add(k); }
+            sh.gone = [...gone].slice(-3000);
+            sh.grid = s; shChanged = true; await writeSharedRows(store, g);
+          }
           if (s !== v) merged = s;
         } else if (sh[n] !== v) { sh[n] = v; shChanged = true; }
       }

@@ -989,8 +989,18 @@
     const hdr = data[0].map(h => GCOLS.findIndex(c => norm(c) === norm(h) || NMAP[norm(h)] && NMAP[norm(h)] === GFIELD[c]));
     if (hdr.filter(i => i >= 0).length >= 2) { map = hdr; data = data.slice(1); }
     const c0 = map ? 0 : +inp.dataset.c;
+    // أسطر «إجازة أسبوعية» من ملف مصدَّر لا تُلصق
+    const noteCol = map ? map.indexOf(CI('الملاحظات')) : CI('الملاحظات') - c0, stuCol = map ? map.indexOf(CI('الطالب')) : CI('الطالب') - c0;
+    data = data.filter(v => !(/[اأإ]جاز/.test(v[noteCol] || '') && !String(v[stuCol] || '').trim()));
+    if (!data.length) return toast('ما فيه أسطر مناقشات في المنسوخ');
+    // لصق عدة أسطر فوق مناقشات موجودة: ما نكتب فوقها — تنضاف كأسطر جديدة أول الجدول
+    let start = r0, asNew = false;
+    if (data.length > 1 && data.some((_, k) => grid[r0 + k] && !isEmptyRow(grid[r0 + k]))) {
+      for (let k = 0; k < data.length; k++) grid.unshift(emptyRow());
+      start = 0; asNew = true;
+    }
     data.forEach((vals, k) => {
-      const r = r0 + k;
+      const r = start + k;
       while (grid.length <= r) grid.push(emptyRow());
       vals.forEach((v, j) => {
         const col = map ? map[j] : c0 + j;
@@ -999,7 +1009,7 @@
       stamp(grid[r]);
     });
     renderGrid(); gridChanged(); autoSort();
-    toast(`تم لصق ${data.length} سطر ✓`);
+    toast(asNew ? `✓ أُضيفت أسطر جديدة أول الجدول (${data.length}) — وما انكتب فوق المناقشات الموجودة` : `تم لصق ${data.length} سطر ✓`);
   });
   $('#sheet').addEventListener('keydown', e => {
     const inp = e.target; if (inp.dataset.c == null) return;
