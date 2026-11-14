@@ -275,7 +275,7 @@
       </div>
       <div class="ds-newbar">
         <button class="btn primary" id="gNew" title="ينقلك لسطر الإضافة الفاضي أول الجدول">➕ مناقشة جديدة</button>
-        <button class="btn week-btn" id="gWeek" title="مناقشات وندوات الأسبوع (الأحد ← الخميس): تنزيل، واتساب، المدونة">📅 إعلانات الأسبوع</button>
+        <button class="btn week-btn" id="gWeek" title="مناقشات الأسبوع (الأحد ← الخميس): تنزيل، واتساب، نسخ الصور للمدونة">📅 مشاركة صور الإعلانات لهذا الأسبوع</button>
         <button class="btn save-btn" id="gSave" title="الحفظ تلقائي دايماً — هذا الزر للتأكيد ويرسل الحين">💾 حفظ</button>
         <input type="search" id="gFind" class="ds-find" placeholder="🔎 ابحث باسم الطالب أو الدكتور أو العنوان (يشمل المنتهية)">
         <span class="hint" id="gFindInfo"></span>
@@ -434,21 +434,6 @@
     <p class="hint" style="margin:0 0 8px">أي مناقشة حذفها أي موظف تطلع هنا. «رجّعها» يرجّعها للجدول والبث.</p>
     <div id="trashShared" class="trash-list"></div>
   </div></div>
-  <div class="modal" id="mWeek"><div class="box" style="width:min(760px,100%)">
-    <h2>📅 إعلانات الأسبوع <span id="weekCount" class="hint"></span> <button class="btn sm" data-close>✕</button></h2>
-    <div class="hbar" style="align-items:center">
-      <button class="btn sm" data-wknav="-1">▶ السابق</button>
-      <b id="weekRange" style="flex:1;text-align:center"></b>
-      <button class="btn sm" data-wknav="1">الجاي ◀</button>
-    </div>
-    <div class="week-acts">
-      <button class="week-act" data-wkact="dl"><b>⬇️ تنزيل</b><small>كل إعلان صورة لحاله</small></button>
-      <button class="week-act wa" data-wkact="wa"><b>💬 واتساب</b><small>للجروب أو القناة مرة وحدة</small></button>
-      <button class="week-act" data-wkact="blog"><b>🌐 المدونة</b><small>كلها في صورة وحدة: انسخ والصق</small></button>
-    </div>
-    <div class="hbar"><button class="btn sm" id="weekAll">☑️ تحديد / إلغاء الكل</button><span class="hint">كل إعلان بتصميمه الأصلي (المناقشة: الإعلان الرسمي، الندوة: البرنامج)</span></div>
-    <div id="weekList" class="trash-list"></div>
-  </div></div>
   <div class="modal" id="mRowLog"><div class="box" style="width:min(720px,100%)">
     <h2>🕘 سجل المناقشة: <span id="rowLogTitle"></span> <button class="btn sm" data-close>✕</button></h2>
     <p class="hint" style="margin:0 0 10px">مين أضاف المناقشة، ومين عدّل وش، ومتى. الأحدث فوق.</p>
@@ -541,6 +526,7 @@
   <script src="assets/js/poster.js?v=202611141201"></script>
   <script src="assets/js/details.js?v=202611130010"></script>
   <script src="assets/js/people.js?v=202611141201"></script>
-  <script src="assets/js/app.js?v=202611142301"></script>
+  <script src="assets/js/week.js?v=202611150201"></script>
+  <script src="assets/js/app.js?v=202611150101"></script>
 </body>
 </html>
