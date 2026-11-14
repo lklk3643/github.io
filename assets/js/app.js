@@ -218,12 +218,19 @@
   $('#previewFormats').innerHTML = FORMATS.map(f => `<button class="chip" data-pf="${f.id}">${f.name}</button>`).join('') +
     `<button class="chip" data-pf="custom">مقاس مخصص</button>`;
   function getFormat(id) { return id === 'custom' ? customFormat($('#cw').value, $('#ch').value) : FORMATS.find(f => f.id === id); }
-  $$('[data-pf]').forEach(b => b.onclick = () => {
-    currentFmt = getFormat(b.dataset.pf);
-    $('#customBox').hidden = b.dataset.pf !== 'custom';
+  // اختيار واحد للمقاس في الصفحة كلها: اللي يظهر في «المعاينة» = اللي ينزل بالتحميل = اللي ينرسل بالمشاركة والواتساب
+  function pickPreview(id, syncExport) {
+    const b = $(`[data-pf="${id}"]`); if (!b) return;
+    currentFmt = getFormat(id);
+    $('#customBox').hidden = id !== 'custom';
     $$('[data-pf]').forEach(x => x.classList.toggle('active', x === b));
+    if (syncExport && $('#exportFormats')) {           // من «المعاينة»: يصير هو المقاس المحدد للتحميل (تقدر تضيف غيره)
+      $$('#exportFormats input').forEach(i => { i.checked = i.value === id; });
+      try { localStorage.setItem(userKey('fmts'), JSON.stringify([id])); } catch (e) { /* اختياري */ }
+    }
     changed(true);
-  });
+  }
+  $$('[data-pf]').forEach(b => b.onclick = () => pickPreview(b.dataset.pf, true));
   $('[data-pf="exact"]').classList.add('active');
   ['#cw', '#ch'].forEach(s => $(s).addEventListener('input', () => { if (currentFmt.id === 'custom') { currentFmt = getFormat('custom'); changed(true); } }));
 
@@ -267,9 +274,13 @@
   $('#exportFormats').innerHTML = FORMATS.map(f => `<label class="fmt"><input type="checkbox" value="${f.id}" ${defaultFmts.includes(f.id) ? 'checked' : ''}>
       <span>${f.name}<small>${f.w}×${f.h}</small></span></label>`).join('') +
     `<label class="fmt"><input type="checkbox" value="custom"><span>المقاس المخصص<small>من شريط المعاينة</small></span></label>`;
-  $('#exportFormats').addEventListener('change', () => {
-    try { localStorage.setItem(userKey('fmts'), JSON.stringify($$('#exportFormats input:checked').map(i => i.value))); } catch (e) { /* اختياري */ }
+  $('#exportFormats').addEventListener('change', e => {
+    try { localStorage.setItem(userKey('fmts'), JSON.stringify($$('#exportFormats input:checked').map(i => i.value))); } catch (err) { /* اختياري */ }
+    // حددت مقاساً للتحميل: المعاينة تتحول له، فالمشاركة والنسخ والواتساب تطلع بنفس المقاس
+    const t = e.target; if (t && t.checked) pickPreview(t.value, false);
+    else { const first = $('#exportFormats input:checked'); if (first) pickPreview(first.value, false); }
   });
+  { const first = $('#exportFormats input:checked'); if (first && first.value !== 'exact') pickPreview(first.value, false); }
   const selectedFormats = () => $$('#exportFormats input:checked').map(i => getFormat(i.value));
 
   const exportEl = $('#exportPoster');
@@ -776,7 +787,7 @@
     return true;
   }
   // المناقشات المنتهية مخفية افتراضياً: الجدول خفيف (بدل آلاف الخانات) ويعرض اللي يهم الموظف — زر «عرض المنتهية» يظهرها
-  const pastShown = () => { try { return localStorage.getItem(userKey('showpast')) === '1'; } catch (e) { return false; } };
+  const pastShown = () => { try { return localStorage.getItem(userKey('showpast2')) !== '0'; } catch (e) { return true; } };   // افتراضياً ظاهرة (بدفعات)
   // المنتهية تُعرض بدفعات (الأحدث أولاً) والبحث يشمل الكل — حتى لا يرسم الجدول آلاف الخانات مرة وحدة
   const PAST_STEP = 50, FIND_MAX = 120;
   const FIND_COLS = GCOLS.map((c, j) => /^(الطالب|العنوان|الدرجة|عضو\d+ الاسم)$/.test(c) ? j : -1).filter(j => j >= 0);   // البحث: الطالب والعنوان والدرجة وأسماء اللجنة
@@ -804,7 +815,7 @@
     const b = $('#gShowPast'), more = $('#gMorePast'), info = $('#gFindInfo'); if (!b) return;
     const n = grid.filter(r => isPast(r)).length;
     b.hidden = !n || !!findHits; b.textContent = pastShown() ? `🙈 إخفاء المنتهية` : `📜 عرض المنتهية (${n})`;
-    if (more) { const left = n - pastVis.size; more.hidden = !pastShown() || !!findHits || left <= 0; more.textContent = `⬇️ عرض أقدم (باقي ${left})`; }
+    if (more) { const left = n - pastVis.size; more.hidden = !pastShown() || !!findHits || left <= 0; more.textContent = `⬇️ عرض أقدم (باقي ${left} — أو انزل لآخر الجدول)`; }
     if (info) info.textContent = findHits ? (findHits.size ? `النتائج: ${findHits.size}${findHits.size >= FIND_MAX ? ' (أول النتائج — دقّق البحث)' : ''}` : 'ما فيه نتائج — جرّب جزء من الاسم') : '';
   }
   function renderGrid() {
@@ -1454,10 +1465,23 @@
   };
   $('#gSelAll').onclick = () => { grid.forEach((r, i) => { if (!isEmptyRow(r) && !hideRow(r, i)) gridSel.add(i); }); renderGrid(); };
   { const b = $('#gShowPast'); if (b) b.onclick = () => {
-    try { localStorage.setItem(userKey('showpast'), pastShown() ? '0' : '1'); } catch (e) { /* اختياري */ }
+    try { localStorage.setItem(userKey('showpast2'), pastShown() ? '0' : '1'); } catch (e) { /* اختياري */ }
     pastLimit = PAST_STEP; renderGrid();
   }; }
-  { const m = $('#gMorePast'); if (m) m.onclick = () => { pastLimit += PAST_STEP; renderGrid(); }; }
+  function morePast() {
+    const w = $('.gridwrap'), top = w ? w.scrollTop : 0;
+    pastLimit += PAST_STEP; renderGrid();
+    if (w) w.scrollTop = top;                                   // يكمل من مكانه
+  }
+  { const m = $('#gMorePast'); if (m) m.onclick = morePast; }
+  // تمرير الجدول لآخره ينزّل الدفعة اللي بعدها لحالها (بدل ما يرسم كل المناقشات مرة وحدة)
+  { const w = $('.gridwrap'); let busy = false;
+    if (w) w.addEventListener('scroll', () => {
+      if (busy || findHits || !pastShown()) return;
+      const left = grid.filter(r => isPast(r)).length - pastVis.size; if (left <= 0) return;
+      if (w.scrollTop + w.clientHeight < w.scrollHeight - 160) return;
+      busy = true; requestAnimationFrame(() => { morePast(); setTimeout(() => { busy = false; }, 250); });
+    }, { passive: true }); }
   { const f = $('#gFind'); let ft; if (f) f.addEventListener('input', () => { clearTimeout(ft); ft = setTimeout(() => { findQ = f.value.trim(); renderGrid(); }, 250); }); }
   $('#gSelNone').onclick = () => { gridSel.clear(); renderGrid(); };
   const selectedGridStates = () => gridItems(true).map(r => ({ label: r.data.student || `سطر ${r.n}`, state: applyRow(state, r.data) }));
@@ -2247,7 +2271,7 @@
     openModal('#mSend');
     try {
       if (readyBlob) SEND.blob = readyBlob;
-      else { const cv = await capture(s, FORMATS[0], 2); SEND.blob = await new Promise(r => cv.toBlob(r, 'image/jpeg', 0.93)); } // الصورة الأصلية الكاملة
+      else { const cv = await capture(s, currentFmt, 2); SEND.blob = await new Promise(r => cv.toBlob(r, 'image/jpeg', 0.93)); } // الصورة الأصلية الكاملة
       SEND.file = new File([SEND.blob], `${safeName(s.student || 'اعلان')}.jpg`, { type: 'image/jpeg' });
       if (img._url) URL.revokeObjectURL(img._url);
       img._url = URL.createObjectURL(SEND.blob); img.src = img._url;
@@ -2294,7 +2318,7 @@
     const text = buildMsg(kind, s);
     overlay.show('جارٍ تجهيز الصورة للواتساب...');
     let blob;
-    try { const cv = await capture(s, FORMATS[0], 2); blob = await new Promise(r => cv.toBlob(r, 'image/jpeg', 0.93)); }
+    try { const cv = await capture(s, currentFmt, 2); blob = await new Promise(r => cv.toBlob(r, 'image/jpeg', 0.93)); }
     catch (e) { overlay.hide(); return toast('تعذّر تجهيز الصورة', true); }
     overlay.hide();
     const file = new File([blob], `${safeName(s.student || 'اعلان')}.jpg`, { type: 'image/jpeg' });
