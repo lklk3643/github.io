@@ -1013,8 +1013,17 @@
     if (to >= grid.length) { grid.push(emptyRow()); renderGrid(); }
     const nx = cellAt(to, c); if (nx) { nx.focus(); nx.select(); }
   });
-  $('#gAdd').onclick = () => { grid.push(emptyRow()); renderGrid(); gridChanged(); };
-  $('#gAdd5').onclick = () => { for (let i = 0; i < 5; i++) grid.push(emptyRow()); renderGrid(); gridChanged(); };
+  function addOnTop() {
+    grid.unshift(emptyRow()); gridSel.clear(); activeRow = -1; renderGrid(); gridChanged();
+    const w = $('.gridwrap'); if (w) w.scrollTo({ top: 0, behavior: 'smooth' });
+    const tr = $('#sheet tr[data-r="0"]'), inp = tr && tr.querySelector(`input[data-c="${CI('الطالب')}"]`);
+    if (tr) { tr.scrollIntoView({ behavior: 'smooth', block: 'center' }); tr.classList.add('flash'); setTimeout(() => tr.classList.remove('flash'), 1600); }
+    if (inp) setTimeout(() => inp.focus(), 350);
+    toast('➕ سطر جديد في أول الجدول — اكتب اسم الطالب، ثم بقية الخانات. ينحفظ تلقائياً');
+  }
+  $('#gAdd').onclick = addOnTop;
+  { const b = $('#gNew'); if (b) b.onclick = addOnTop; }
+  $('#gAdd5').onclick = () => { for (let i = 0; i < 5; i++) grid.unshift(emptyRow()); renderGrid(); gridChanged(); const w = $('.gridwrap'); if (w) w.scrollTo({ top: 0, behavior: 'smooth' }); };
   $('#gFromDesign').onclick = () => {
     gridSnap('إضافة التصميم الحالي');
     const firstEmpty = grid.findIndex(isEmptyRow);
@@ -1028,10 +1037,10 @@
     const t = timeMin(r[CI('الوقت')] || '');
     return (m ? +m[1] * 10000 + +m[2] * 100 + +m[3] : 99999999) * 10000 + (t == null ? 9999 : t);
   }
-  // الترتيب: افتراضياً الأحدث فوق والأقدم تحت، وزر «ترتيب بالتاريخ» يقلبه (يُحفظ لكل مستخدم). الأسطر بلا تاريخ دايماً في الآخر
+  // الترتيب: افتراضياً الأحدث فوق والأقدم تحت، وزر «ترتيب بالتاريخ» يقلبه (يُحفظ لكل مستخدم). الأسطر بلا تاريخ دايماً فوق (جديدة تنكتب)
   const NODATE = 99999999 * 10000;
   let sortAscG = false; try { sortAscG = localStorage.getItem(userKey('sortdir')) === 'asc'; } catch (e) { /* اختياري */ }
-  const cmpKey = (a, b) => (a >= NODATE) - (b >= NODATE) || (sortAscG ? a - b : b - a);
+  const cmpKey = (a, b) => (b >= NODATE) - (a >= NODATE) || (sortAscG ? a - b : b - a);   // بلا تاريخ = مناقشة تنكتب الحين: فوق
   const sortLabel = () => {
     const b = $('#gSort'); if (b) { b.textContent = sortAscG ? '↑ الأقدم فوق' : '↓ الأحدث فوق'; b.title = 'اضغط لقلب الترتيب: ' + (sortAscG ? 'الأحدث فوق' : 'الأقدم فوق'); }
     // زرّا القفز بالتاريخ: «البداية» = أول سجل (الأقدم)، «النهاية» = آخر سجل (الأحدث) — مكانهما يتبع الترتيب
@@ -1097,7 +1106,8 @@
   addEventListener('qcloud:grid', e => {
     let g; try { g = JSON.parse(e.detail.value); } catch (err) { return; }
     if (!Array.isArray(g)) return;
-    grid = sortRows(g.filter(Array.isArray)); gridSel.clear(); activeRow = -1; renderGrid(); updateGridInfo();
+    const lead = []; for (const r of grid) { if (isEmptyRow(r)) lead.push(r); else break; }   // سطر جديد فاضي أضافه الموظف للتو: يبقى فوق
+    grid = lead.concat(sortRows(g.filter(Array.isArray))); gridSel.clear(); activeRow = -1; renderGrid(); updateGridInfo();
     const by = e.detail.by; if (by && String(by).toLowerCase() !== String(session.u).toLowerCase()) toast(`🔄 تحدّث الجدول — آخر تعديل: ${by}`);
   });
   $('#gSort').onclick = () => {
@@ -1718,10 +1728,19 @@
     function show(el) {
       const key = keyOf(el); if (!key || document.activeElement !== el) return hide();
       items = matches(key, el.value);
+      // أسماء أعضاء هيئة التدريس في الشريعة (assets/js/people.js) بعد الأسماء السابقة، مع الرتبة والقسم كصفة
+      if (key === 'mName' && window.QPeople && el.value.trim().length >= 2) {
+        const seen = new Set(items.map(v => QPeople.key(v)));
+        for (const p of QPeople.find(el.value)) {
+          if (items.length >= 8) break;
+          const k = QPeople.key(p.name); if (seen.has(k)) continue; seen.add(k);
+          items.push(p.name); if (!nameTitle[p.name]) nameTitle[p.name] = new Map([[p.title, 1]]);
+        }
+      }
       if (!items.length) return hide();
       target = el; idx = -1;
       const q = norm(el.value);
-      box.innerHTML = `<div class="sugg-h">${key === 'mName' ? 'أسماء سابقة' : key === 'link' ? 'روابط البث' : 'اقتراحات'}</div>` + items.map((v, i) => {
+      box.innerHTML = `<div class="sugg-h">${key === 'mName' ? 'أسماء الدكاترة — اختر أو كمّل الكتابة' : key === 'link' ? 'روابط البث' : 'اقتراحات'}</div>` + items.map((v, i) => {
         const t = key === 'mName' && nameTitle[v] ? [...nameTitle[v].entries()].sort((a, b) => b[1] - a[1])[0][0] : key === 'link' ? platform(v) : '';
         return key === 'link'
           ? `<div class="sugg-i" data-i="${i}"><span>${esc(t)}</span><small dir="ltr">${esc(v)}</small></div>`
@@ -1770,6 +1789,7 @@
     window.addEventListener('scroll', () => { if (target) show(target); }, true);
     window.addEventListener('resize', hide);
     refreshHistory();
+    if (window.QPeople) QPeople.load();
     function top(key, n = 80) {
       if (dirty) rebuild();
       const m = counts[key]; if (!m) return [];

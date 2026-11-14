@@ -369,3 +369,18 @@ a.btn { text-decoration: none; }
   .topbar.menu-open .lbl { display: inline !important; }
   .topbar .tb-actions a[href^="app.html"], .topbar .tb-actions a[href^="seminars.html"] { display: none; }   /* موجودة في شريط الأقسام */
 }@media (min-width: 761px) and (max-width: 1024px) { .topbar.menu-open .tb-actions { grid-template-columns: repeat(3, 1fr); } }
+
+/* ===== مراجعة الفريق 2026-11-14: قراءة أوضح لموظف غير متمرس (تباين وأحجام) ===== */
+.hint { font-size: 13px; }
+.field label { font-size: 13.5px; color: #4d6362; }
+.ds-label { font-size: 13px; }
+.btn { border-color: #8fa3a2; }
+.btn.sm { min-height: 32px; }
+.wa-btn, .sheet td.act .wa-row, .sheet td.act .wa-i { background: #167a41; border-color: #167a41; color: #fff; }
+.wa-btn:hover { background: #12663a; border-color: #12663a; }
+.sheet { font-size: 14px; }
+.sheet :where(tbody tr:nth-child(even)) td { background: #f6fafa; }
+.sheet tr.past td input[type=text] { color: #5f7574; }
+/* زر «مناقشة جديدة»: الإجراء الأساسي في الجدول، ظاهر جنب العنوان */
+#gNew { font-size: 15px; padding: 9px 18px; }
+.ds-head { align-items: center; }

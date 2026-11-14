@@ -9,7 +9,7 @@
     if (!(sessionStorage.getItem('qu_session') || localStorage.getItem('qu_session'))) location.replace('index.html');
   </script>
   <link rel="stylesheet" href="assets/fonts/fonts.css?v=202610170020">
-  <link rel="stylesheet" href="assets/css/app.css?v=202611130301">
+  <link rel="stylesheet" href="assets/css/app.css?v=202611140101">
   <link rel="stylesheet" href="assets/css/poster.css?v=202610170020">
 </head>
 <body>
@@ -217,13 +217,14 @@
     <section class="panel datasheet" id="dataSheet">
       <div class="ds-head">
         <h3>📋 جدول بيانات الإعلانات <span class="hint" id="gridCount"></span></h3>
+        <button class="btn primary" id="gNew" title="يضيف سطر فاضي في أول الجدول ويحط المؤشر في خانة الطالب">➕ مناقشة جديدة</button>
         <button class="btn sm conf-btn" id="gConflicts" hidden></button>
-        <span class="hint">كل سطر = إعلان. اكتب مباشرة، أو انسخ من Excel / Google Sheets والصق في أي خانة (Ctrl+V). كل شي ينحفظ تلقائياً.</span>
+        <span class="hint">كل سطر = مناقشة. لإضافة مناقشة اضغط «➕ مناقشة جديدة» ويطلع لك سطر فاضي أول الجدول. اكتب اسم الدكتور وتطلع لك الأسماء تختار منها. أو الصق من Excel (Ctrl+V). كل شي ينحفظ تلقائياً.</span>
       </div>
       <div class="ds-tools">
         <div class="ds-group"><span class="ds-label">الصفوف</span>
-          <button class="btn sm" id="gAdd">➕ صف</button>
-          <button class="btn sm" id="gAdd5">➕ 5 صفوف</button>
+          <button class="btn sm" id="gAdd">➕ سطر فوق</button>
+          <button class="btn sm" id="gAdd5">➕ 5 أسطر</button>
           <button class="btn sm" id="gFromDesign">➕ التصميم الحالي</button>
           <button class="btn sm" id="gSamples">📝 أمثلة</button>
           <label class="check wk-chk" title="يفصل بين الأسابيع بسطر «إجازة أسبوعية» (الجمعة والسبت) كما في جدول الحجز، ويظهر في الملف المصدَّر"><input type="checkbox" id="gWeeks" checked> 🌙 فواصل الأسابيع</label>
@@ -328,11 +329,11 @@
       <li>اختر المقاس من «المعاينة»، ثم «⬇️ تحميل التصميم الحالي» أو «🖨️ طباعة».</li>
       <li>للنشر السريع: «📤 مشاركة الصورة» أو «📋 نسخ الصورة» أو «📝 نص للنشر».</li></ol></div>
     <div class="howto"><b>٢) إعلانات كثيرة دفعة واحدة</b><ol>
-      <li>انزل لـ«جدول بيانات الإعلانات» (أو زر 📋 فوق). كل سطر = إعلان.</li>
+      <li>انزل لـ«جدول بيانات الإعلانات» (أو زر 📋 فوق). كل سطر = مناقشة. لإضافة مناقشة اضغط «➕ مناقشة جديدة» ويطلع لك سطر فاضي أول الجدول.</li>
       <li>اكتب، أو الصق من Excel / Google Sheets، أو استورد ملف «نموذج Excel» بعد تعبئته.</li>
       <li>حدد الأسطر واضغط «📦 تحميل المحدد». زر 👁 يعرض أي سطر، و⧉ ينسخ السطر لإعلان مشابه.</li></ol></div>
     <div class="howto"><b>٣) الاقتراحات والسجل</b><ol>
-      <li>اكتب جزءاً من اسم الدكتور (مثل «عمر») وتطلع الأسماء السابقة، واختيار الاسم يعبّي صفته.</li>
+      <li>اكتب جزءاً من اسم الدكتور (مثل «عبدالله» أو «عمر») وتطلع أسماء أعضاء هيئة التدريس في الشريعة والأسماء السابقة، واختيار الاسم يعبّي صفته.</li>
       <li>كل إعلان تحمّله ينحفظ في «🕘 سجل التصاميم»: تقدر تعدّله أو تسوي منه نسخة جديدة.</li>
       <li>↶ ↷ للتراجع والإعادة، و Ctrl+S للحفظ في السجل.</li></ol></div>
     <div class="howto"><b>٤) رابط البث</b><ol>
@@ -487,10 +488,11 @@
   <script src="assets/vendor/qrcode.js?v=202610170020"></script>
   <script src="assets/vendor/html-to-image.js?v=202610170020"></script>
   <script src="assets/js/auth.js?v=202611130201"></script>
-  <script src="assets/js/cloud.js?v=202611130401"></script>
+  <script src="assets/js/cloud.js?v=202611140101"></script>
   <script src="assets/js/nav.js?v=202611130001"></script>
   <script src="assets/js/poster.js?v=202610170020"></script>
   <script src="assets/js/details.js?v=202611130010"></script>
-  <script src="assets/js/app.js?v=202611130401"></script>
+  <script src="assets/js/people.js?v=202611140101"></script>
+  <script src="assets/js/app.js?v=202611140101"></script>
 </body>
 </html>

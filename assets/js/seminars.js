@@ -777,6 +777,15 @@
   document.addEventListener('keydown', e => { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); save(); } });
   window.addEventListener('beforeunload', e => { if (pendingCount() && token()) { e.preventDefault(); e.returnValue = ''; } });
 
+  // اقتراح أسماء أعضاء هيئة التدريس (assets/js/people.js): الاسم ← الصفة، ومدير الجلسة ← صفته
+  if (window.QPeople) {
+    QPeople.bind(inp => {
+      const li = inp.closest && inp.closest('li.pitem'); if (!li) return null;
+      if (inp.dataset.p === 'name' && li.dataset.kind !== 'session') return { title: li.querySelector('[data-p="title"]') };
+      if (inp.dataset.p === 'moderator') return { title: li.querySelector('[data-p="moderator_title"]') };
+      return null;
+    });
+  }
   openSem(blank());
   refreshPublished();
 })();

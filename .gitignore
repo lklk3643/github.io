@@ -1,2 +1,5 @@
 node_modules/
 .netlify/
+
+# أسماء أعضاء هيئة التدريس (من قاعدة بيانات نظام المكاتب): تُنشر مع خادم Netlify فقط ولا ترفع لـGitHub
+netlify/lib/people.mjs

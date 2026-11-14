@@ -52,6 +52,12 @@
     else { const v = localStorage.getItem(k); if (v == null) return; pendSet[k] = v; pendDel.delete(k); }
     clearTimeout(t); t = setTimeout(flush, 700);
   }
+  const typing = () => { const a = document.activeElement; return !!(a && a.closest && a.closest('#sheet') && /INPUT|TEXTAREA|SELECT/.test(a.tagName)); };
+  let deferred = null;
+  addEventListener('focusout', () => setTimeout(() => {
+    if (deferred == null || typing() || GRID in pendSet) return;
+    const g = deferred; deferred = null; applyGrid(g, '');
+  }, 300));
   function flush(keepalive) {
     clearTimeout(t);
     const set = { ...pendSet }, del = [...pendDel];
@@ -66,6 +72,8 @@
         const merged = j.merged && j.merged[GRID];
         // تعديلات أحدث تنتظر الإرسال: أساسها ما أُرسل للتو (تُدمج في الحفظ التالي)؛ وإلا تُعرض النسخة المدموجة
         if (GRID in pendSet || merged == null) { base = sentGrid; return; }
+        // الموظف يكتب في الجدول الحين: لا نعيد رسمه تحت يده (يضيع حرف ويطلع المؤشر) — نطبّقه أول ما يطلع من الجدول
+        if (typing()) { base = sentGrid; deferred = merged; return; }
         applyGrid(merged, '');
       })
       .catch(() => { Object.assign(pendSet, set); del.forEach(k => pendDel.add(k)); mark(false); t = setTimeout(flush, 5000); });

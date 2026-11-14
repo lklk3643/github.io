@@ -14,6 +14,7 @@
  */
 import { createHash, randomBytes } from 'node:crypto';
 import { DEMO_FLAG, demoRows, demoGrid, demoSeminars, GCOLS } from './demo.mjs';
+import { PEOPLE } from './people.mjs';
 
 const DAY = 864e5;
 const SESSION_DAYS = 30;
@@ -93,7 +94,7 @@ async function auth(store, req) {
 
 // ---------- ملفات OBS ----------
 const ascii = (s) => String(s || '').replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d));
-const normDate = (s) => { const m = ascii(s).match(/(\d{4})\s*\/\s*(\d{1,2})\s*\/\s*(\d{1,2})/); return m ? `${+m[1]}/${+m[2]}/${+m[3]}` : ''; };
+const normDate = (s) => { const m = ascii(s).match(/(\d{4})\s*[\/\-.]\s*(\d{1,2})\s*[\/\-.]\s*(\d{1,2})/); return m ? `${+m[1]}/${+m[2]}/${+m[3]}` : ''; };   // يقبل 1448/6/5 و 1448-6-5 و 1448.6.5
 const keyOf = (st, d) => String(st || '').trim().replace(/\s+/g, ' ') + '|' + normDate(d);
 const ROW_FIELDS = ['الدرجة', 'الجنس', 'الطالب', 'العنوان', 'اليوم', 'التاريخ', 'الوقت', 'المكان', 'ملاحظة المكان', 'رابط البث',
   'رابط اللجنة', 'رابط التسجيل', 'الملاحظات', 'منسق الحجز', 'الكاتب'];
@@ -251,6 +252,8 @@ export async function handle(req, store) {
 
   if (method === 'POST' && path === 'logout') { await store.delete('sess/' + me.token); return json({ ok: true }); }
   if (method === 'GET' && path === 'me') return json({ u: me.u, name: me.name, role: roleNow(await users(store, origin), me.u) || me.role });
+  // أعضاء هيئة التدريس لاقتراح الأسماء أثناء الكتابة (للمسجلين فقط؛ اسم ورتبة وقسم بلا بريد ولا جوال)
+  if (method === 'GET' && path === 'people') return json({ people: PEOPLE });
 
   // --- بيانات الحساب (مفاتيح المتصفح)
   if (path === 'state') {
