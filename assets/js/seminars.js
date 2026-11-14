@@ -348,8 +348,8 @@
   // «💾 حفظ»: تأكيد — الحفظ التلقائي شغال دايماً، والزر يرسل الحين ويقول للموظف إنها وصلت
   { const b = $('#btnSave'); if (b) b.onclick = async () => {
     readForm(false);
-    { const s = clean(current); if (!s.title && !s.subtitle && !s.date && !s.participants.length) return toast('اكتب بيانات الندوة أول (العنوان والتاريخ)، وبعدين احفظ', true); }
-    saveNow();
+    // الزر فوق الجدول: إذا خانات الندوة فاضية ما ننشئ ندوة فاضية — نرسل تعديلات الجدول ونأكد (مثل المناقشات)
+    { const s = clean(current); if (s.title || s.subtitle || s.date || s.participants.length) saveNow(); }
     if (!CLOUD()) return toast('✓ انحفظت على هذا الجهاز');
     b.disabled = true; const old = b.textContent; b.textContent = '⏳ جارٍ الحفظ...';
     for (let i = 0; i < 20 && pubBusy; i++) await new Promise(r => setTimeout(r, 300));
