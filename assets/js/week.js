@@ -30,6 +30,7 @@
   // «📋 إرسال … الأسبوعية للتدقيق»: رسالة واتساب بمناقشات/ندوات الأسبوع القادم (الأحد ← الخميس)، تنفتح جاهزة وما تنرسل تلقائياً.
   // QReview({ button, plural: 'مناقشات', ui: { toast }, list(start, end) → [{ t, order, lines: [سطر1, سطر2, سطر3] }] })
   const plain = s => String(s || '').replace(/(^|[\s-])(الأحد|الإثنين|الأربعاء)(?=$|\s)/g, (m, a, d) => a + d.replace(/[أإ]/, 'ا'));   // أسماء الأيام بس: «الاحد، الاربعاء» مثل الرسالة المعتادة
+  const SEP = '====================';   // الفاصل بين كل مناقشة والثانية، مثل الرسالة المعتادة
   window.QReview = function (cfg) {
     const toast = (cfg.ui && cfg.ui.toast) || (m => alert(m));
     function nextWeek() {   // الأحد الجاي بعد اليوم (الجمعة والسبت: بكرة/بعده؛ الأحد: الأسبوع اللي بعده)
@@ -40,7 +41,7 @@
       const start = nextWeek(), end = new Date(start); end.setUTCDate(end.getUTCDate() + 4);
       const list = cfg.list(start, end).sort((x, y) => x.t - y.t || x.order - y.order);
       return { start, end, list, text: list.length ? ['السلام عليكم', '', `لتدقيق ${cfg.plural} الاسبوع القادم`, '',
-        list.map(x => x.lines.map(plain).join('\n')).join('\n\n'), '', 'اي ملاحظه تكون ع الخاص'].join('\n') : '' };
+        list.map(x => x.lines.map(plain).join('\n')).join('\n' + SEP + '\n'), '', 'اي ملاحظه تكون ع الخاص'].join('\n') : '' };
     }
     if (cfg.button) cfg.button.onclick = () => {
       const r = build();
