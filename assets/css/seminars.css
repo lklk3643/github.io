@@ -267,3 +267,10 @@
 .qp2-head.official .qp2-official div { white-space: nowrap; }
 .qp2-head.official .qp2-official div:nth-child(n+4) { white-space: normal; text-wrap: balance; }
 .qc-wide { text-wrap: balance; }
+
+/* الباركود مثل المناقشات: أيقونة المنصة في الوسط ولون المربعات نفسه */
+.qr-wrap { position: relative; display: block; margin: 0 auto; width: fit-content; }
+.qr-wrap > svg path, .qr-wrap > svg rect[fill="black"] { fill: #0a3d45; }
+.qr-wrap .qr-logo { position: absolute; left: 50%; top: 50%; width: 21%; height: 21%; transform: translate(-50%, -50%);
+  background: #fff; border-radius: 22%; padding: 3%; box-sizing: content-box; display: grid; place-items: center; }
+.qr-wrap .qr-logo svg { width: 100% !important; height: 100% !important; display: block; }

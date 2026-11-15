@@ -27,6 +27,34 @@
     return c.toDataURL('image/jpeg', 0.9);
   }
 
+  // «📋 إرسال … الأسبوعية للتدقيق»: رسالة واتساب بمناقشات/ندوات الأسبوع القادم (الأحد ← الخميس)، تنفتح جاهزة وما تنرسل تلقائياً.
+  // QReview({ button, plural: 'مناقشات', ui: { toast }, list(start, end) → [{ t, order, lines: [سطر1, سطر2, سطر3] }] })
+  const plain = s => String(s || '').replace(/(^|[\s-])(الأحد|الإثنين|الأربعاء)(?=$|\s)/g, (m, a, d) => a + d.replace(/[أإ]/, 'ا'));   // أسماء الأيام بس: «الاحد، الاربعاء» مثل الرسالة المعتادة
+  window.QReview = function (cfg) {
+    const toast = (cfg.ui && cfg.ui.toast) || (m => alert(m));
+    function nextWeek() {   // الأحد الجاي بعد اليوم (الجمعة والسبت: بكرة/بعده؛ الأحد: الأسبوع اللي بعده)
+      const t = new Date(), d = new Date(Date.UTC(t.getFullYear(), t.getMonth(), t.getDate()));
+      d.setUTCDate(d.getUTCDate() + ((7 - d.getUTCDay()) % 7 || 7)); return d;
+    }
+    function build() {
+      const start = nextWeek(), end = new Date(start); end.setUTCDate(end.getUTCDate() + 4);
+      const list = cfg.list(start, end).sort((x, y) => x.t - y.t || x.order - y.order);
+      return { start, end, list, text: list.length ? ['السلام عليكم', '', `لتدقيق ${cfg.plural} الاسبوع القادم`, '',
+        list.map(x => x.lines.map(plain).join('\n')).join('\n\n'), '', 'اي ملاحظه تكون ع الخاص'].join('\n') : '' };
+    }
+    if (cfg.button) cfg.button.onclick = () => {
+      const r = build();
+      if (!r.list.length) return toast(`ما فيه ${cfg.plural} مسجلة في الأسبوع القادم (من الأحد ${hfmt(r.start)} إلى الخميس ${hfmt(r.end)})`, true);
+      const mobile = matchMedia('(pointer: coarse)').matches;
+      const url = (mobile ? 'https://wa.me/?text=' : 'https://web.whatsapp.com/send?text=') + encodeURIComponent(r.text);
+      const w = window.open(url, '_blank', 'noopener');      // يفتح واتساب والرسالة جاهزة — الإرسال بيدك
+      if (!w && mobile) location.href = url;
+      try { navigator.clipboard.writeText(r.text); } catch (e) { /* اختياري */ }
+      toast(`📋 جهزت رسالة التدقيق (${r.list.length}) — اختر المحادثة واضغط إرسال. ونسختها لك لو احتجت تلصقها`);
+    };
+    return { build };
+  };
+
   window.QWeek = function (cfg) {
     const ui = cfg.ui || {}; NOUN = cfg.noun || NOUN;
     const toast = ui.toast || ((m) => alert(m)), show = ui.busy || (() => {}), hide = ui.done || (() => {});

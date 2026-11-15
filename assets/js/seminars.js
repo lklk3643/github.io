@@ -467,9 +467,9 @@
     foot.appendChild(el('div', 'qs-org', 'كلية الشريعة'));
     if (s.link && /^https?:\/\//i.test(s.link) && window.qrcode) {
       try {
-        const q = window.qrcode(0, 'M'); q.addData(s.link); q.make();
+        
         const box = el('div', 'qs-qr');
-        box.innerHTML = q.createSvgTag({ cellSize: 4, margin: 0, scalable: true });   // SVG من مكتبة QR (الرابط مُرمّز كمربعات، لا كنص HTML)
+        box.innerHTML = qrInner(s.link);
         box.appendChild(el('div', null, s._rec ? 'شاهد التسجيل' : 'شاهد البث'));
         foot.appendChild(box);
       } catch (e) { /* رابط طويل جداً */ }
@@ -479,12 +479,26 @@
   }
 
   // ---------- المقاسات العريضة: يوتيوب المصغّرة و X (16:9) وغلاف القناة ----------
+  // الباركود نفسه اللي في المناقشات (poster.js): أقل كثافة مع أعلى تصحيح، وأيقونة المنصة (يوتيوب…) في الوسط
+  const QR_ICONS = [
+    [/youtu\.?be/i, '<rect x="1" y="4.5" width="22" height="15" rx="4.6" fill="#FF0000"/><path d="M9.8 8.4v7.2l6.2-3.6z" fill="#fff"/>'],
+    [/zoom\.(us|com)|\bzoom\b/i, '<rect width="24" height="24" rx="6" fill="#2D8CFF"/><path d="M4.6 8.6c0-.5.4-.9.9-.9h7.6c1.2 0 2.1.9 2.1 2.1v5.6c0 .5-.4.9-.9.9H6.7c-1.2 0-2.1-.9-2.1-2.1zM16.2 10.7l3.2-2.3c.3-.2.6 0 .6.3v6.6c0 .4-.3.5-.6.3l-3.2-2.3z" fill="#fff"/>'],
+    [/teams\.(microsoft|live)|\bteams\b/i, '<rect width="24" height="24" rx="5" fill="#5059C9"/><path d="M6 6.8h11.2v2.7h-4.2V18h-2.8V9.5H6z" fill="#fff"/>'],
+  ];
+  const QR_GENERIC = '<circle cx="12" cy="12" r="12" fill="#2b7574"/><path d="M10.6 13.4a3 3 0 0 0 4.2 0l2.4-2.4a3 3 0 0 0-4.2-4.2l-.9.9M13.4 10.6a3 3 0 0 0-4.2 0L6.8 13a3 3 0 0 0 4.2 4.2l.9-.9" stroke="#fff" stroke-width="1.8" fill="none" stroke-linecap="round"/>';
+  function qrInner(link) {
+    const txt = String(link || '').trim().replace(/^(https?:\/\/)www\./i, '$1');
+    let best = null;
+    for (const lvl of ['H', 'Q', 'M']) { const q = window.qrcode(0, lvl); q.addData(txt); q.make(); if (!best || q.getModuleCount() < best.getModuleCount()) best = q; }
+    const icon = (QR_ICONS.find(([re]) => re.test(txt)) || [null, QR_GENERIC])[1];
+    return `<div class="qr-wrap">${best.createSvgTag({ cellSize: 4, margin: 0, scalable: true })}<span class="qr-logo"><svg viewBox="0 0 24 24">${icon}</svg></span></div>`;
+  }
   function qrBox(link, cls, caption) {
     if (!link || !/^https?:\/\//i.test(link) || !window.qrcode) return null;
     try {
-      const q = window.qrcode(0, 'M'); q.addData(link); q.make();
+      
       const box = el('div', cls);
-      box.innerHTML = q.createSvgTag({ cellSize: 4, margin: 0, scalable: true });   // SVG من مكتبة QR (الرابط مُرمّز كمربعات، لا كنص HTML)
+      box.innerHTML = qrInner(link);
       box.appendChild(el('div', null, caption));
       return box;
     } catch (e) { return null; }   // رابط طويل جداً
@@ -634,9 +648,9 @@
     foot.appendChild(info);
     if (s.link && /^https?:\/\//i.test(s.link) && window.qrcode) {
       try {
-        const q = window.qrcode(0, 'M'); q.addData(s.link); q.make();
+        
         const box = el('div', 'qp2-qr');
-        box.innerHTML = q.createSvgTag({ cellSize: 4, margin: 0, scalable: true });   // SVG من مكتبة QR
+        box.innerHTML = qrInner(s.link);
         box.appendChild(el('div', null, s._rec ? 'شاهد التسجيل عبر مسح رمز QR' : 'البث المباشر عبر مسح رمز QR'));
         foot.appendChild(box);
       } catch (e) { /* رابط طويل جداً */ }
@@ -1173,5 +1187,22 @@
     },
     blob: async x => { const s = merged().find(y => y.id === x.id); const { canvas } = await capture(clean(s), fmtOf('programme'), 2); return toBlob(canvas, 'image/png'); },
     name: x => { const t = String(x.title || 'ندوة').replace(/[\\/:*?"<>|]+/g, '-').slice(0, 80); return `${/^ندوة/.test(t) ? '' : 'ندوة-'}${t}.png`; },
+  });
+  // «📋 إرسال الندوات الأسبوعية للتدقيق»: نفس رسالة المناقشات، للندوات (كل قسم لحاله)
+  if (window.QReview) QReview({
+    button: $('#btnReview'), plural: 'ندوات', ui: { toast },
+    list: (start, end) => {
+      const iso = d => d.toISOString().slice(0, 10), a = iso(start), b = iso(end);
+      const hmd = d => { try { const p = new Intl.DateTimeFormat('en-u-ca-islamic-umalqura', { month: 'numeric', day: 'numeric', timeZone: 'UTC' }).formatToParts(new Date(d + 'T12:00:00Z'));
+        return `${+p.find(x => x.type === 'month').value}/${+p.find(x => x.type === 'day').value}`; } catch (e) { return ''; } };
+      const tm = hm => { const s = t12(hm); return s.replace(/\s*صباحاً$/, ' ص').replace(/\s*(مساءً|ظهراً)$/, ' م'); };
+      return merged().filter(x => x && x.date && x.date >= a && x.date <= b && x.status !== 'cancelled' && x.status !== 'postponed').map(x => {
+        const [y, m, d] = x.date.split('-').map(Number), h = String(x.start || '00:00').split(':').map(Number);
+        const remote = /عن\s*بعد|اونلاين|أونلاين|zoom|زوم|تيمز/i.test(x.place || '');
+        return { t: Date.UTC(y, m - 1, d), order: (h[0] || 0) * 100 + (h[1] || 0),
+          lines: [[x.series || 'ندوة', x.department].filter(Boolean).join(' - '), `${x.title || 'ندوة'} - ${weekday(x.date)}`,
+            `${hmd(x.date)} س ${tm(x.start)} ${remote ? 'عن بعد' : 'حضوري'}`.replace(/\s+/g, ' ').trim()] };
+      });
+    },
   });
 })();

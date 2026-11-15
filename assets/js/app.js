@@ -2284,6 +2284,34 @@
   });
   const rowMsgState = r => applyRow({ ...state, degree: '', student: '', title: '', day: '', date: '', time: '', place: DEFAULTS.place, placeNote: DEFAULTS.placeNote,
     link: DEFAULTS.link, committee: [], committeeLink: '', recordingLink: '' }, parseRow(gridToObj(grid[r])));
+  // ---------- «📋 إرسال المناقشات الأسبوعية للتدقيق» (assets/js/week.js) ----------
+  // «ماجستير - قرآن / سلمان التويجري - الاحد / 6/5 س 9:30 ص حضوري» من بيانات الجدول نفسها
+  const reviewDegree = v => {
+    const s = String(v || '').trim(), stage = /دكتوراه/.test(s) ? 'دكتوراه' : /ماجستير/.test(s) ? 'ماجستير' : s.split(/\s+/)[0] || '';
+    const sp = (s.split(/\s+في\s+/)[1] || '').split(/\s+و/)[0].split(/\s+/).map(w => w.replace(/^ال(?=..)/, '')).join(' ');
+    return sp ? `${stage} - ${sp}` : stage;
+  };
+  const reviewName = v => { const w = String(v || '').trim().split(/\s+/).filter(x => !/^(بن|بنت|ابن)$/.test(x)); return w.length > 1 ? `${w[0]} ${w[w.length - 1]}` : (w[0] || ''); };
+  const reviewTime = v => String(v || '').trim().replace(/\s*(صباحاً|صباحا|ص)\.?$/, ' ص').replace(/\s*(مساءً|مساءا|مساء|ظهراً|ظهرا|عصراً|عصرا|م)\.?$/, ' م');
+  if (window.QReview) QReview({
+    button: $('#gReview'), plural: 'مناقشات', ui: { toast },
+    list: (start, end) => {
+      const out = [];
+      grid.forEach(r => {
+        if (isEmptyRow(r) || !r[CI('الطالب')]) return;
+        if (/تأجيل|تاجيل|مؤجل|ملغ|إلغاء/.test(String(r[CI('الملاحظات')] || ''))) return;
+        const g = hijriToGreg(r[CI('التاريخ')]); if (!g) return;
+        const [y, m, d] = g.split('/').map(Number), t = Date.UTC(y, m - 1, d);
+        if (t < start.getTime() || t > end.getTime()) return;
+        const hm = toLatin(r[CI('التاريخ')]).match(/(\d{4})\D+(\d{1,2})\D+(\d{1,2})/);
+        const day = String(r[CI('اليوم')] || '').trim() || dayFromDate(r[CI('التاريخ')]);
+        const mode = REMOTE(r[CI('المكان')]) ? 'عن بعد' : 'حضوري';
+        out.push({ t, order: gridDateKey(r), lines: [reviewDegree(r[CI('الدرجة')]), `${reviewName(r[CI('الطالب')])} - ${day}`,
+          `${hm ? `${+hm[2]}/${+hm[3]}` : ''} س ${reviewTime(r[CI('الوقت')])} ${mode}`.replace(/\s+/g, ' ').trim()] });
+      });
+      return out;
+    },
+  });
   $('#sheet').addEventListener('click', e => {
     const b = e.target.closest('[data-msg]'); if (!b) return;
     const r = +b.closest('tr').dataset.r;
