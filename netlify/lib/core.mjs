@@ -392,8 +392,7 @@ export async function handle(req, store) {
   const body = async () => { try { return await req.json(); } catch (e) { return {}; } };
   await ensureDemo(store, origin);
   await cleanupOnce(store, origin);
-  await fillTrialsOnce(store);
-  // await removeTrialsOnce(store);   // يُفعَّل بعد ما يأكد المستخدم إن التجربة اشتغلت
+  await removeTrialsOnce(store);   // 2026-11-15: المستخدم أكد إن المشاركة اشتغلت — تنحذف التجارب (مرة وحدة، مع نسخة في trash/)
 
   // --- عام: ملفات OBS
   if (method === 'GET' && path === 'feed/defenses.json') return json(await feedDefenses(store, origin), 200, PUBLIC);
