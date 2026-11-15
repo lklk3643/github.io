@@ -383,6 +383,75 @@ async function fillTrialsOnce(store) {
   await setJSON(store, FILL_FLAG, { at: new Date().toISOString(), rows: n, seminars: ns });
 }
 
+// مرة وحدة (2026-11-15، الطلب الثاني): بيانات تجربة كاملة للأسبوع القادم (الأحد 22 ← الخميس 26 نوفمبر = 1448/6/12–16)
+// لتجربة «📋 إرسال … الأسبوعية للتدقيق» و«مشاركة صور الإعلانات» والدعوات والباركود. ما تظهر في بث القاعة (المكان ما فيه «عثيمين»).
+// تُعرف: الطالب يبدأ بـ «تجربة » والملاحظات فيها TRIAL2_TAG، والندوات trial2-sem-N. الحذف بـ removeTrials2Once (ما يشتغل لين يطلبه المستخدم).
+const TRIAL2_FLAG = 'trial2-review-2026-11-15', TRIAL2_TAG = 'تجربة — تُحذف';
+const T2_LIVE = 'https://www.youtube.com/@src.sds1', T2_REC = 'https://www.youtube.com/@src.sds1/videos', T2_ZOOM = 'https://zoom.us/j/1234567890';
+async function addTrials2Once(store) {
+  if (await getJSON(store, TRIAL2_FLAG)) return;
+  const C = n => GCOLS.indexOf(n);
+  const P = [['د. عبدالله بن محمد التجريبي', 'الأستاذ في قسم القرآن وعلومه'], ['د. صالح بن أحمد التجريبي', 'الأستاذ المشارك في قسم القرآن وعلومه'],
+    ['د. خالد بن سعد التجريبي', 'الأستاذ المساعد في قسم العقيدة'], ['أ.د. محمد بن علي التجريبي', 'الأستاذ في جامعة الإمام محمد بن سعود الإسلامية']];
+  // [الطالب، الجنس، الدرجة، اليوم، التاريخ، الوقت، المكان، العنوان، عدد الأعضاء]
+  const D = [
+    ['تجربة سلمان بن عبدالعزيز التويجري', 'ذكر', 'الماجستير في القرآن وعلومه', 'الأحد', '1448/6/12 هـ', '9:30 صباحاً', 'قاعة التجربة', 'جهود المفسرين في توجيه القراءات | دراسة تحليلية', 3],
+    ['تجربة فهد بن ناصر الحربي', 'ذكر', 'الدكتوراه في الفقه', 'الاثنين', '1448/6/13 هـ', '10 صباحاً', 'قاعة التجربة', 'أحكام العقود الإلكترونية في الفقه الإسلامي | دراسة مقارنة', 4],
+    ['تجربة بداح بن محمد المطيري', 'ذكر', 'الماجستير في القرآن وعلومه', 'الثلاثاء', '1448/6/14 هـ', '9 صباحاً', 'قاعة التجربة', 'المناسبات بين السور في جزء عمّ | جمعاً ودراسة', 3],
+    ['تجربة سمير بن علي زعراوي', 'ذكر', 'الماجستير في العقيدة والمذاهب المعاصرة', 'الأربعاء', '1448/6/15 هـ', '12:30 ظهراً', 'عن بعد', 'مسائل الإيمان عند المتكلمين | دراسة نقدية', 3],
+    ['تجربة نورة بنت عبدالرحمن السالم', 'أنثى', 'الدكتوراه في أصول الفقه', 'الخميس', '1448/6/16 هـ', '8:30 صباحاً', 'قاعة التجربة', 'القواعد الأصولية وأثرها في النوازل المعاصرة | دراسة تطبيقية', 3],
+  ];
+  const rows = D.map(([st, g, deg, day, date, time, place, title, cnt]) => { const r = GCOLS.map(() => '');
+    r[C('الدرجة')] = deg; r[C('الجنس')] = g; r[C('الطالب')] = st; r[C('العنوان')] = title; r[C('اليوم')] = day; r[C('التاريخ')] = date; r[C('الوقت')] = time;
+    r[C('المكان')] = place; r[C('ملاحظة المكان')] = place === 'عن بعد' ? '(عبر زوم)' : '(والبث عبر الإنترنت)';
+    r[C('رابط البث')] = place === 'عن بعد' ? T2_ZOOM : T2_LIVE; r[C('رابط اللجنة')] = T2_ZOOM; r[C('رابط التسجيل')] = T2_REC;
+    r[C('الملاحظات')] = TRIAL2_TAG; r[C('منسق الحجز')] = 'منسق تجريبي'; r[C('الكاتب')] = 'admin';
+    const roles = ['مشرفاً ومقرراً', 'مناقشاً', 'مناقشاً', 'مناقشاً'];
+    for (let i = 1; i <= cnt; i++) { const b = C(`عضو${i} الاسم`); r[b] = P[i - 1][0]; r[b + 1] = P[i - 1][1]; r[b + 2] = roles[i - 1]; }
+    return r; });
+  const sh = await sharedDoc(store), g = parseGrid(sh.grid);
+  const have = new Set(g.map(r => String(r[C('الطالب')] || '')));
+  const add = rows.filter(r => !have.has(r[C('الطالب')]));
+  if (add.length) {
+    const ng = g.concat(add); sh.grid = JSON.stringify(ng); sh.ver = (sh.ver || 0) + 1; sh.by = 'بيانات تجربة'; sh.at = Date.now();
+    const keys = new Set(add.map(rowKey)); sh.gone = (sh.gone || []).filter(k => !keys.has(k));
+    await setJSON(store, 'state/_shared', sh); await writeSharedRows(store, ng);
+  }
+  const S = [['trial2-sem-1', 'تجربة: المستجدات الفقهية في المعاملات المصرفية', 'ندوة', 'قسم الفقه', '2026-11-23', '10:00', '12:00', 'قاعة التجربة'],
+             ['trial2-sem-2', 'تجربة: مقاصد الشريعة وأثرها في الفتوى المعاصرة', 'ملتقى', 'قسم أصول الفقه', '2026-11-25', '09:00', '12:00', 'قاعة التجربة'],
+             ['trial2-sem-3', 'تجربة: القضاء الشرعي بين الأصالة والتجديد', 'ندوة', 'قسم الأنظمة', '2026-11-26', '18:00', '20:00', 'عن بعد']];
+  for (const [id, title, series, dept, date, start, end, place] of S) {
+    if (await getJSON(store, semKey(id))) continue;
+    await setJSON(store, semKey(id), { id, title, subtitle: '', organizer: 'كلية الشريعة', department: dept, series, date, start, end, place,
+      place_note: place === 'عن بعد' ? '(عبر زوم)' : '(والبث عبر الإنترنت)', link: place === 'عن بعد' ? T2_ZOOM : T2_LIVE, recording_link: T2_REC,
+      status: 'confirmed', notes: TRIAL2_TAG, public_note: 'الدعوة عامة للجميع', poster_header: 'simple', programme_layout: 'cells',
+      participants: [
+        { kind: 'opening', topic: 'افتتاح الندوة', name: P[0][0], title: 'عميد كلية الشريعة', start, end: '' },
+        { kind: 'session', name: 'الجلسة الأولى', moderator: P[3][0], moderator_title: P[3][1] },
+        { kind: 'paper', topic: 'الورقة الأولى: التأصيل الشرعي', name: P[1][0], title: P[1][1], start: '', end: '' },
+        { kind: 'paper', topic: 'الورقة الثانية: التطبيقات المعاصرة', name: P[2][0], title: P[2][1], start: '', end: '' },
+        { kind: 'discussion', topic: 'المداخلات والتعقيبات', start: '', end: '' }],
+      by: 'admin', updated: new Date().toISOString() });
+  }
+  await setJSON(store, TRIAL2_FLAG, { at: new Date().toISOString(), rows: add.length });
+}
+// حذف بيانات التجربة الثانية — يُفعَّل لما يقول المستخدم «احذفها»
+const UNTRIAL2_FLAG = 'trial2-removed';
+const isTrial2Row = r => /^تجربة /.test(String(r[GCOLS.indexOf('الطالب')] || '').trim()) && String(r[GCOLS.indexOf('الملاحظات')] || '').includes(TRIAL2_TAG);
+async function removeTrials2Once(store) {
+  if (await getJSON(store, UNTRIAL2_FLAG)) return;
+  const sh = await sharedDoc(store), g = parseGrid(sh.grid);
+  const removed = g.filter(isTrial2Row), keep = g.filter(r => !isTrial2Row(r)), sems = [];
+  for (let k = 1; k <= 3; k++) { const key = semKey(`trial2-sem-${k}`), x = await getJSON(store, key); if (x) { sems.push(x); await store.delete(key); } }
+  await setJSON(store, 'trash/' + UNTRIAL2_FLAG, { at: new Date().toISOString(), rows: removed, seminars: sems });
+  if (removed.length) {
+    const gone = new Set(sh.gone || []); removed.forEach(r => { const k = rowKey(r); if (k) gone.add(k); });
+    sh.grid = JSON.stringify(keep); sh.gone = [...gone].slice(-3000); sh.ver = (sh.ver || 0) + 1; sh.by = 'حذف بيانات التجربة'; sh.at = Date.now();
+    await setJSON(store, 'state/_shared', sh); await writeSharedRows(store, keep);
+  }
+  await setJSON(store, UNTRIAL2_FLAG, { at: new Date().toISOString(), rows: removed.length, seminars: sems.length });
+}
+
 export async function handle(req, store) {
   const url = new URL(req.url);
   const origin = url.origin;
@@ -393,6 +462,8 @@ export async function handle(req, store) {
   await ensureDemo(store, origin);
   await cleanupOnce(store, origin);
   await removeTrialsOnce(store);   // 2026-11-15: المستخدم أكد إن المشاركة اشتغلت — تنحذف التجارب (مرة وحدة، مع نسخة في trash/)
+  await addTrials2Once(store);
+  // await removeTrials2Once(store);   // يُفعَّل لما يقول المستخدم «احذفها»
 
   // --- عام: ملفات OBS
   if (method === 'GET' && path === 'feed/defenses.json') return json(await feedDefenses(store, origin), 200, PUBLIC);
