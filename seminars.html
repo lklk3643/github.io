@@ -101,6 +101,7 @@
           </div>
           <div class="msg-actions" style="margin-top:6px">
             <button class="btn" id="copyRecord">📋 نسخ رسالة التسجيل</button>
+            <button class="btn sm" id="editSemTpl" type="button" title="غيّر صياغة رسالة الدعوة ورسالة التسجيل">✏️ تعديل نص الرسائل</button>
             <button class="btn wa-btn wa-mini" id="waRecord" title="إرسال التسجيل بالواتساب (الصورة + الرسالة)">💬 واتساب</button>
           </div>
 
@@ -215,6 +216,8 @@
         <div class="ds-group"><span class="ds-label">استيراد</span>
           <label class="btn sm" for="semImport" title="ملف Excel أو CSV بنفس أعمدة «⬇️ نموذج Excel» — يضيف ندوات وما يمسح شي">📄 من ملف Excel / CSV</label>
           <input type="file" id="semImport" accept=".xlsx,.xls,.csv" hidden>
+          <input type="url" id="gSheetUrl" class="ds-url" dir="ltr" placeholder="رابط Google Sheets" aria-label="رابط Google Sheets">
+          <button class="btn sm" id="gSheetLoad" type="button">⬇️ اسحب من الرابط</button>
           <button class="btn sm" id="gTplXlsx" title="ملف Excel فاضي بأعمدة الندوات — عبّه وارفعه من «📄 من ملف Excel / CSV»">⬇️ نموذج Excel</button>
         </div>
         <div class="ds-group"><span class="ds-label">تصدير</span>
@@ -241,6 +244,13 @@
     </section>
   </div>
 
+  <div class="modal" id="mSemTpl"><div class="box" style="width:min(760px,100%)">
+    <h2>✏️ نص رسائل الندوات <button class="btn sm" data-close>✕</button></h2>
+    <p class="hint" style="margin:0 0 8px">اكتب الصياغة اللي تبيها. الكلمات بين { } تتعبّى لحالها: {العنوان} {النوع} {الجهة} {القسم} {العنوان_الفرعي} {المتحدثون} {اليوم} {الهجري} {الميلادي} {الوقت} {المكان} {رابط_البث} {رابط_التسجيل}</p>
+    <label class="hint">رسالة الدعوة</label><textarea id="tplInvite" rows="9" style="width:100%;box-sizing:border-box;font:inherit"></textarea>
+    <label class="hint">رسالة التسجيل</label><textarea id="tplRecord" rows="6" style="width:100%;box-sizing:border-box;font:inherit"></textarea>
+    <div style="display:flex;gap:8px;margin-top:10px"><button class="btn primary" id="tplSave" type="button">💾 حفظ</button><button class="btn" id="tplReset" type="button">↩️ النص الافتراضي</button></div>
+  </div></div>
   <div class="modal" id="mTrash"><div class="box" style="width:min(720px,100%)">
     <h2>🗑️ الندوات المحذوفة <button class="btn sm" data-close>✕</button></h2>
     <p class="hint" style="margin:0 0 10px">ما حذفه أي موظف خلال 30 يوم. «↩️ رجّعها» يرجعها للجدول والبث بمكانها.</p>
@@ -348,6 +358,6 @@
   <script src="assets/vendor/jspdf.umd.min.js?v=202610170020"></script>
   <script src="assets/js/people.js?v=202611141201"></script>
   <script src="assets/js/week.js?v=202611160500"></script>
-  <script src="assets/js/seminars.js?v=202611160500"></script>
+  <script src="assets/js/seminars.js?v=202611160620"></script>
 </body>
 </html>
