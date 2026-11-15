@@ -893,7 +893,7 @@
     else if (!/صباح|(^|\s)ص($|\s)/.test(t) && h >= 1 && h <= 5) h += 12; // بدون تحديد: 1-5 بعد الظهر
     return h * 60 + mi;
   }
-  const REMOTE = v => /عن\s*بعد|اونلاين|أونلاين|zoom|زوم|تيمز/i.test(v || '');
+  const REMOTE = v => /عن\s*بعد|اونلاين|أونلاين|افتراضي|بلاك\s*بورد|blackboard|zoom|زوم|تيمز/i.test(v || '');
   const CI = name => GCOLS.indexOf(name);
   function slotOf(r) {
     if (!r || isEmptyRow(r)) return null;

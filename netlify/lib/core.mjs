@@ -452,6 +452,41 @@ async function removeTrials2Once(store) {
   await setJSON(store, UNTRIAL2_FLAG, { at: new Date().toISOString(), rows: removed.length, seminars: sems.length });
 }
 
+// مرة وحدة (2026-11-15): ثلاث مناقشات حقيقية من إعلاناتها (صور أرسلها المستخدم). مناقشة بداح المطيري انتقلت من 1448/5/30 إلى 1448/6/7:
+// السطر القديم (بدون عنوان ولا لجنة) يُستبدل بالجديد ويُضاف مفتاحه لـ gone حتى ما يرجع من ملف الحجز. نسخة احتياطية في trash/<REAL3_FLAG>.
+const REAL3_FLAG = 'real-defenses-2026-11-15';
+async function addReal3Once(store) {
+  if (await getJSON(store, REAL3_FLAG)) return;
+  const C = n => GCOLS.indexOf(n), T = 'الأستاذ', TA = 'الأستاذ المشارك', TS = 'الأستاذ المساعد';
+  const D = [
+    { st: 'بداح بن عويض المطيري', deg: 'الماجستير في القرآن وعلومه', title: 'التوقف في التفسير عند السلف | دراسة نظرية تطبيقية', day: 'الثلاثاء', date: '1448/6/7 هـ', time: '9 صباحاً',
+      place: 'قاعة الشيخ ابن عثيمين', note: '(والبث عبر الإنترنت)', replaces: ['بداح المطيري|1448/5/30'],
+      com: [['د. سليمان بن عبد الله المشيقح', `${TA} في قسم القرآن وعلومه`, 'مشرفاً ومقرراً'], ['د. محمد بن صالح الراشد', `${TA} في قسم القرآن وعلومه`, 'مناقشاً'], ['د. مأمون بن عبد الرحمن الزاكي', `${TA} في قسم القرآن وعلومه`, 'مناقشاً']] },
+    { st: 'سمير بن فريد الزعراوي', deg: 'الماجستير في العقيدة والمذاهب المعاصرة', title: 'موقف المستشرق لويس ماسينيون من التصوف | عرض ونقد', day: 'الأربعاء', date: '1448/6/8 هـ', time: '12:30 مساءً',
+      place: 'قاعة الشيخ ابن عثيمين', note: '(والبث عبر الإنترنت)', replaces: [],
+      com: [['أ.د. ناصر بن عبد الله القفاري', `${T} في قسم العقيدة`, 'مشرفاً ومقرراً'], ['أ.د. علي بن عمر السحيباني', `${T} في قسم العقيدة`, 'مناقشاً'], ['د. علي بن عبد الفتاح عبده', `${TA} في قسم العقيدة`, 'مناقشاً']] },
+    { st: 'سامي بن عبد الجابر عبد الكريم', deg: 'الماجستير في السنة وعلومها', title: 'صفات أفعال الله تعالى في الكتب الستة | دراسة حديثية موضوعية', day: 'الخميس', date: '1448/6/9 هـ', time: '8:30 صباحاً',
+      place: 'القاعة الافتراضية', note: '(عن بعد)', notes: 'من دولة السودان', replaces: [],
+      com: [['د. حماد بن مهدي السلمي', `${TS} في جامعة الطائف`, 'مشرفاً ومقرراً'], ['أ.د. حاتم السعيد الدمرداش متولي', `${T} في قسم السنة وعلومها`, 'مناقشاً'], ['د. ياسر بن عبد الله الطريقي', `${TA} في قسم السنة وعلومها`, 'مناقشاً']] },
+  ];
+  const sh = await sharedDoc(store); let g = parseGrid(sh.grid);
+  const gone = new Set(sh.gone || []), backup = [];
+  for (const d of D) {
+    const r = GCOLS.map(() => '');
+    r[C('الدرجة')] = d.deg; r[C('الجنس')] = 'ذكر'; r[C('الطالب')] = d.st; r[C('العنوان')] = d.title; r[C('اليوم')] = d.day; r[C('التاريخ')] = d.date;
+    r[C('الوقت')] = d.time; r[C('المكان')] = d.place; r[C('ملاحظة المكان')] = d.note; r[C('الملاحظات')] = d.notes || ''; r[C('منسق الحجز')] = 'محمد الحربي'; r[C('الكاتب')] = 'admin';
+    d.com.forEach(([n, t, role], i) => { const b = C(`عضو${i + 1} الاسم`); r[b] = n; r[b + 1] = t; r[b + 2] = role; });
+    const k = rowKey(r), drop = new Set([k, ...d.replaces]);
+    g = g.filter(x => { const kk = rowKey(x); if (kk && drop.has(kk)) { backup.push(x); return false; } return true; });
+    d.replaces.forEach(x => gone.add(x)); gone.delete(k);
+    g.push(r);
+  }
+  await setJSON(store, 'trash/' + REAL3_FLAG, { at: new Date().toISOString(), replaced: backup });
+  sh.grid = JSON.stringify(g); sh.gone = [...gone].slice(-3000); sh.ver = (sh.ver || 0) + 1; sh.by = 'مدير النظام'; sh.at = Date.now();
+  await setJSON(store, 'state/_shared', sh); await writeSharedRows(store, g);
+  await setJSON(store, REAL3_FLAG, { at: new Date().toISOString(), added: D.length, replaced: backup.length });
+}
+
 export async function handle(req, store) {
   const url = new URL(req.url);
   const origin = url.origin;
@@ -464,6 +499,7 @@ export async function handle(req, store) {
   await removeTrialsOnce(store);   // 2026-11-15: المستخدم أكد إن المشاركة اشتغلت — تنحذف التجارب (مرة وحدة، مع نسخة في trash/)
   await addTrials2Once(store);
   await removeTrials2Once(store);   // 2026-11-15: المستخدم قال «احذف البيانات التجريبية» — مرة وحدة، مع نسخة في trash/
+  await addReal3Once(store);
 
   // --- عام: ملفات OBS
   if (method === 'GET' && path === 'feed/defenses.json') return json(await feedDefenses(store, origin), 200, PUBLIC);

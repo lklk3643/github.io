@@ -1198,7 +1198,7 @@
       const tm = hm => { const s = t12(hm); return s.replace(/\s*صباحاً$/, ' ص').replace(/\s*(مساءً|ظهراً)$/, ' م'); };
       return merged().filter(x => x && x.date && x.date >= a && x.date <= b && x.status !== 'cancelled' && x.status !== 'postponed').map(x => {
         const [y, m, d] = x.date.split('-').map(Number), h = String(x.start || '00:00').split(':').map(Number);
-        const remote = /عن\s*بعد|اونلاين|أونلاين|zoom|زوم|تيمز/i.test(x.place || '');
+        const remote = /عن\s*بعد|اونلاين|أونلاين|افتراضي|بلاك\s*بورد|blackboard|zoom|زوم|تيمز/i.test(x.place || '');
         return { t: Date.UTC(y, m - 1, d), order: (h[0] || 0) * 100 + (h[1] || 0),
           lines: [[x.series || 'ندوة', x.department].filter(Boolean).join(' - '), `${x.title || 'ندوة'} - ${weekday(x.date)}`,
             `${hmd(x.date)} س ${tm(x.start)} ${remote ? 'عن بعد' : 'حضوري'}`.replace(/\s+/g, ' ').trim()] };
