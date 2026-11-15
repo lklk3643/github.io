@@ -487,6 +487,53 @@ async function addReal3Once(store) {
   await setJSON(store, REAL3_FLAG, { at: new Date().toISOString(), added: D.length, replaced: backup.length });
 }
 
+// ---------- بنود برنامج الندوة: رقم ثابت لكل بند (pid) + دمج بند ببند ----------
+// كل بند يأخذ pid (مفتاح إضافي تتجاهله لوحة OBS وEventSync). اثنان يعدّلان بندين مختلفين بنفس الوقت: يبقى التعديلان.
+const newPid = () => 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const withPids = arr => (Array.isArray(arr) ? arr : []).map(p => (p && typeof p === 'object' ? (p.pid ? p : { ...p, pid: newPid() }) : p)).filter(p => p && typeof p === 'object');
+const sameJ = (a, b) => JSON.stringify(a ?? '') === JSON.stringify(b ?? '');
+function mergeParts(b, m, t) {
+  const ok = a => Array.isArray(a) && a.every(p => p && p.pid);
+  if (!ok(b) || !ok(m) || !ok(t)) return m;                       // نسخة قديمة بدون أرقام: السلوك السابق (نسختي)
+  if (sameJ(t, b)) return m;                                      // ما عدّل أحد غيري
+  const B = new Map(b.map(p => [p.pid, p])), M = new Map(m.map(p => [p.pid, p]));
+  const out = t.filter(p => !(B.has(p.pid) && !M.has(p.pid)))    // حذفته أنا
+    .map(p => { const bp = B.get(p.pid), mp = M.get(p.pid); if (!bp || !mp) return p;
+      const o = { ...p }; for (const k of new Set([...Object.keys(mp), ...Object.keys(bp)])) if (!sameJ(mp[k], bp[k])) { if (mp[k] === undefined) delete o[k]; else o[k] = mp[k]; } return o; });
+  m.forEach((p, i) => {                                           // أضفته أنا: بعد البند اللي قبله عندي
+    if (B.has(p.pid) || out.some(x => x.pid === p.pid)) return;
+    let j = -1; for (let k = i - 1; k >= 0 && j < 0; k--) j = out.findIndex(x => x.pid === m[k].pid);
+    out.splice(j + 1, 0, p);
+  });
+  const mine = m.filter(p => B.has(p.pid)).map(p => p.pid), was = b.filter(p => M.has(p.pid)).map(p => p.pid);
+  if (mine.join() !== was.join()) {                                // أنا غيّرت الترتيب: ترتيبي، والباقي مكانه
+    const pos = new Map(m.map((p, i) => [p.pid, i])), ours = out.filter(x => pos.has(x.pid)).sort((x, y) => pos.get(x.pid) - pos.get(y.pid));
+    let k = 0; for (let i = 0; i < out.length; i++) if (pos.has(out[i].pid)) out[i] = ours[k++];
+  }
+  return out;
+}
+// مرة وحدة: أرقام للبنود المحفوظة، وتصحيح أوقات «النص القرآني» (انحفظت مساءً 22:15–00:45 والصحيح صباحاً 10:15–12:45)
+const PIDS_FLAG = 'sem-pids-2026-11-16';
+async function semPidsOnce(store) {
+  if (await getJSON(store, PIDS_FLAG)) return;
+  const { blobs } = await store.list({ prefix: 'sem/' }); let n = 0, fixed = false;
+  for (const bl of blobs) {
+    const x = await getJSON(store, bl.key); if (!x || !x.id) continue;
+    let ch = false;
+    if (Array.isArray(x.participants) && x.participants.some(q => q && !q.pid)) { x.participants = withPids(x.participants); ch = true; n++; }
+    if (x.id === 'test-nass' && x.start === '22:15') {
+      await setJSON(store, 'trash/nass-times-before-2026-11-16', JSON.parse(JSON.stringify(x)));
+      const sh = v => { const m = /^(\d{1,2}):(\d{2})$/.exec(v || ''); if (!m) return v; let h = +m[1]; h = h >= 13 ? h - 12 : (h === 0 ? 12 : h); return String(h).padStart(2, '0') + ':' + m[2]; };
+      x.start = sh(x.start); x.end = sh(x.end); x.participants = x.participants.map(q => ({ ...q, start: sh(q.start), end: sh(q.end) }));
+      ch = true; fixed = true;
+    }
+    if (ch) await setJSON(store, bl.key, x);
+  }
+  await setJSON(store, PIDS_FLAG, { at: new Date().toISOString(), seminars: n, nassFixed: fixed });
+}
+// الفيد العام (OBS): بنود المسودة الفاضية ما تطلع (تبقى للصفحة نفسها مع ?all=1)
+const feedSem = doc => ({ ...doc, seminars: doc.seminars.map(x => ({ ...x, participants: (x.participants || []).filter(q => !(q && q.draft && !q.name && !q.topic && !q.moderator)) })) });
+
 export async function handle(req, store) {
   const url = new URL(req.url);
   const origin = url.origin;
@@ -500,11 +547,12 @@ export async function handle(req, store) {
   await addTrials2Once(store);
   await removeTrials2Once(store);   // 2026-11-15: المستخدم قال «احذف البيانات التجريبية» — مرة وحدة، مع نسخة في trash/
   await addReal3Once(store);
+  await semPidsOnce(store);
 
   // --- عام: ملفات OBS
   if (method === 'GET' && path === 'feed/defenses.json') return json(await feedDefenses(store, origin), 200, PUBLIC);
   if (method === 'GET' && path === 'feed/defense-details.json') return json(await feedDetails(store, origin), 200, PUBLIC);
-  if (method === 'GET' && path === 'feed/seminars.json') return json(await seminarsDoc(store, origin), 200, PUBLIC);
+  if (method === 'GET' && path === 'feed/seminars.json') { const d = await seminarsDoc(store, origin); return json(/[?&]all=1/.test(req.url) ? d : feedSem(d), 200, PUBLIC); }
   if (method === 'GET' && path === 'ping') return json({ ok: true });
 
   // --- الدخول
@@ -686,10 +734,10 @@ export async function handle(req, store) {
       let out = { ...s };
       if (cur && b) {                                            // الحقل اللي غيّره هذا الموظف منه، والباقي من أحدث نسخة (تعديلات الزملاء)
         out = { ...cur };
-        for (const k of new Set([...Object.keys(s), ...Object.keys(b)])) if (!SKIP.has(k) && !same(s[k], b[k])) out[k] = s[k];
+        for (const k of new Set([...Object.keys(s), ...Object.keys(b)])) if (!SKIP.has(k) && !same(s[k], b[k])) out[k] = k === 'participants' ? mergeParts(b[k], s[k], cur[k]) : s[k];
         out.updated = s.updated || cur.updated;
       }
-      await setJSON(store, semKey(s.id), { ...out, id: String(s.id), by: me.u });
+      await setJSON(store, semKey(s.id), { ...out, participants: withPids(out.participants), id: String(s.id), by: me.u });
     }
     for (const id of Array.isArray(remove) ? remove : []) await store.delete(semKey(id));
     return json(await seminarsDoc(store, origin));

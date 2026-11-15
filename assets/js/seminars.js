@@ -28,7 +28,8 @@
   };
   const FIELD_LABEL = { topic: 'العنوان / البند', name: 'الاسم', title: 'الصفة (مثال: الأستاذ المشارك في قسم الفقه)', specialty: 'التخصص',
     start: 'من', end: 'إلى', moderator: 'يديرها', moderator_title: 'صفة مدير الجلسة' };
-  const SESSION_NAMES = ['الجلسة الأولى', 'الجلسة الثانية', 'الجلسة الثالثة', 'الجلسة الرابعة'];
+  const SESSION_NAMES = ['الجلسة الأولى', 'الجلسة الثانية', 'الجلسة الثالثة', 'الجلسة الرابعة', 'الجلسة الخامسة', 'الجلسة السادسة'];
+  const newPid = () => 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
   const isSpeaker = (p) => (!p.kind || p.kind === 'paper' || p.kind === 'opening') && p.name;
   const STATUS_AR = { confirmed: '', postponed: 'مؤجلة', cancelled: 'ملغاة' };
 
@@ -74,12 +75,15 @@
     poster_header: s.poster_header === 'official' ? 'official' : 'simple', programme_layout: s.programme_layout === 'table' ? 'table' : 'cells',
     participants: (s.participants || []).map(p => {
       const kind = KINDS[p.kind] ? p.kind : 'paper';
-      const o = { kind, name: String(p.name || '').trim(), title: String(p.title || '').trim(), role: String(p.role || KINDS[kind].role || '').trim(),
+      if (!p.pid) p.pid = newPid();   // رقم ثابت للبند (يُحفظ مع البند؛ الدمج على الخادم بند ببند)
+      const o = { pid: String(p.pid), kind, name: String(p.name || '').trim(), title: String(p.title || '').trim(), role: String(p.role || KINDS[kind].role || '').trim(),
         topic: String(p.topic || '').trim(), start: String(p.start || ''), end: String(p.end || '') };
+      if (p.tauto) o.tauto = 1;
+      if (p.draft && !o.name && !o.topic && !String(p.moderator || '').trim()) o.draft = 1;
       if (p.specialty) o.specialty = String(p.specialty).trim();
       if (kind === 'session') { o.moderator = String(p.moderator || '').trim(); o.moderator_title = String(p.moderator_title || '').trim(); }
       return o;
-    }).filter(p => p.name || p.topic || p.moderator), updated: s.updated || '' });
+    }).filter(p => p.name || p.topic || p.moderator || p.draft), updated: s.updated || '' });
 
   function merged() {
     const map = new Map(published.seminars.map(s => [s.id, s]));
@@ -100,7 +104,7 @@
   const CLOUD = () => !!(window.QCloud && QCloud.on);      // موقع Netlify: الحفظ = النشر للبث فوراً
   async function fetchPublished() {
     if (CLOUD()) {
-      const r = await fetch('/api/feed/seminars.json?t=' + Date.now(), { cache: 'no-store' });
+      const r = await fetch('/api/feed/seminars.json?all=1&t=' + Date.now(), { cache: 'no-store' });
       if (!r.ok) throw new Error('read ' + r.status);
       return { data: await r.json(), sha: undefined };
     }
@@ -127,8 +131,10 @@
   }
 
   let pubBusy = false;
+  let pubAgain = false;
   async function publishCloud(quiet) {
-    if (!pendingCount() || pubBusy) return;
+    if (pubBusy) { pubAgain = true; return; }
+    if (!pendingCount()) return;
     pubBusy = true;
     try {
       const sent = JSON.stringify(local);
@@ -136,10 +142,10 @@
       published = { v: out.v, seminars: (out.seminars || []).map(clean) };
       if (JSON.stringify(local) === sent) local = { items: {}, deleted: [], base: {} };   // لو كتب أثناء الإرسال تبقى تعديلاته الجديدة
       saveLocal();
-      renderList(); renderPub();
+      safeRender(); renderPub();
       if (!quiet) toast('✓ وصلت للبث — تظهر في OBS خلال دقائق');
     } catch (e) { renderPub(); toast('تعذر الاتصال الآن — محفوظة على هذا الجهاز وتُرسل تلقائياً عند عودة الاتصال', true); setTimeout(() => publishCloud(true), 15000); }
-    finally { pubBusy = false; }
+    finally { pubBusy = false; if (pubAgain) { pubAgain = false; setTimeout(() => publishCloud(true), 300); } }
   }
   async function publish() {
     if (CLOUD()) return publishCloud(false);
@@ -209,14 +215,22 @@
       const b1 = tmin(o.start); if (b1 == null) return false; const b2 = endMin(o.end, b1); return a1 < b2 && b1 < a2; })());
   }
   function renderList() { renderGrid(); }
+  // إعادة رسم آمنة: إذا الموظف يكتب داخل الجدول نأجلها لين يطلع منه (حتى ما تضيع الكتابة ولا قائمة الأسماء)
+  let gridDirty = false;
+  function safeRender() { const a = document.activeElement, T = $('#sheet'); if (a && T && T.contains(a) && /^(INPUT|SELECT|TEXTAREA)$/.test(a.tagName)) { gridDirty = true; return; } renderGrid(); }
+  // بعد ما يطلع من الخانة بشوي (ضغطة زر في نفس اللحظة ما تضيع لأن الجدول ما ينرسم تحت إصبعه)
+  let dirtyT = 0;
+  $('#sheet').addEventListener('focusout', () => { if (!gridDirty) return; clearTimeout(dirtyT); dirtyT = setTimeout(() => { const a = document.activeElement; if (gridDirty && !(a && $('#sheet').contains(a) && /^(INPUT|SELECT|TEXTAREA)$/.test(a.tagName))) { gridDirty = false; renderGrid(); } }, 900); });
   function renderGrid() {
+    gridDirty = false;
+    const keep = focusKey();
     const q = $('#search').value.trim();
     const all = merged();
     rowsView = all.filter(s => !q || s.title.includes(q) || s.participants.some(p => (p.name || '').includes(q)));
     const T = $('#sheet'); T.textContent = '';
     const thead = el('thead'), hr = el('tr');
     hr.appendChild(el('th', 'n', '#')); hr.appendChild(el('th', 'act', 'عرض / نسخ'));
-    GCOLS.forEach(c => hr.appendChild(el('th', null, c[1]))); hr.appendChild(el('th', null, 'المتحدثون'));
+    GCOLS.forEach(c => hr.appendChild(el('th', null, c[1]))); hr.appendChild(el('th', 'th-prog', 'البرنامج'));
     thead.appendChild(hr); T.appendChild(thead);
     const tb = el('tbody'); let nConf = 0;
     rowsView.forEach((s, i) => {
@@ -251,6 +265,7 @@
         if (type === 'status') { inp = el('select'); [['confirmed', 'مؤكدة'], ['postponed', 'مؤجلة'], ['cancelled', 'ملغاة']].forEach(([v, t]) => { const o = el('option', null, t); o.value = v; inp.appendChild(o); }); }
         else { inp = el('input'); inp.type = type === 'url' ? 'url' : type; if (type === 'url') { inp.dir = 'ltr'; inp.placeholder = 'بدون رابط'; } }
         if (cls) inp.className = cls;
+        inp.dataset.k = k;
         if (type === 'text') inp.type = 'text';
         inp.value = s[k] || (k === 'status' ? 'confirmed' : '');
         inp.addEventListener('change', () => {
@@ -262,16 +277,242 @@
         });
         td.appendChild(inp); tr.appendChild(td);
       });
-      const sp = speakersOf(s);
-      tr.appendChild(el('td', null, sp.length ? `${sp.length} — ${sp.slice(0, 2).map(p => p.name).join('، ')}${sp.length > 2 ? '…' : ''}` : '—'));
+      const nItems = s.participants.filter(p => !p.draft).length, open = openProg.has(s.id);
+      const pt = el('td', 'td-prog'), pb = el('button', 'prog-btn' + (open ? ' open' : '') + (nItems ? '' : ' empty'), nItems ? `البرنامج (${nItems}) ${open ? '▴' : '▾'}` : `＋ البرنامج ${open ? '▴' : '▾'}`);
+      pb.type = 'button'; pb.title = 'افتح جدول البرنامج تحت هذا السطر: الجلسات والأوراق والملقين والأوقات';
+      pb.onclick = () => { open ? openProg.delete(s.id) : openProg.add(s.id); renderGrid(); };
+      pt.appendChild(pb); tr.appendChild(pt);
       tb.appendChild(tr);
+      if (open) tb.appendChild(progRow(s));
     });
     if (!rowsView.length) { const tr = el('tr'); const td = el('td', null, q ? 'لا نتائج للبحث' : 'لا توجد ندوات بعد. اضغط «➕ ندوة».'); td.colSpan = GCOLS.length + 3; tr.appendChild(td); tb.appendChild(tr); }
     T.appendChild(tb);
+    fitProg();
+    restoreFocus(keep);
     $('#gridCount').textContent = `(${all.length})`;
     const b = $('#gConflicts'); b.hidden = !nConf; b.textContent = `🔴 ${QN.row(nConf)} ${nConf === 1 ? 'فيه' : 'فيها'} تعارض`;
     updSel();
   }
+
+  // البرنامج بعرض الجزء الظاهر من الجدول (الجدول الكبير يتمرر أفقياً، والبرنامج يبقى كامل قدامك)
+  function fitProg() { const w = $('.gridwrap'); if (w) $('#sheet').style.setProperty('--progw', Math.max(300, w.clientWidth - 28) + 'px'); }
+  addEventListener('resize', fitProg);
+  // ================= جدول البرنامج تحت سطر الندوة (مثل جدول المناقشات: تكتب في الخانات مباشرة) =================
+  const openProg = new Set();
+  const DUR = () => ({ opening: 5, paper: Math.max(5, +(localStorage.getItem('qu_paper_dur') || 15)), discussion: 15, break: 10, closing: 0, session: 0 });
+  const hm = m => { m = ((m % 1440) + 1440) % 1440; return String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0'); };
+  const filled = p => !!(p.name || p.topic || p.moderator);
+  // الإكمال التلقائي: أسماء الجلسات بالترتيب، عناوين البنود الثابتة، وتسلسل الأوقات (كل بند يبدأ عند نهاية اللي قبله)
+  function autofill(sem) {
+    const D = DUR(); let sess = 0, prev = null;
+    for (const p of sem.participants) {
+      if (p.kind === 'session') { if (!p.name || SESSION_NAMES.includes(p.name) || /^الجلسة \d+$/.test(p.name)) p.name = SESSION_NAMES[sess] || `الجلسة ${sess + 1}`; sess++; p.start = ''; p.end = ''; delete p.tauto; continue; }
+      if (!p.topic && KINDS[p.kind].topic) p.topic = KINDS[p.kind].topic;
+      if (!p.start || p.tauto) {
+        const st = prev != null ? prev : tmin(sem.start);
+        if (st != null) { p.start = hm(st); p.end = D[p.kind] ? hm(st + D[p.kind]) : ''; p.tauto = 1; }
+      } else if ((!p.end || p.eauto) && D[p.kind]) p.end = hm(tmin(p.start) + D[p.kind]);
+      delete p.eauto;
+      const a = tmin(p.start), b = tmin(p.end);
+      if (a != null) prev = b != null ? (b < a ? b + 1440 : b) : a + (D[p.kind] || 0);
+    }
+    const timed = sem.participants.filter(p => p.kind !== 'session' && tmin(p.start) != null);
+    if (timed.length) { sem.start = timed[0].start; const L = timed[timed.length - 1]; sem.end = L.end || L.start; }
+    return sem;
+  }
+  let progPubT = 0;
+  // حفظ برنامج ندوة: محلياً فوراً، والإرسال بعد توقف الكتابة شوي؛ النموذج الجانبي يتحدث بدون إعادة رسم الجدول
+  function commitProg(id, parts, rerender) {
+    const base = local.items[id] || merged().find(x => x.id === id); if (!base) return;
+    const item = clean(base); item.participants = parts.map(p => ({ ...p })); autofill(item);
+    const fresh = clean(item); fresh.updated = new Date().toISOString();
+    local.items[id] = fresh; local.deleted = local.deleted.filter(x => x !== id); saveLocal();
+    if (current && current.id === id) {
+      current = clean(fresh);
+      ['start', 'end'].forEach(k => { const i = $(`[data-k="${k}"]`); if (i && document.activeElement !== i) i.value = current[k] || ''; });
+      const box = $('#parts'); box.textContent = ''; current.participants.forEach(q => box.appendChild(partRow(q))); renderPoster();
+    }
+    if (rerender) renderGrid(); else { const b = $(`#sheet tr[data-id="${id}"] .prog-btn`); if (b) { const n = fresh.participants.filter(p => !p.draft).length; b.textContent = `البرنامج (${n}) ▴`; } }
+    renderPub(); flagSaved();
+    clearTimeout(progPubT); if (CLOUD()) progPubT = setTimeout(() => publishCloud(true), 700);
+  }
+  const progData = id => clean(local.items[id] || merged().find(x => x.id === id) || { id, participants: [] }).participants;
+  // يقرأ البنود من خانات الجدول (بنفس ترتيبها)
+  function readProg(box) {
+    const old = new Map(progData(box.dataset.sem).map(p => [p.pid, p]));
+    return $$('tr.pi', box).map(tr => {
+      const o = { ...(old.get(tr.dataset.pid) || {}), pid: tr.dataset.pid, kind: tr.querySelector('[data-p="kind"]').value };
+      $$('[data-p]', tr).forEach(i => { if (i.dataset.p !== 'kind') o[i.dataset.p] = i.value.trim(); });
+      const st = tr.querySelector('[data-p="start"]'), en = tr.querySelector('[data-p="end"]');
+      if (st) { if (st.classList.contains('auto')) o.tauto = 1; else if (o.start) delete o.tauto; }
+      if (en && en.classList.contains('auto')) o.eauto = 1;   // النهاية محسوبة: تتبع البداية لو تغيّرت
+      if (filled(o)) delete o.draft;
+      return o;
+    });
+  }
+  const KIND_OPTS = [['paper', 'ورقة'], ['session', 'جلسة'], ['opening', 'افتتاح'], ['discussion', 'مداخلات'], ['break', 'استراحة'], ['closing', 'ختام']];
+  function kindSelect(v) { const sel = el('select'); sel.dataset.p = 'kind'; KIND_OPTS.forEach(([k, t]) => { const o = el('option', null, t); o.value = k; sel.appendChild(o); }); sel.value = v; return sel; }
+  function cellInput(p, f, ph, type) { const i = el('input'); i.type = type || 'text'; i.dataset.p = f; i.value = p[f] || ''; if (ph) i.placeholder = ph; return i; }
+  function progRow(s) {
+    const tr = el('tr', 'prog-row'); tr.dataset.prog = s.id;
+    const td = el('td'); td.colSpan = GCOLS.length + 3; td.appendChild(progEditor(s)); tr.appendChild(td); return tr;
+  }
+  function progEditor(s) {
+    const box = el('div', 'prog'); box.dataset.sem = s.id;
+    const parts = progData(s.id);
+    const t = el('table', 'ptab'), th = el('tr');
+    ['من', 'إلى', 'النوع', 'العنوان / البند', 'الملقي / مدير الجلسة', 'الصفة', ''].forEach(h => th.appendChild(el('th', null, h)));
+    const thead = el('thead'); thead.appendChild(th); t.appendChild(thead);
+    const tb = el('tbody'); let paperNo = 0;
+    const row = (p, draft) => {
+      const r = el('tr', 'pi k-' + p.kind + (draft ? ' pdraft' : '') + (p.draft ? ' pempty' : '')); r.dataset.pid = p.pid; r.dataset.kind = p.kind;
+      const c = (node, cls) => { const d = el('td', cls || null); if (node) d.appendChild(node); r.appendChild(d); return d; };
+      if (p.kind === 'session') { c(null, 'pt-time').textContent = '—'; c(null, 'pt-time'); }
+      else { const a = cellInput(p, 'start', '', 'time'), b = cellInput(p, 'end', '', 'time'); if (p.tauto) { a.classList.add('auto'); b.classList.add('auto'); a.title = b.title = 'وقت محسوب تلقائياً — غيّره إذا تبي'; } c(a, 'pt-time'); c(b, 'pt-time'); }
+      const ks = kindSelect(p.kind); c(ks, 'pt-kind');
+      if (p.kind === 'paper' && !draft) { paperNo++; ks.title = 'ورقة ' + paperNo; }
+      if (p.kind === 'session') { c(cellInput(p, 'name', 'اسم الجلسة'), 'pt-topic'); c(cellInput(p, 'moderator', 'مدير الجلسة: اكتب الاسم'), 'pt-name'); c(cellInput(p, 'moderator_title', 'صفته (تتعبّى تلقائياً)'), 'pt-title'); }
+      else {
+        c(cellInput(p, 'topic', p.kind === 'paper' ? (draft ? 'بند جديد: اكتب عنوان الورقة هنا' : 'عنوان الورقة') : KINDS[p.kind].topic), 'pt-topic');
+        if (p.kind === 'paper' || p.kind === 'opening') { c(cellInput(p, 'name', 'اكتب الاسم'), 'pt-name'); c(cellInput(p, 'title', 'الصفة (تتعبّى تلقائياً)'), 'pt-title'); }
+        else { c(null, 'pt-name').textContent = '—'; c(null, 'pt-title'); }
+      }
+      const tools = c(null, 'pt-tools');
+      if (!draft) [['↑', 'لفوق', 'up'], ['↓', 'لتحت', 'down'], ['✕', 'حذف البند', 'del']].forEach(([x, ttl, act]) => { const b = el('button', 'pt', x); b.type = 'button'; b.title = ttl; b.setAttribute('aria-label', ttl); b.dataset.act = act; tools.appendChild(b); });
+      return r;
+    };
+    parts.forEach(p => tb.appendChild(row(p, false)));
+    tb.appendChild(row({ pid: newPid(), kind: 'paper' }, true));          // سطر فاضي آخر الجدول للإضافة (مثل السطر الفاضي في المناقشات)
+    t.appendChild(tb); box.appendChild(t);
+    const bar = el('div', 'prog-bar');
+    const btn = (txt, title, fn, cls) => { const b = el('button', 'btn sm' + (cls ? ' ' + cls : ''), txt); b.type = 'button'; b.title = title; b.onclick = fn; bar.appendChild(b); return b; };
+    const add = (kind) => { const ps = readProg(box); ps.push({ pid: newPid(), kind, draft: 1 }); commitProg(s.id, ps, true); focusPid(s.id, ps[ps.length - 1].pid); };
+    btn('＋ ورقة', 'إضافة ورقة في آخر البرنامج', () => add('paper'));
+    btn('＋ جلسة', 'إضافة جلسة (يتسمّى «الجلسة الأولى/الثانية…» تلقائياً)', () => add('session'));
+    btn('＋ مداخلات', 'إضافة المداخلات والتعقيبات', () => add('discussion'));
+    btn('＋ استراحة', 'إضافة استراحة', () => add('break'));
+    const tpl = el('select', 'prog-tpl'); [['', '📐 قالب جاهز…'], ['simple', 'ندوة بسيطة (افتتاح، 3 أوراق، مداخلات، ختام)'], ['two', 'ملتقى بجلستين (مثل «النص القرآني»)']].forEach(([v, x]) => { const o = el('option', null, x); o.value = v; tpl.appendChild(o); });
+    tpl.onchange = () => { const v = tpl.value; tpl.value = ''; if (v) applyTemplate(s.id, v); }; bar.appendChild(tpl);
+    btn('📋 الصق برنامج', 'الصق البرنامج من Word أو Excel أو واتساب، وراجعه قبل الاعتماد', () => openPaste(box, s.id));
+    btn('⟲ أعد حساب الأوقات', 'كل بند يبدأ عند نهاية اللي قبله، من وقت بداية الندوة', () => { const ps = readProg(box); ps.forEach((p, i) => { if (i > 0 || !p.start) p.tauto = 1; }); commitProg(s.id, ps, true); toast('⟲ انحسبت الأوقات من جديد'); });
+    const dur = el('label', 'prog-dur'); dur.appendChild(document.createTextNode('مدة الورقة '));
+    const di = el('input'); di.type = 'number'; di.min = '5'; di.max = '90'; di.step = '5'; di.value = DUR().paper; di.onchange = () => { localStorage.setItem('qu_paper_dur', di.value); }; dur.appendChild(di); dur.appendChild(document.createTextNode(' د')); bar.appendChild(dur);
+    box.appendChild(bar);
+    if (!parts.filter(p => !p.draft).length) box.appendChild(el('p', 'hint prog-hint', 'البرنامج فاضي: اختر «📐 قالب جاهز» يبني لك الهيكل كامل، أو اكتب في السطر الأخير، أو «📋 الصق برنامج». الأوقات تنحسب لحالها من وقت بداية الندوة.'));
+    return box;
+  }
+  function applyTemplate(id, v) {
+    const cur = progData(id).filter(p => !p.draft);
+    if (cur.length && !confirm(`البرنامج فيه ${QN.row(cur.length)}. نبدّلها بالقالب؟`)) return;
+    const P = (kind) => ({ pid: newPid(), kind, tauto: 1, ...(kind === 'paper' ? { draft: 1 } : {}) });
+    const papers = n => Array.from({ length: n }, () => P('paper'));
+    const list = v === 'simple' ? [P('opening'), ...papers(3), P('discussion'), P('closing')]
+      : [P('opening'), P('session'), ...papers(3), P('discussion'), P('break'), P('session'), ...papers(3), P('discussion'), P('closing')];
+    commitProg(id, list, true); toast('📐 انبنى الهيكل — اكتب الأسماء وعناوين الأوراق، والأوقات تنحسب لحالها');
+  }
+  function focusPid(id, pid, field) {
+    setTimeout(() => { const r = $(`#sheet tr[data-prog="${id}"] tr.pi[data-pid="${pid}"]`); const i = r && (r.querySelector(`[data-p="${field || 'topic'}"]`) || r.querySelector('input')); if (i) i.focus(); }, 30);
+  }
+  // مكان الكتابة قبل/بعد إعادة رسم الجدول (حتى الحفظ ما يضيّع اللي يكتبه الموظف)
+  function focusKey() {
+    const a = document.activeElement, T = $('#sheet'); if (!a || !T || !T.contains(a)) return null;
+    const pi = a.closest('tr.pi'), main = a.closest('tr[data-id]'), prog = a.closest('tr[data-prog]');
+    return { id: (prog && prog.dataset.prog) || (main && main.dataset.id), pid: pi && pi.dataset.pid, draft: !!(pi && pi.classList.contains('pdraft')), p: a.dataset.p, k: a.dataset.k, sel: (() => { try { return a.selectionStart; } catch (e) { return null; } })() };
+  }
+  function restoreFocus(k) {
+    if (!k || !k.id) return;
+    let i = null;
+    if (k.k) i = $(`#sheet tr[data-id="${k.id}"] [data-k="${k.k}"]`);
+    else if (k.p) { const box = $(`#sheet tr[data-prog="${k.id}"]`); if (box) { const r = k.draft ? box.querySelector('tr.pdraft') : box.querySelector(`tr.pi[data-pid="${k.pid}"]`); i = r && r.querySelector(`[data-p="${k.p}"]`); } }
+    if (!i) return; i.focus(); try { if (k.sel != null) i.setSelectionRange(k.sel, k.sel); } catch (e) { /* خانة وقت */ }
+  }
+  // أحداث جدول البرنامج
+  let progTypeT = 0;
+  $('#sheet').addEventListener('click', e => {
+    const b = e.target.closest('.prog button[data-act]'); if (!b) return;
+    const box = b.closest('.prog'), tr = b.closest('tr.pi'), ps = readProg(box), i = ps.findIndex(p => p.pid === tr.dataset.pid);
+    if (b.dataset.act === 'del') { if (filled(ps[i]) && !confirm('نحذف هذا البند؟')) return; ps.splice(i, 1); }
+    if (b.dataset.act === 'up' && i > 0) { [ps[i - 1], ps[i]] = [ps[i], ps[i - 1]]; ps[i].tauto = ps[i - 1].tauto = 1; }
+    if (b.dataset.act === 'down' && i < ps.length - 1) { [ps[i + 1], ps[i]] = [ps[i], ps[i + 1]]; ps[i].tauto = ps[i + 1].tauto = 1; }
+    commitProg(box.dataset.sem, ps, true);
+  });
+  $('#sheet').addEventListener('input', e => {
+    const i = e.target, box = i.closest && i.closest('.prog'); if (!box || !i.dataset.p || i.dataset.p === 'kind' || i.closest('.prog-paste')) return;
+    const tr = i.closest('tr.pi'); if (!tr) return;
+    if (/^(start|end)$/.test(i.dataset.p)) { i.classList.remove('auto'); const ps = readProg(box); clearTimeout(progTypeT); progTypeT = setTimeout(() => commitProg(box.dataset.sem, ps, false), 500); return; }
+    if (tr.classList.contains('pdraft')) {          // أول حرف في السطر الأخير: يصير بند حقيقي، وينضاف سطر فاضي جديد تحته
+      const ps = readProg(box); ps[ps.length - 1].tauto = 1; tr.classList.remove('pdraft'); commitProg(box.dataset.sem, ps, true); return;
+    }
+    clearTimeout(progTypeT); progTypeT = setTimeout(() => commitProg(box.dataset.sem, readProg(box), false), 500);
+  });
+  $('#sheet').addEventListener('change', e => {
+    const i = e.target, box = i.closest && i.closest('.prog'); if (!box || !i.dataset.p || i.closest('.prog-paste')) return;
+    const tr = i.closest('tr.pi'); if (!tr) return;
+    clearTimeout(progTypeT);
+    const ps = readProg(box);
+    if (i.dataset.p === 'kind' && tr.classList.contains('pdraft')) { const p = ps[ps.length - 1]; p.draft = 1; p.tauto = 1; }   // نوع جديد للسطر الأخير
+    commitProg(box.dataset.sem, ps, false);           // بعد ما يخلص الخانة: ينحفظ فوراً، والأوقات وأسماء الجلسات تنعرض بعد لحظة
+    softRender();                                     // (مو فوراً: لو ضغط زر بنفس اللحظة ما تضيع ضغطته)
+  });
+  let softT = 0, lastKey = 0;
+  document.addEventListener('keydown', () => { lastKey = Date.now(); }, true);
+  function softRender() { clearTimeout(softT); softT = setTimeout(() => { if (Date.now() - lastKey < 400) return softRender(); renderGrid(); }, 350); }
+  $('#sheet').addEventListener('keydown', e => {
+    const i = e.target; if (e.key !== 'Enter' || !i.closest || !i.closest('.prog') || i.tagName !== 'INPUT' || i.closest('.prog-paste')) return;
+    const td = i.closest('td'), tr = i.closest('tr.pi'), col = [...tr.children].indexOf(td), next = tr.nextElementSibling;
+    if (next) { e.preventDefault(); const n = next.children[col] && next.children[col].querySelector('input,select'); if (n) n.focus(); }
+  });
+
+  // ---------- 📋 لصق برنامج (Word/Excel/واتساب) مع معاينة قبل الاعتماد ----------
+  const latin = v => String(v || '').replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d));
+  const HON = /^(أ\.?\s?د\.?|ا\.?\s?د\.?|د\s?\.|الدكتور|الدكتورة|الشيخ|فضيلة|معالي|سعادة|أ\.)\s*/;
+  function parseProgram(text) {
+    const out = [];
+    const lines = latin(text).split(/\r?\n/).map(x => x.replace(/\s+/g, ' ').trim()).filter(Boolean);
+    for (let line of lines) {
+      let start = '';
+      const tm = line.match(/(\d{1,2})\s*[:.:]\s*(\d{2})\s*(ص|صباحا|صباحاً|م|مساء|مساءً|ظهرا|ظهراً|عصرا|عصراً)?/);
+      if (tm) { let h = +tm[1]; const pm = /^(م|مساء|ظهر|عصر)/.test(tm[3] || ''), am = /^ص/.test(tm[3] || ''); if (pm && h < 12) h += 12; if (am && h === 12) h = 0; if (!tm[3] && h < 7) h += 12; start = String(h).padStart(2, '0') + ':' + tm[2]; line = line.replace(tm[0], ' ').replace(/^[\s\-–—|:،.]+|[\s\-–—|:،]+$/g, '').trim(); }
+      const segs = line.split(/\t|\s[-–—|]\s|\s?[|]\s?/).map(x => x.trim()).filter(Boolean);
+      if (/الجلسة|جلسة/.test(line)) {
+        const nm = (line.match(/(الجلسة\s+\S+)/) || [])[1] || '';
+        const mod = (line.match(/(?:يديرها|إدارة|ادارة|رئيس الجلسة|رئيسها)\s*:?\s*(.+)$/) || [])[1] || '';
+        out.push({ pid: newPid(), kind: 'session', name: nm, moderator: mod.trim() }); continue;
+      }
+      const kind = /افتتاح/.test(line) ? 'opening' : /استراحة/.test(line) ? 'break' : /مداخلات|تعقيبات|نقاش/.test(line) ? 'discussion' : /ختام|توصيات/.test(line) ? 'closing' : 'paper';
+      if (!segs.length && start && out.length) continue;
+      const nameSeg = segs.find(x => HON.test(x)), titleSeg = segs.find(x => /^(الأستاذ|أستاذ|عميد|وكيل|رئيس قسم|المحاضر)/.test(x));
+      if (!nameSeg && titleSeg && segs.length === 1 && out.length) { const prev = out[out.length - 1]; if (prev.kind === 'session') prev.moderator_title = titleSeg; else prev.title = titleSeg; continue; }
+      const rest = segs.filter(x => x !== nameSeg && x !== titleSeg);
+      const o = { pid: newPid(), kind, start, topic: rest.sort((a, b) => b.length - a.length)[0] || '', name: nameSeg || '', title: titleSeg || '' };
+      if (o.name && !o.title && window.QPeople) { const f = QPeople.find(o.name.replace(HON, ''))[0]; if (f && QPeople.key(f.name) === QPeople.key(o.name)) o.title = f.title; }
+      if (kind !== 'paper' && !o.topic) o.topic = KINDS[kind].topic;
+      out.push(o);
+    }
+    return out;
+  }
+  function openPaste(box, id) {
+    let pane = box.querySelector('.prog-paste'); if (pane) { pane.remove(); return; }
+    pane = el('div', 'prog-paste');
+    pane.appendChild(el('p', 'hint', 'الصق البرنامج هنا (من Word أو Excel أو رسالة واتساب) — كل بند في سطر. بعدين اضغط «حلّل» وراجع النتيجة قبل الاعتماد.'));
+    const ta = el('textarea'); ta.rows = 8; ta.placeholder = '10:15 افتتاح الملتقى - أ.د. خالد أبا الخيل\nالجلسة الأولى - إدارة: أ.د. عبدالعزيز المزيني\n10:20 الاستدلال بالقرآن مفهومه وأنواعه - د. محمد أبا الخيل'; pane.appendChild(ta);
+    const prev = el('div', 'prog-prev'), acts = el('div', 'prog-bar');
+    const mk = (txt, fn, cls) => { const b = el('button', 'btn sm' + (cls ? ' ' + cls : ''), txt); b.type = 'button'; b.onclick = fn; acts.appendChild(b); return b; };
+    let parsed = [];
+    const KL = Object.fromEntries(KIND_OPTS);
+    mk('🔍 حلّل', () => {
+      parsed = parseProgram(ta.value);
+      prev.textContent = '';
+      if (!parsed.length) { prev.appendChild(el('p', 'hint', 'ما لقيت بنود — تأكد إن كل بند في سطر')); return; }
+      const t = el('table', 'ptab prev'); parsed.forEach(p => { const r = el('tr'); [t12(p.start) || '—', KL[p.kind], p.kind === 'session' ? p.name : p.topic, p.kind === 'session' ? (p.moderator || '') : p.name, p.kind === 'session' ? (p.moderator_title || '') : p.title].forEach(x => r.appendChild(el('td', null, x || ''))); t.appendChild(r); });
+      prev.appendChild(el('p', 'hint', `لقيت ${QN.row(parsed.length)} — راجعها، وأي غلط تقدر تعدّله في الجدول بعد الاعتماد:`)); prev.appendChild(t);
+    }, 'primary');
+    mk('✓ اعتمد (بدل البرنامج الحالي)', () => { if (!parsed.length) return toast('اضغط «حلّل» أول', true); parsed.forEach((p, i) => { if (!p.start && i) p.tauto = 1; }); commitProg(id, parsed, true); toast(`✓ انضاف ${QN.row(parsed.length)} للبرنامج`); });
+    mk('＋ أضفها لآخر البرنامج', () => { if (!parsed.length) return toast('اضغط «حلّل» أول', true); const ps = progData(id).filter(p => !p.draft).concat(parsed.map(p => ({ ...p, tauto: p.start ? undefined : 1 }))); commitProg(id, ps, true); toast(`✓ انضاف ${QN.row(parsed.length)} لآخر البرنامج`); });
+    mk('إلغاء', () => pane.remove());
+    pane.appendChild(acts); pane.appendChild(prev); box.appendChild(pane); ta.focus();
+  }
+
   function updSel() {
     [...gridSel].forEach(id => { if (!merged().some(s => s.id === id)) gridSel.delete(id); });
     $('#gSelCount').textContent = gridSel.size ? `المحدد: ${gridSel.size}` : '';
@@ -284,7 +525,8 @@
   // ---------- النموذج ----------
   function partRow(p = {}) {
     const kind = KINDS[p.kind] ? p.kind : 'paper', K = KINDS[kind];
-    const li = el('li', 'pitem k-' + kind); li.dataset.kind = kind;
+    const li = el('li', 'pitem k-' + kind); li.dataset.kind = kind; li.dataset.pid = p.pid || newPid();
+    if (p.tauto) li.dataset.tauto = '1'; if (p.draft) li.dataset.draft = '1';
     const head = el('div', 'phead2');
     head.appendChild(el('span', 'pk', K.label));
     const tools = el('span', 'ptools');
@@ -303,7 +545,7 @@
       w.appendChild(i); grid.appendChild(w);
     }
     li.appendChild(grid);
-    li.addEventListener('input', () => readForm(true));
+    li.addEventListener('input', e => { if (e.target && /^(start|end)$/.test(e.target.dataset.p || '')) delete li.dataset.tauto; readForm(true); });
     return li;
   }
 
@@ -328,7 +570,8 @@
   function readForm(save) {
     if (!current) return;
     $$('[data-k]').forEach(i => { current[i.dataset.k] = i.value; });
-    current.participants = $$('#parts .pitem').map(r => ({ kind: r.dataset.kind, role: KINDS[r.dataset.kind].role,
+    current.participants = $$('#parts .pitem').map(r => ({ pid: r.dataset.pid, kind: r.dataset.kind, role: KINDS[r.dataset.kind].role,
+      ...(r.dataset.tauto ? { tauto: 1 } : {}), ...(r.dataset.draft ? { draft: 1 } : {}),
       ...Object.fromEntries($$('[data-p]', r).map(i => [i.dataset.p, i.value])) }));
     updateHijri(); renderPoster();
     if (save) autosave();
@@ -416,6 +659,7 @@
   }
   // يرسم الإعلان بالمقاس f في العنصر P (المعاينة أو عنصر التصدير المخفي)
   function renderInto(P, s, f) {
+    s = { ...s, participants: (s.participants || []).filter(p => !(p.draft && !p.name && !p.topic && !p.moderator)) };
     P.textContent = ''; P.className = 'qs'; P.dataset.size = f.id; P.dataset.layout = f.layout || 'programme';
     P.style.width = f.w + 'px'; P.style.height = f.h ? f.h + 'px' : '';
     delete P.dataset.overflow;
@@ -1155,6 +1399,12 @@
   // اقتراح أسماء أعضاء هيئة التدريس (assets/js/people.js): الاسم ← الصفة، ومدير الجلسة ← صفته
   if (window.QPeople) {
     QPeople.bind(inp => {
+      const pr = inp.closest && inp.closest('.prog tr.pi');
+      if (pr) {
+        if (inp.dataset.p === 'name' && pr.dataset.kind !== 'session') return { title: pr.querySelector('[data-p="title"]') };
+        if (inp.dataset.p === 'moderator') return { title: pr.querySelector('[data-p="moderator_title"]') };
+        return null;
+      }
       const li = inp.closest && inp.closest('li.pitem'); if (!li) return null;
       if (inp.dataset.p === 'name' && li.dataset.kind !== 'session') return { title: li.querySelector('[data-p="title"]') };
       if (inp.dataset.p === 'moderator') return { title: li.querySelector('[data-p="moderator_title"]') };

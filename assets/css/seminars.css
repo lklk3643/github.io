@@ -274,3 +274,64 @@
 .qr-wrap .qr-logo { position: absolute; left: 50%; top: 50%; width: 21%; height: 21%; transform: translate(-50%, -50%);
   background: #fff; border-radius: 22%; padding: 3%; box-sizing: content-box; display: grid; place-items: center; }
 .qr-wrap .qr-logo svg { width: 100% !important; height: 100% !important; display: block; }
+
+/* ===== جدول البرنامج تحت سطر الندوة ===== */
+.td-prog { white-space: nowrap; }
+.prog-btn { border: 1px solid var(--line); background: var(--panel); color: var(--brand); border-radius: 10px; padding: 6px 12px; font: inherit; font-weight: 700; cursor: pointer; min-height: 34px; }
+.prog-btn.open { background: var(--brand); color: #fff; border-color: var(--brand); }
+.prog-btn.empty { color: var(--muted); font-weight: 600; }
+.sheet tr.prog-row > td { padding: 0 10px 14px; background: var(--panel); border-top: 0; }
+.prog { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--bg, #fff); }
+.ptab { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 14px; }
+.ptab th { background: var(--brand-l); color: var(--brand-d); font-weight: 700; padding: 7px 6px; text-align: right; }
+.ptab th:nth-child(1), .ptab th:nth-child(2) { width: 96px; } .ptab th:nth-child(3) { width: 96px; } .ptab th:nth-child(6) { width: 22%; } .ptab th:nth-child(7) { width: 86px; }
+.ptab td { padding: 3px 4px; border-top: 1px solid var(--line); vertical-align: middle; }
+.ptab input, .ptab select { width: 100%; min-width: 0; box-sizing: border-box; border: 1px solid transparent; background: transparent; color: inherit; font: inherit; padding: 6px; border-radius: 8px; }
+.ptab input:hover, .ptab select:hover { border-color: var(--line); }
+.ptab input:focus, .ptab select:focus { border-color: var(--brand); outline: none; background: var(--panel); }
+.ptab input.auto { color: var(--muted); font-style: italic; }
+.ptab tr.k-session td { background: color-mix(in srgb, var(--brand) 12%, transparent); font-weight: 700; }
+.ptab tr.k-opening td, .ptab tr.k-closing td, .ptab tr.k-break td, .ptab tr.k-discussion td { background: color-mix(in srgb, var(--brand) 5%, transparent); }
+.ptab tr.pdraft td { background: transparent; }
+.ptab tr.pdraft input::placeholder { color: var(--brand); opacity: .8; }
+.ptab tr.pempty input[data-p="topic"], .ptab tr.pempty input[data-p="name"] { border-color: color-mix(in srgb, #d9a400 60%, transparent); }
+.pt-time { color: var(--muted); text-align: center; }
+.pt-tools { white-space: nowrap; text-align: center; }
+.pt-tools .pt { border: 1px solid var(--line); background: var(--panel); color: inherit; border-radius: 7px; min-width: 26px; height: 28px; cursor: pointer; margin: 0 1px; }
+.prog-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 10px; border-top: 1px solid var(--line); background: var(--panel); }
+.prog-bar select.prog-tpl { border: 1px solid var(--line); border-radius: 9px; padding: 6px 8px; font: inherit; background: var(--bg, #fff); color: inherit; }
+.prog-dur { color: var(--muted); font-size: 13px; } .prog-dur input { width: 56px; border: 1px solid var(--line); border-radius: 7px; padding: 4px; font: inherit; background: var(--bg, #fff); color: inherit; }
+.prog-hint { margin: 0; padding: 0 12px 12px; }
+.prog-paste { padding: 10px; border-top: 1px solid var(--line); }
+.prog-paste textarea { width: 100%; box-sizing: border-box; font: inherit; border: 1px solid var(--line); border-radius: 10px; padding: 8px; background: var(--bg, #fff); color: inherit; }
+.ptab.prev td { font-size: 13px; padding: 5px 6px; }
+@media (max-width: 760px) {
+  .ptab thead { display: none; }
+  .ptab, .ptab tbody { display: block; }
+  .ptab tr.pi { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px; padding: 8px; border-top: 1px solid var(--line); }
+  .ptab tr.pi td { border: 0; padding: 0; background: transparent !important; }
+  .ptab tr.pi td.pt-topic, .ptab tr.pi td.pt-name, .ptab tr.pi td.pt-title { grid-column: 1 / -1; }
+  .ptab tr.pi td.pt-tools { grid-column: 1 / -1; text-align: start; }
+  .ptab tr.pi input, .ptab tr.pi select { border-color: var(--line); background: var(--bg, #fff); min-height: 40px; }
+  .ptab tr.k-session { background: color-mix(in srgb, var(--brand) 12%, transparent); }
+  .sheet tr.prog-row > td { position: sticky; right: 0; }
+  .prog { max-width: calc(100vw - 48px); }
+}
+
+/* خانات جدول البرنامج: تغلب قاعدة «.sheet input» (عرض 150) وحدود خانات الجدول الكبير */
+.sheet .ptab input, .sheet .ptab select { width: 100%; min-width: 0; box-sizing: border-box; padding: 6px; }
+.sheet .ptab td { border-left: 0; border-bottom: 0; background: transparent; }
+.sheet .ptab tr.k-session td { background: color-mix(in srgb, var(--brand) 12%, transparent); }
+@media (max-width: 760px) {
+  .sheet .ptab tr.pi td { background: transparent !important; }
+  .sheet .ptab input, .sheet .ptab select { border: 1px solid var(--line); background: var(--bg, #fff); min-height: 40px; }
+}
+
+/* البرنامج مثبّت بعرض الشاشة الظاهر داخل الجدول المتمرر */
+.sheet tr.prog-row > td > .prog { position: sticky; right: 8px; width: var(--progw, 100%); max-width: none; }
+@media (max-width: 760px) { .ptab tr.pi { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 108px; } .sheet tr.prog-row > td { position: static; } }
+@media (max-width: 760px) {
+  .ptab tr.pi { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .ptab tr.pi td.pt-kind { grid-column: 1 / -1; }
+  .sheet .ptab input[type="time"] { font-size: 15px; padding: 6px 4px; }
+}
