@@ -345,3 +345,16 @@
 #sheet tr.newrow td { background: var(--newrow-bg, color-mix(in srgb, var(--brand) 7%, var(--panel))); border-bottom: 2px dashed var(--newrow-line, var(--brand)); }
 #sheet tr.newrow input[data-k="title"] { width: 17em; min-width: 260px; font-weight: 700; }
 #sheet tr.newrow input[data-k="title"]::placeholder { color: var(--brand); opacity: 1; }
+
+/* الآيباد بالطول (761–1024): البرنامج بطاقات بدل جدول ضيق يقص العناوين */
+@media (min-width: 761px) and (max-width: 1024px) {
+  .ptab thead { display: none; }
+  .ptab, .ptab tbody { display: block; }
+  .ptab tr.pi { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; padding: 8px; border-top: 1px solid var(--line); }
+  .ptab tr.pi td { border: 0; padding: 0; background: transparent !important; }
+  .ptab tr.pi td.pt-topic, .ptab tr.pi td.pt-name, .ptab tr.pi td.pt-title { grid-column: span 2; }
+  .ptab tr.pi td.pt-tools { grid-column: 1 / -1; text-align: start; }
+  .sheet .ptab input, .sheet .ptab select { border: 1px solid var(--line); background: var(--bg, #fff); min-height: 40px; }
+}
+/* الكمبيوتر: عمودا الوقت أعرض عشان يبين ص/م */
+@media (min-width: 1025px) { .ptab th:nth-child(1), .ptab th:nth-child(2) { width: 124px; } }

@@ -2,6 +2,7 @@
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="utf-8">
+  <link rel="icon" href="assets/img/logo.png">
   <script src="assets/js/theme.js?v=202611141201"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>مصمم إعلانات الندوات</title>
@@ -10,8 +11,8 @@
     if (!(sessionStorage.getItem('qu_session') || localStorage.getItem('qu_session'))) location.replace('index.html');
   </script>
   <link rel="stylesheet" href="assets/fonts/fonts.css?v=202611130001">
-  <link rel="stylesheet" href="assets/css/app.css?v=202611161600">
-  <link rel="stylesheet" href="assets/css/seminars.css?v=202611160500">
+  <link rel="stylesheet" href="assets/css/app.css?v=202611161940">
+  <link rel="stylesheet" href="assets/css/seminars.css?v=202611161800">
 </head>
 <body class="sem-page">
   <div class="topbar">
@@ -199,11 +200,8 @@
           <button class="btn sm primary" id="gDl">📦 تحميل المحدد</button>
           <button class="btn sm" id="gPrint">🖨️ طباعة المحدد</button>
           <span class="hint" id="gSelCount"></span>
-          <button class="btn sm danger" id="gDel" style="margin-inline-start:14px">🗑️ حذف المحدد</button>
         </div>
         <div class="ds-group">
-          <button class="btn sm" id="gUndo" disabled title="تراجع عن آخر تغيير في الجدول (Ctrl+Z)">↶ تراجع</button>
-          <button class="btn sm" id="gRedo" disabled title="إعادة">↷ إعادة</button>
           <button class="btn sm" id="gTrash" title="الندوات المحذوفة — تقدر ترجعها">🗑️ المحذوفات <span id="gTrashN" class="hint"></span></button>
         </div>
       </div>
@@ -234,7 +232,12 @@
         <button class="btn primary" id="gAdd" title="خانات فاضية لندوة جديدة، وتنضاف للجدول والبث تلقائياً">➕ ندوة جديدة</button>
         <button class="btn week-btn" id="btnWeek" title="ندوات الأسبوع (الأحد ← الخميس): تنزيل، واتساب، نسخ الصور للمدونة">📅 مشاركة صور الإعلانات لهذا الأسبوع</button>
         <button class="btn week-btn" id="btnReview" title="رسالة واتساب بندوات الأسبوع القادم للتدقيق — تنفتح جاهزة وأنت ترسلها">📋 إرسال الندوات الأسبوعية للتدقيق</button>
-        <button class="btn save-btn" id="btnSave" title="الحفظ تلقائي دايماً — هذا الزر للتأكيد ويرسل الحين">💾 حفظ</button>
+        <div class="bar-grp">   <!-- تراجع + حذف المحدد + حفظ: مجموعة وحدة ما تنقسم على سطرين -->
+          <button class="btn bar-undo" id="gUndo" disabled title="تراجع عن آخر تغيير في الجدول (Ctrl+Z)">↶ تراجع</button>
+          <button class="btn bar-undo bar-redo" id="gRedo" disabled title="إعادة (Ctrl+Y)" aria-label="إعادة">↷</button>
+          <button class="btn bar-del" id="gDel" disabled title="يحذف الأسطر اللي عليها صح — ترجع من «المحذوفات» أو «تراجع»">🗑️ حذف المحدد<span id="gDelN"></span></button>
+          <button class="btn save-btn" id="btnSave" title="الحفظ تلقائي دايماً — هذا الزر للتأكيد ويرسل الحين">💾 حفظ</button>
+        </div>
         <input type="search" id="search" name="sem-filter" autocomplete="off" readonly onfocus="this.removeAttribute('readonly')" class="ds-find" placeholder="🔎 ابحث بالعنوان أو اسم مشارك" aria-label="بحث">
         <button class="btn sm" id="gShowPastSem" hidden title="الندوات اللي مضى تاريخها مخفية عشان الجدول يكون أخف وأوضح"></button>
       </div>
@@ -350,14 +353,14 @@
 
   <script src="assets/js/auth.js?v=202611141201"></script>
   <script src="assets/js/cloud.js?v=202611160100"></script>
-  <script src="assets/js/nav.js?v=202611161600"></script>
+  <script src="assets/js/nav.js?v=202611161900"></script>
   <script src="assets/vendor/xlsx.full.min.js?v=202610170020"></script>
   <script src="assets/vendor/jszip.min.js?v=202610170020"></script>
   <script src="assets/vendor/html-to-image.js?v=202610170020"></script>
   <script src="assets/vendor/qrcode.js?v=202610170020"></script>
   <script src="assets/vendor/jspdf.umd.min.js?v=202610170020"></script>
-  <script src="assets/js/people.js?v=202611151600"></script>
+  <script src="assets/js/people.js?v=202611161800"></script>
   <script src="assets/js/week.js?v=202611160500"></script>
-  <script src="assets/js/seminars.js?v=202611160620"></script>
+  <script src="assets/js/seminars.js?v=202611161900"></script>
 </body>
 </html>

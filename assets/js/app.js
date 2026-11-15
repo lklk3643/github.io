@@ -731,6 +731,7 @@
     const total = grid.filter(r => !isEmptyRow(r)).length, sel = gridItems(true).length;
     $('#gridCount').textContent = `(${total} إعلان)`;
     $('#gSelCount').textContent = sel ? `محدد: ${sel}` : '';
+    const d = $('#gDel'); if (d) { d.disabled = !sel; const n = $('#gDelN'); if (n) n.textContent = sel ? ` (${sel})` : ''; }
   }
   // الاستيراد من ملف يضيف للجدول المشترك ولا يمسح شي (كان يستبدل الجدول كله عند الجميع بدون تأكيد)
   function setRows(list) {
@@ -1368,6 +1369,7 @@
     if (!from.length) return;
     const it = from.pop(); to.push({ g: JSON.stringify(grid), label: it.label });
     grid = JSON.parse(it.g); gridSel.clear(); activeRow = -1; renderGrid(); gridChanged(); updGridUndo();
+    { const have = new Set(grid.map(r => JSON.stringify(r))), t = readTrash(), k = t.filter(x => !have.has(JSON.stringify(x.r))); if (k.length !== t.length) writeTrash(k); }   // رجع للجدول = مو محذوف
     toast(`${verb}: ${it.label}`);
   }
   const gridUndo = () => gridRestore(gUndoS, gRedoS, '↶ تم التراجع'), gridRedo = () => gridRestore(gRedoS, gUndoS, '↷ تمت الإعادة');
@@ -1521,7 +1523,7 @@
 
   $('#gDel').onclick = () => {
     if (!gridSel.size) return toast('حدد الصفوف من المربعات بجانب الأرقام', true);
-    if (!confirm(`حذف ${QN.row(gridSel.size)}؟ (تقدر ترجعها من «المحذوفات» أو «تراجع»)`)) return;
+    if (!confirm(`تبي تحذف المحدد؟ (${QN.row(gridSel.size)}) — تقدر ترجعها من «المحذوفات» أو «تراجع»`)) return;
     gridSnap(`حذف ${QN.row(gridSel.size)}`);
     const n = toTrash(grid.filter((_, i) => gridSel.has(i)), 'حذف');
     grid = grid.filter((_, i) => !gridSel.has(i)); gridSel.clear(); activeRow = -1; renderGrid(); gridChanged();

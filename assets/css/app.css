@@ -347,7 +347,7 @@ html { scroll-padding-top: var(--sticky-h, 70px); }
   input, select, textarea { font-size: 16px !important; }
   .sheet input[type=text] { font-size: 15px !important; }
 }
-@media (max-width: 420px) {
+@media (max-width: 480px) {   /* كان 420: بين 421 و480 العنوان الطويل يدف الشريط برّا الشاشة (تمرير أفقي بآيفون Pro Max) */
   .topbar .brand-title { display: none; }
 }
 /* قوائم ذكية: بحث + إضافة جديد + إخفاء + تركيب */
@@ -564,3 +564,41 @@ body:has(.sugg:not([hidden])) .cloud-badge, body:has(.qp-list:not([hidden])) .cl
 /* أزرار البداية/النهاية فوق شارة «محفوظ في السحابة» (نفس الزاوية) بدل ما تتراكب عليها */
 @media (min-width: 981px) { .grid-jump { bottom: 64px; } }
 @media (pointer: coarse) { .cloud-badge { pointer-events: none; } }   /* باللمس ما تمسك الضغطات اللي تحتها */
+/* الجوال: رأس عمود «عرض / نسخ» لاصق مع باقي الرأس (ما يترك فجوة يبين منها المحتوى) */
+@media (max-width: 760px) { .sheet th.act { position: sticky; right: auto; top: 0; } }
+/* الجوال: زرّا الواتساب عليهما كلمة تفرق بينهم، وأزرار السطر بحجم يناسب اللمس */
+@media (max-width: 760px) {
+  .sheet td.act .wa-i[title*="الدعوة"]::after { content: " دعوة"; font-size: 11px; }
+  .sheet td.act .wa-i[title*="التسجيل"]::after { content: " تسجيل"; font-size: 11px; }
+}
+@media (pointer: coarse) { .sheet td.act button { min-width: 30px; min-height: 30px; } }
+/* رموز «ناقص/تعارض» في الشرح: كبسولة بسطر واحد مو دائرة */
+.ds-legend .chip { white-space: nowrap; flex-shrink: 0; height: auto; }
+/* صف «حفظ»: حذف المحدد (أحمر) والتراجع بنفس حجم أزرار الصف */
+.bar-del { background: #fff; border-color: #c0392b; color: #b3261e; font-weight: 700; }
+.bar-del:hover { background: #b3261e; border-color: #b3261e; color: #fff; }
+.bar-undo { font-weight: 700; }
+.bar-undo:disabled, .bar-del:disabled { opacity: 1; color: var(--muted); border-color: var(--line); background: transparent; cursor: default; }   /* معطّل واضح و«؟» تبان */
+[data-theme="dark"] .bar-del { background: transparent; color: #ff8a80; border-color: #ff8a80; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .bar-del { background: transparent; color: #ff8a80; border-color: #ff8a80; } }
+.bar-grp { display: inline-flex; gap: 8px; flex-wrap: nowrap; align-items: center; }
+/* المرور على الحذف بالداكن (كانت قاعدة الداكن تغطي عليه) */
+[data-theme="dark"] .bar-del:not(:disabled):hover { background: #b3261e; border-color: #b3261e; color: #fff; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .bar-del:not(:disabled):hover { background: #b3261e; border-color: #b3261e; color: #fff; } }
+.bar-grp .bar-del { margin-inline-end: 8px; }            /* مسافة أكبر بين الحذف والحفظ (ضغطة غلط أقل) */
+.bar-grp .bar-redo { min-width: 40px; padding-inline: 10px; }
+.bar-grp .bar-redo.has-help { padding-inline-start: 26px !important; }
+/* الجوال: مجموعة «↶ ↷ حذف حفظ» تملى عرض السطر بدون ما تطلع عن حافة الشاشة */
+@media (max-width: 480px) {
+  .bar-grp { display: flex; width: 100%; gap: 6px; }
+  .bar-grp .btn { flex: 1 1 auto; min-width: 0; padding-inline-end: 8px !important; padding-inline-start: 28px !important; white-space: nowrap; }
+  .bar-grp .bar-redo { flex: 0 0 auto; padding-inline: 10px !important; }
+  .bar-grp .bar-del { margin-inline-end: 6px; }
+}
+@media (max-width: 380px) {
+  .bar-grp { gap: 4px; }
+  .bar-grp .btn { font-size: 12.5px; padding-inline-start: 23px !important; padding-inline-end: 5px !important; }
+  .bar-grp .help-q { inset-inline-start: 4px; width: 15px; height: 15px; font-size: 10px; }
+  .bar-grp .bar-del { margin-inline-end: 4px; }
+}
+@media (pointer: coarse) { .bar-grp .help-q::after { inset: -3px; } }   /* أزرار الصف صغيرة: مساحة لمس «؟» ما تاكل الزر */

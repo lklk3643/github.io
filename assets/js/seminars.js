@@ -338,6 +338,7 @@
     if (!rowsView.length) { const tr = el('tr'); const td = el('td', null, q ? 'لا نتائج للبحث' : 'لا توجد ندوات بعد. اضغط «➕ ندوة».'); td.colSpan = GCOLS.length + 3; tr.appendChild(td); tb.appendChild(tr); }
     T.appendChild(tb);
     fitProg(); try { paintPresence(); } catch (e) { /* قبل التهيئة */ }
+    document.querySelectorAll('#sheet > tbody > tr > td > input[data-k="title"]').forEach(i => { i.title = i.value; });   // العنوان الطويل يبين كامل عند المرور
     { // عرض العمود على قد أطول نص (النوع والقسم والمكان ما تنقص)
       const first = T.querySelector('tbody input[type=text]');
       if (first) { const cs = getComputedStyle(first), ctx = (renderGrid.c = renderGrid.c || document.createElement('canvas').getContext('2d')); ctx.font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
@@ -706,6 +707,7 @@
   function updSel() {
     [...gridSel].forEach(id => { if (!merged().some(s => s.id === id)) gridSel.delete(id); });
     $('#gSelCount').textContent = gridSel.size ? `المحدد: ${gridSel.size}` : '';
+    const d = $('#gDel'); if (d) { d.disabled = !gridSel.size; const n = $('#gDelN'); if (n) n.textContent = gridSel.size ? ` (${gridSel.size})` : ''; }
   }
   function duplicate(s) {
     semSnap('تكرار ندوة');
@@ -819,7 +821,7 @@
   }
   function delSelected() {
     if (!gridSel.size) return toast('حدد الأسطر أولاً من مربعات الجدول', true);
-    if (!confirm(`حذف ${QN.sem(gridSel.size)}؟ تنحذف من عند الجميع ومن البث (وتقدر ترجعها من «🗑️ المحذوفات» أو «↶ تراجع»).`)) return;
+    if (!confirm(`تبي تحذف المحدد؟ (${QN.sem(gridSel.size)}) — تنحذف من عند الجميع ومن البث (وتقدر ترجعها من «🗑️ المحذوفات» أو «↶ تراجع»).`)) return;
     semSnap('حذف ' + QN.sem(gridSel.size));
     gridSel.forEach(id => { delete local.items[id]; if (published.seminars.some(x => x.id === id) && !local.deleted.includes(id)) local.deleted.push(id); });
     if (current && gridSel.has(current.id)) current = blank();
@@ -1464,7 +1466,8 @@
       } catch (er) { copied = false; }
     }
     const url = `https://web.whatsapp.com/send?text=${encodeURIComponent(text)}`;
-    if (w) w.location.href = url; else location.href = url;
+    if (w) w.location.href = url;
+    else { toast('المتصفح منع فتح نافذة واتساب — اسمح بالنوافذ المنبثقة لهذا الموقع، أو انسخ الرسالة من «📋 نسخ»', true); return; }   // ما ننقل الصفحة كلها برّا الموقع
     toast(copied ? '✓ الصورة منسوخة — اختر المحادثة والصقها (Ctrl+V) ثم أرسل' : 'افتح المحادثة وأرفق الصورة من «تحميل الصورة»', !copied);
   };
   $('#sendCopy').onclick = async () => { if (await copyText($('#sendText').value)) toast('✓ تم نسخ الرسالة'); };

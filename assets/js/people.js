@@ -117,7 +117,11 @@
     e.preventDefault(); e.stopImmediatePropagation();
   }, true);
   box.addEventListener('mousedown', e => { const o = e.target.closest('.qp-it'); if (!o) return; e.preventDefault(); choose(+o.dataset.i); });
-  document.addEventListener('focusout', e => { if (e.target === cur) setTimeout(hide, 120); });
+  // صفحة الندوات تعيد رسم البرنامج وأنت تكتب (الخانة تُستبدل بنسخة جديدة فيها نفس الكلام): القائمة تنتقل معها بدل ما تتسكر
+  document.addEventListener('focusout', e => { if (e.target !== cur) return; const was = cur;
+    setTimeout(() => { if (cur !== was || box.hidden) return; const a = document.activeElement;
+      if (a && a !== was && a instanceof HTMLInputElement && resolver && resolver(a) && a.value === was.value) { cur = a; place(); return; }
+      hide(); }, 120); });
   // لمسة برّا الخانة والقائمة تسكّرها (الآيباد ما يشيل التركيز من الخانة إذا لمست مكان فاضي)
   document.addEventListener('pointerdown', e => { if (!box.hidden && e.target !== cur && !box.contains(e.target)) hide(); }, true);
   window.addEventListener('resize', () => { if (!box.hidden) place(); });
