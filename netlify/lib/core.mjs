@@ -463,7 +463,7 @@ export async function handle(req, store) {
   await cleanupOnce(store, origin);
   await removeTrialsOnce(store);   // 2026-11-15: المستخدم أكد إن المشاركة اشتغلت — تنحذف التجارب (مرة وحدة، مع نسخة في trash/)
   await addTrials2Once(store);
-  // await removeTrials2Once(store);   // يُفعَّل لما يقول المستخدم «احذفها»
+  await removeTrials2Once(store);   // 2026-11-15: المستخدم قال «احذف البيانات التجريبية» — مرة وحدة، مع نسخة في trash/
 
   // --- عام: ملفات OBS
   if (method === 'GET' && path === 'feed/defenses.json') return json(await feedDefenses(store, origin), 200, PUBLIC);
