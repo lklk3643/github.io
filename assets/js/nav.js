@@ -103,3 +103,10 @@
   setInterval(check, 120000);
   setInterval(() => { if (fresh && Date.now() - lastTouch > 60000) tryReload(); }, 15000);
 })();
+
+// «⚙️ أدوات متقدمة» مطوية دايماً عند فتح الصفحة (المناقشات والندوات) — الواجهة أبسط، واللي يحتاجها يفتحها
+(function () {
+  const fold = () => document.querySelectorAll('details.ds-adv').forEach(d => { d.open = false; });
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', fold); else fold();
+  addEventListener('pageshow', fold);
+})();

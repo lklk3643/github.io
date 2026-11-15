@@ -10,8 +10,8 @@
     if (!(sessionStorage.getItem('qu_session') || localStorage.getItem('qu_session'))) location.replace('index.html');
   </script>
   <link rel="stylesheet" href="assets/fonts/fonts.css?v=202610170020">
-  <link rel="stylesheet" href="assets/css/app.css?v=202611152200">
-  <link rel="stylesheet" href="assets/css/poster.css?v=202611151900">
+  <link rel="stylesheet" href="assets/css/app.css?v=202611160300">
+  <link rel="stylesheet" href="assets/css/poster.css?v=202611160300">
 </head>
 <body>
   <div class="topbar">
@@ -62,6 +62,8 @@
           </div>
           <div class="field"><label>عنوان الرسالة (اضغط Enter لسطر جديد)</label><textarea data-k="title"></textarea></div>
           <div class="field"><label>اسم الطالب / الطالبة</label><input type="text" data-k="student"></div>
+          <div class="field"><label>الدولة (اختياري — تظهر بجنب الاسم: «من دولة …»)</label><input type="text" data-k="country" list="qCountries" placeholder="مثال: السودان"></div>
+          <datalist id="qCountries"><option value="السعودية"><option value="السودان"><option value="مصر"><option value="اليمن"><option value="الأردن"><option value="سوريا"><option value="العراق"><option value="فلسطين"><option value="لبنان"><option value="الكويت"><option value="الإمارات"><option value="قطر"><option value="البحرين"><option value="عُمان"><option value="ليبيا"><option value="تونس"><option value="الجزائر"><option value="المغرب"><option value="موريتانيا"><option value="الصومال"><option value="جيبوتي"><option value="جزر القمر"><option value="تركيا"><option value="إيران"><option value="أفغانستان"><option value="باكستان"><option value="الهند"><option value="بنغلاديش"><option value="سريلانكا"><option value="المالديف"><option value="نيبال"><option value="إندونيسيا"><option value="ماليزيا"><option value="بروناي"><option value="سنغافورة"><option value="الفلبين"><option value="تايلاند"><option value="ميانمار"><option value="كمبوديا"><option value="لاوس"><option value="فيتنام"><option value="الصين"><option value="اليابان"><option value="كوريا الجنوبية"><option value="كوريا الشمالية"><option value="منغوليا"><option value="كازاخستان"><option value="أوزبكستان"><option value="تركمانستان"><option value="قيرغيزستان"><option value="طاجيكستان"><option value="أذربيجان"><option value="جورجيا"><option value="أرمينيا"><option value="روسيا"><option value="أوكرانيا"><option value="بيلاروسيا"><option value="مولدوفا"><option value="البوسنة والهرسك"><option value="ألبانيا"><option value="كوسوفو"><option value="مقدونيا الشمالية"><option value="الجبل الأسود"><option value="صربيا"><option value="كرواتيا"><option value="سلوفينيا"><option value="بلغاريا"><option value="رومانيا"><option value="المجر"><option value="سلوفاكيا"><option value="التشيك"><option value="بولندا"><option value="ليتوانيا"><option value="لاتفيا"><option value="إستونيا"><option value="فنلندا"><option value="السويد"><option value="النرويج"><option value="الدنمارك"><option value="آيسلندا"><option value="ألمانيا"><option value="النمسا"><option value="سويسرا"><option value="فرنسا"><option value="بلجيكا"><option value="هولندا"><option value="لوكسمبورغ"><option value="المملكة المتحدة"><option value="أيرلندا"><option value="إسبانيا"><option value="البرتغال"><option value="إيطاليا"><option value="مالطا"><option value="اليونان"><option value="قبرص"><option value="نيجيريا"><option value="النيجر"><option value="تشاد"><option value="مالي"><option value="السنغال"><option value="غامبيا"><option value="غينيا"><option value="غينيا بيساو"><option value="سيراليون"><option value="ليبيريا"><option value="ساحل العاج"><option value="غانا"><option value="توغو"><option value="بنين"><option value="بوركينا فاسو"><option value="الكاميرون"><option value="الغابون"><option value="الكونغو"><option value="الكونغو الديمقراطية"><option value="جمهورية أفريقيا الوسطى"><option value="إثيوبيا"><option value="إريتريا"><option value="كينيا"><option value="أوغندا"><option value="تنزانيا"><option value="رواندا"><option value="بوروندي"><option value="جنوب السودان"><option value="موزمبيق"><option value="مالاوي"><option value="زامبيا"><option value="زيمبابوي"><option value="بوتسوانا"><option value="ناميبيا"><option value="جنوب أفريقيا"><option value="مدغشقر"><option value="موريشيوس"><option value="أنغولا"><option value="ليسوتو"><option value="إسواتيني"><option value="الرأس الأخضر"><option value="غينيا الاستوائية"><option value="ساو تومي وبرينسيب"><option value="سيشل"><option value="الولايات المتحدة"><option value="كندا"><option value="المكسيك"><option value="البرازيل"><option value="الأرجنتين"><option value="تشيلي"><option value="كولومبيا"><option value="بيرو"><option value="فنزويلا"><option value="الإكوادور"><option value="بوليفيا"><option value="باراغواي"><option value="الأوروغواي"><option value="غيانا"><option value="سورينام"><option value="كوبا"><option value="ترينيداد وتوباغو"><option value="أستراليا"><option value="نيوزيلندا"><option value="فيجي"><option value="بابوا غينيا الجديدة"></datalist>
 
           <div class="group-title">الموعد والمكان</div>
           <div class="field"><label>اختر التاريخ الميلادي لتعبئة اليوم والتاريخ الهجري تلقائياً</label><input type="date" id="gDate"></div>
@@ -523,11 +525,11 @@
   <script src="assets/vendor/html-to-image.js?v=202610170020"></script>
   <script src="assets/js/auth.js?v=202611141201"></script>
   <script src="assets/js/cloud.js?v=202611151900"></script>
-  <script src="assets/js/nav.js?v=202611152210"></script>
-  <script src="assets/js/poster.js?v=202611151900"></script>
+  <script src="assets/js/nav.js?v=202611160300"></script>
+  <script src="assets/js/poster.js?v=202611160300"></script>
   <script src="assets/js/details.js?v=202611130010"></script>
   <script src="assets/js/people.js?v=202611141201"></script>
-  <script src="assets/js/week.js?v=202611152130"></script>
-  <script src="assets/js/app.js?v=202611160010"></script>
+  <script src="assets/js/week.js?v=202611160300"></script>
+  <script src="assets/js/app.js?v=202611160300"></script>
 </body>
 </html>

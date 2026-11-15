@@ -70,10 +70,14 @@
         <button class="week-act" data-wkact="copy"><b>📋 نسخ الصور</b><small>كلها مرة وحدة — الصقها في المدونة</small></button>
       </div>
       <p class="hint wk-blog-tip" style="margin:6px 0 0">📌 المدونة: الصق في العرض العادي «عرض الإنشاء» (Compose)، مو «عرض HTML» — إذا كنت في HTML غيّرها من زر القلم ✏️ في شريط الأدوات.</p>
+      <label class="wk-attach"><input type="checkbox" data-wkattach checked> <b>إرفاق رسالة مع الصور في واتساب</b>
+        <small class="hint wk-attach-text"></small></label>
       <div class="hbar"><button class="btn sm" data-wkall>☑️ تحديد / إلغاء الكل</button><span class="hint">${esc(cfg.heading || '')}</span></div>
       <div class="trash-list wk-list"></div></div>`;
     document.body.appendChild(m);
     const $ = s => m.querySelector(s);
+    const WA_MSG = cfg.waText || 'https://sites.google.com/view/qu-csi/2/3_2\nصفحة إعلانات المناقشات\nوروابط البث';
+    $('.wk-attach-text').textContent = '«' + WA_MSG.replace(/\n/g, ' · ') + '»';
     let start = null, items = [];
     const end = () => { const e = new Date(start); e.setUTCDate(e.getUTCDate() + 4); return e; };
     const text = () => `${cfg.noun === 'ندوة' ? 'ندوات' : 'إعلانات مناقشات الرسائل العلمية'} — كلية الشريعة\nمن الأحد ${hfmt(start)} إلى الخميس ${hfmt(end())}`;
@@ -135,12 +139,14 @@
           toast(`⬇️ نزلت ${fs.length} صورة`);
         } else if (act.dataset.wkact === 'wa') {
           const fs = (await blobs(list)).map(f => new File([f.blob], cfg.name(f.x), { type: 'image/png' })); hide();
+          const withMsg = $('[data-wkattach]').checked;     // «إرفاق رسالة»: الرابط مع الصور، وبدونها صور بس
+          if (withMsg) { try { navigator.clipboard.writeText(WA_MSG); } catch (e) { /* اختياري */ } }
           if (matchMedia('(pointer: coarse)').matches && navigator.canShare && navigator.canShare({ files: fs })) {
-            try { await navigator.share({ files: fs }); }   // صور بس، بدون نص
+            try { await navigator.share(withMsg ? { files: fs, text: WA_MSG } : { files: fs }); }
             catch (err) { if (err.name === 'NotAllowedError') toast('الصور جاهزة ✓ — اضغط «💬 واتساب» مرة ثانية'); else if (err.name !== 'AbortError') toast('تعذّر فتح المشاركة', true); }
           } else {
             for (const f of fs) { saveBlob(f, f.name); await sleep(450); }
-            toast('في الكمبيوتر: نزلت الصور — اسحبها لمحادثة الجروب في واتساب ويب');
+            toast(withMsg ? 'في الكمبيوتر: نزلت الصور ونسخت الرسالة — اسحب الصور لمحادثة الجروب في واتساب ويب والصق الرسالة (Ctrl+V)' : 'في الكمبيوتر: نزلت الصور — اسحبها لمحادثة الجروب في واتساب ويب');
           }
         }
       } catch (err) { toast('تعذّر التجهيز: ' + (err.message || ''), true); } finally { hide(); }

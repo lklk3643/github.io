@@ -174,3 +174,5 @@
 .qr-logo { position: absolute; left: 50%; top: 50%; width: 21%; height: 21%; transform: translate(-50%, -50%);
   background: #fff; border-radius: 22%; padding: 3%; box-sizing: content-box; display: grid; place-items: center; }
 .qr-logo svg { width: 100%; height: 100%; display: block; }
+
+.qp-country { font-size: .72em; font-weight: 500; opacity: .9; margin-inline-start: .45em; white-space: nowrap; }

@@ -97,7 +97,7 @@ const ascii = (s) => String(s || '').replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧�
 const normDate = (s) => { const m = ascii(s).match(/(\d{4})\s*[\/\-.]\s*(\d{1,2})\s*[\/\-.]\s*(\d{1,2})/); return m ? `${+m[1]}/${+m[2]}/${+m[3]}` : ''; };   // يقبل 1448/6/5 و 1448-6-5 و 1448.6.5
 const keyOf = (st, d) => String(st || '').trim().replace(/\s+/g, ' ') + '|' + normDate(d);
 const ROW_FIELDS = ['الدرجة', 'الجنس', 'الطالب', 'العنوان', 'اليوم', 'التاريخ', 'الوقت', 'المكان', 'ملاحظة المكان', 'رابط البث',
-  'رابط اللجنة', 'رابط التسجيل', 'الملاحظات', 'منسق الحجز', 'الكاتب'];
+  'رابط اللجنة', 'رابط التسجيل', 'الملاحظات', 'منسق الحجز', 'الكاتب', 'الدولة'];
 
 async function allRows(store) {
   const out = [];
@@ -127,7 +127,8 @@ function detailsFromRow(r) {
   }
   const title = String(r['العنوان'] || '').replace(/\s*\|\s*/g, ' ').trim();
   if (!r['الطالب'] || !normDate(r['التاريخ']) || (!title && !committee.length)) return null;
-  return { key: keyOf(r['الطالب'], r['التاريخ']), student: String(r['الطالب']).trim(), date: normDate(r['التاريخ']), title, committee };
+  const country = String(r['الدولة'] || '').trim();   // دولة الطالب (اختياري) — لشاشة القاعة
+  return { key: keyOf(r['الطالب'], r['التاريخ']), student: String(r['الطالب']).trim(), date: normDate(r['التاريخ']), title, committee, ...(country ? { country } : {}) };
 }
 
 async function feedDetails(store, origin) {

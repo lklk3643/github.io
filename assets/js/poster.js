@@ -196,6 +196,9 @@
     } catch (e) { return ''; }
   }
 
+  // «السودان» ← «من دولة السودان» (ولو كتبها الموظف كاملة ما تتكرر)
+  const countryLabel = c => { c = String(c || '').trim().replace(/^\(|\)$/g, '').replace(/^(من\s+)?(دولة\s+)?/, '').trim(); return c ? 'من دولة ' + c : ''; };
+
   function renderExact(el, state) {
     const E = EXACT;
     el.className = 'qp qp-exact';
@@ -207,7 +210,7 @@
     ['college', 'intro', 'degree', 'by'].forEach(k => { html += exItem(E[k], state[k], k); });
     html += `<div class="ex ex-title" data-ex="title" style="left:${t.cx - t.w / 2}px;width:${t.w}px;top:${t.top + t.dy}px;height:${t.h}px;font-size:${t.s}px;font-weight:${t.wt};color:${t.c};line-height:${t.lh}px">${lines(state.title)}</div>`;
     html += exItem(E.label, state.presenterLabel, 'label');
-    html += exItem(E.student, state.student, 'student');
+    html += exItem(E.student, state.student ? state.student + (countryLabel(state.country) ? '  (' + countryLabel(state.country) + ')' : '') : '', 'student');
     // جدول اللجنة: 3 صفوف بنفس مقاسات الأصل، ويُضغط تلقائياً عند إضافة أعضاء
     const R = EXACT_ROWS;
     const members = (state.committee || []).filter(m => m && (m.name || m.title || m.role));
@@ -303,7 +306,7 @@
           </section>
           <section class="qp-presenter">
             <div class="qp-presenter-label">${ICON.user}<span>${esc(state.presenterLabel)}</span></div>
-            <div class="qp-presenter-name">${esc(state.student)}</div>
+            <div class="qp-presenter-name">${esc(state.student)}${countryLabel(state.country) ? ` <span class="qp-country">(${esc(countryLabel(state.country))})</span>` : ''}</div>
           </section>
           ${hideCommittee || !rows ? '' : `<section class="qp-card qp-committee">
             <div class="qp-tab qp-tab-center">${ICON.users}<span>${esc(state.committeeLabel)}</span></div>

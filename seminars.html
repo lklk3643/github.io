@@ -10,8 +10,8 @@
     if (!(sessionStorage.getItem('qu_session') || localStorage.getItem('qu_session'))) location.replace('index.html');
   </script>
   <link rel="stylesheet" href="assets/fonts/fonts.css?v=202611130001">
-  <link rel="stylesheet" href="assets/css/app.css?v=202611152200">
-  <link rel="stylesheet" href="assets/css/seminars.css?v=202611160210">
+  <link rel="stylesheet" href="assets/css/app.css?v=202611160300">
+  <link rel="stylesheet" href="assets/css/seminars.css?v=202611160300">
 </head>
 <body class="sem-page">
   <div class="topbar">
@@ -188,10 +188,11 @@
         <button class="btn sm conf-btn" id="gConflicts" hidden></button>
         <span class="hint">كل سطر = ندوة. اكتب مباشرة في الخانات وتنحفظ تلقائياً. 👁 يعرض السطر في التصميم، والبرنامج يُعبّأ من تبويب «البرنامج».</span>
       </div>
+      <details class="ds-adv">
+      <summary>⚙️ أدوات متقدمة (ترتيب، حذف، تصدير Excel، تحميل المحدد)</summary>
       <div class="ds-tools">
         <div class="ds-group"><span class="ds-label">الصفوف</span>
           <button class="btn sm" id="gSort" title="ترتيب حسب التاريخ ثم الوقت">↕️ ترتيب بالتاريخ</button>
-          <input type="search" id="search" name="sem-filter" autocomplete="off" readonly onfocus="this.removeAttribute('readonly')" class="ds-url" placeholder="بحث بالعنوان أو اسم مشارك" aria-label="بحث">
           <button class="btn sm danger" id="gDel">🗑️ حذف المحدد</button>
         </div>
         <div class="ds-group"><span class="ds-label">تصدير</span>
@@ -205,6 +206,7 @@
           <span class="hint" id="gSelCount"></span>
         </div>
       </div>
+      </details>
       <div class="ds-legend">
         <span><b class="chip warn">ناقص</b> ندوة ينقصها شي للإعلان (مثل العنوان أو الموعد أو المتحدثين) — تنبيه فقط، مو إجباري</span>
         <span><b class="chip conf">تعارض</b> ندوة بنفس اليوم والوقت والقاعة مع سطر ثاني</span>
@@ -214,6 +216,7 @@
         <button class="btn week-btn" id="btnWeek" title="ندوات الأسبوع (الأحد ← الخميس): تنزيل، واتساب، نسخ الصور للمدونة">📅 مشاركة صور الإعلانات لهذا الأسبوع</button>
         <button class="btn week-btn" id="btnReview" title="رسالة واتساب بندوات الأسبوع القادم للتدقيق — تنفتح جاهزة وأنت ترسلها">📋 إرسال الندوات الأسبوعية للتدقيق</button>
         <button class="btn save-btn" id="btnSave" title="الحفظ تلقائي دايماً — هذا الزر للتأكيد ويرسل الحين">💾 حفظ</button>
+        <input type="search" id="search" name="sem-filter" autocomplete="off" readonly onfocus="this.removeAttribute('readonly')" class="ds-find" placeholder="🔎 ابحث بالعنوان أو اسم مشارك" aria-label="بحث">
       </div>
       <div class="gridbox">
         <div class="gridwrap"><table class="sheet" id="sheet"></table></div>
@@ -310,14 +313,14 @@
 
   <script src="assets/js/auth.js?v=202611141201"></script>
   <script src="assets/js/cloud.js?v=202611160100"></script>
-  <script src="assets/js/nav.js?v=202611152210"></script>
+  <script src="assets/js/nav.js?v=202611160300"></script>
   <script src="assets/vendor/xlsx.full.min.js?v=202610170020"></script>
   <script src="assets/vendor/jszip.min.js?v=202610170020"></script>
   <script src="assets/vendor/html-to-image.js?v=202610170020"></script>
   <script src="assets/vendor/qrcode.js?v=202610170020"></script>
   <script src="assets/vendor/jspdf.umd.min.js?v=202610170020"></script>
   <script src="assets/js/people.js?v=202611141201"></script>
-  <script src="assets/js/week.js?v=202611152130"></script>
-  <script src="assets/js/seminars.js?v=202611160200"></script>
+  <script src="assets/js/week.js?v=202611160300"></script>
+  <script src="assets/js/seminars.js?v=202611160300"></script>
 </body>
 </html>

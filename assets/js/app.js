@@ -622,6 +622,7 @@
     'من قبل': 'by', 'by': 'by',
     'العنوان': 'title', 'عنوان الرسالة': 'title', 'title': 'title',
     'الطالب': 'student', 'اسم الطالب': 'student', 'الطالبة': 'student', 'المقدم': 'student', 'student': 'student', 'name': 'student',
+    'الدولة': 'country', 'الجنسية': 'country', 'دولة الطالب': 'country', 'country': 'country',
     'الجنس': 'gender', 'gender': 'gender',
     'اليوم': 'day', 'day': 'day', 'التاريخ': 'date', 'date': 'date', 'الوقت': 'time', 'time': 'time',
     'المكان': 'place', 'القاعة': 'place', 'place': 'place', 'ملاحظة المكان': 'placeNote', 'ملاحظة': 'placeNote', 'note': 'placeNote',
@@ -672,12 +673,14 @@
   const GCOLS = ['الدرجة', 'الجنس', 'الطالب', 'العنوان', 'اليوم', 'التاريخ', 'الوقت', 'المكان', 'ملاحظة المكان', 'رابط البث', 'رابط اللجنة', 'رابط التسجيل', 'الملاحظات', 'منسق الحجز', 'الكاتب'];
   const GFIELD = { 'الدرجة': 'degree', 'الجنس': 'gender', 'الطالب': 'student', 'العنوان': 'title',
     'اليوم': 'day', 'التاريخ': 'date', 'الوقت': 'time', 'المكان': 'place', 'ملاحظة المكان': 'placeNote', 'رابط البث': 'link',
-    'رابط اللجنة': 'committeeLink', 'رابط التسجيل': 'recordingLink', 'الملاحظات': 'notes', 'منسق الحجز': 'coordinator', 'الكاتب': 'writer' };
+    'رابط اللجنة': 'committeeLink', 'رابط التسجيل': 'recordingLink', 'الملاحظات': 'notes', 'منسق الحجز': 'coordinator', 'الكاتب': 'writer', 'الدولة': 'country' };
   const GMEM = 5;
   const PICK_COL = { 'اليوم': 'day', 'التاريخ': 'date', 'الوقت': 'time', 'الجنس': 'list:gender', 'الدرجة': 'list:degree',
     'المكان': 'list:place', 'ملاحظة المكان': 'list:placeNote', 'الملاحظات': 'list:notes', 'منسق الحجز': 'list:coord' };
   const pickOf = c => PICK_COL[c] || (/الصفة$/.test(c) ? 'list:mTitle' : /الدور$/.test(c) ? 'list:mRole' : '');
   for (let i = 1; i <= GMEM; i++) GCOLS.push(`عضو${i} الاسم`, `عضو${i} الصفة`, `عضو${i} الدور`);
+  GCOLS.push('الدولة');   // دولة الطالب (اختياري): مخزّنة آخر عمود، وتنعرض في الجدول بعد «الطالب» مباشرة
+  const DORD = (() => { const o = GCOLS.map((_, j) => j).filter(j => GCOLS[j] !== 'الدولة'); o.splice(o.indexOf(GCOLS.indexOf('الطالب')) + 1, 0, GCOLS.indexOf('الدولة')); return o; })();
   const emptyRow = () => GCOLS.map(() => '');
   let grid = [];
   try { grid = JSON.parse(localStorage.getItem(userKey('grid'))) || []; } catch (e) { grid = []; }
@@ -832,9 +835,9 @@
     ensureBlankTop(); planRows();
     computeConflicts();
     const cls = c => /العنوان/.test(c) ? 'w-title' : /رابط/.test(c) ? 'w-link' : c === 'الكاتب' ? 'w-sm w-auto' : /الجنس|اليوم|الوقت|الدور/.test(c) ? 'w-sm' : '';
-    $('#sheet').innerHTML = `<thead><tr><th class="n">#</th><th class="act">عرض / نسخ</th>${GCOLS.map(c => `<th class="${/^عضو/.test(c) ? 'mem' : ''}">${c}</th>`).join('')}</tr></thead>
+    $('#sheet').innerHTML = `<thead><tr><th class="n">#</th><th class="act">عرض / نسخ</th>${DORD.map(j => GCOLS[j]).map(c => `<th class="${/^عضو/.test(c) ? 'mem' : ''}">${c}</th>`).join('')}</tr></thead>
       <tbody>${grid.map((r, i) => hideRow(r, i) ? '' : `${(b => b ? `<tr class="wk-sep"><td colspan="${GCOLS.length + 2}"><span>🌙 إجازة أسبوعية</span> الجمعة ${b.fri} · السبت ${b.sat}${b.gap ? ` <small>(بعدها ${b.gap === 1 ? 'أسبوع' : QN.week(b.gap)} بدون مناقشات)</small>` : ''}</td></tr>` : '')(weekBreak(i))}<tr data-r="${i}" class="${gridSel.has(i) ? 'sel' : ''} ${i === activeRow ? 'active' : ''} ${missingOf(r).length ? 'incomplete' : ''} ${isPast(r) ? 'past' : ''} ${conflicts.has(i) ? 'conflict' : ''}"><td class="n"><label><input type="checkbox" data-gsel ${gridSel.has(i) ? 'checked' : ''}>${i + 1}</label>${warnHtml(r)}${conflictHtml(i)}</td><td class="act"><button data-view title="عرض في التصميم">👁</button><button data-dl title="تحميل صورة الإعلان (بالمقاس المحدد في «التحميل»)">⬇️</button><button data-dup title="تكرار السطر (نفس اللجنة لطالب آخر)">⧉</button><button data-log title="سجل التعديلات: مين أضافها ومين عدّلها ومتى">🕘</button><button data-msg="invite" class="msg-b" title="نسخ رسالة الدعوة">دعوة</button><button data-wa="invite" class="wa-i" title="إرسال الدعوة بالواتساب">💬</button><button data-msg="record" class="msg-b ${r[GCOLS.indexOf('رابط التسجيل')] ? 'has' : ''}" title="نسخ رسالة التسجيل">تسجيل</button><button data-wa="record" class="wa-i" title="إرسال التسجيل بالواتساب">💬</button></td>${
-        GCOLS.map((c, j) => `<td><input type="text" class="${cls(c)}" data-c="${j}" value="${esc(r[j] || '')}"${pickOf(c) ? ` inputmode="none" data-pick="${pickOf(c)}"` : ''}${c === 'الكاتب' ? ' readonly tabindex="-1" title="يتعبّى تلقائياً باسم المستخدم اللي كتب السطر أو عدّله آخر مرة"' : ''}${c === 'رابط البث' ? ' dir="ltr" placeholder="يوتيوب (افتراضي)"' : c === 'رابط اللجنة' ? ' dir="ltr" placeholder="زوم (اختياري)"' : c === 'رابط التسجيل' ? ' dir="ltr" placeholder="بعد المناقشة"' : ''}></td>`).join('')}</tr>`).join('')}</tbody>`;
+        DORD.map(j => [GCOLS[j], j]).map(([c, j]) => `<td><input type="text" class="${cls(c)}" data-c="${j}" value="${esc(r[j] || '')}"${pickOf(c) ? ` inputmode="none" data-pick="${pickOf(c)}"` : ''}${c === 'الدولة' ? ' list="qCountries" placeholder="الدولة (اختياري)"' : ''}${c === 'الكاتب' ? ' readonly tabindex="-1" title="يتعبّى تلقائياً باسم المستخدم اللي كتب السطر أو عدّله آخر مرة"' : ''}${c === 'رابط البث' ? ' dir="ltr" placeholder="يوتيوب (افتراضي)"' : c === 'رابط اللجنة' ? ' dir="ltr" placeholder="زوم (اختياري)"' : c === 'رابط التسجيل' ? ' dir="ltr" placeholder="بعد المناقشة"' : ''}></td>`).join('')}</tr>`).join('')}</tbody>`;
     updateGridInfo(); pastBtn(); try { if (presence.length) paintPresence(); } catch (e) { /* قبل التهيئة */ }
     // الجوال: أول ما ينفتح الجدول يتحرك أفقياً لين تبان خانة «الطالب» في سطر الإضافة (بدل ما تكون برّا الشاشة)
     if (!renderGrid._sx && matchMedia('(max-width: 760px)').matches) {
@@ -844,7 +847,7 @@
         w.scrollLeft += (b.left + b.width / 2) - (a.left + a.width / 2); }; setTimeout(go, 300); }
     }
     { const nr = $('#sheet tr[data-r="0"]'), si = nr && nr.querySelector(`input[data-c="${GCOLS.indexOf('الطالب')}"]`);
-      if (nr && isEmptyRow(grid[0])) { nr.classList.add('newrow'); if (si) si.placeholder = '✏️ مناقشة جديدة: اكتب اسم الطالب هنا'; } }
+      if (nr && isEmptyRow(grid[0])) { nr.classList.add('newrow'); if (si) { si.placeholder = '✏️ اكتب هنا للمناقشة الجديدة'; si.title = 'اكتب اسم الطالب هنا لإضافة مناقشة جديدة'; } } }
     const b = $('#gConflicts'); if (b) { b.hidden = !conflicts.size; b.textContent = `🔴 ${QN.row(conflicts.size)} ${conflicts.size === 1 ? 'فيه' : 'فيها'} تعارض`; }
     formConflictCheck();
   }
@@ -1040,7 +1043,7 @@
     // عرض سطر = تصميم مستقل مرتبط بالسطر: نفك الارتباط بنسخة السجل اللي كانت مفتوحة حتى ما ينكتب السطر الجديد فوقها
     if (editingId && histAutoT) { clearTimeout(histAutoT); saveToHistory({ quiet: true }); }   // تعديل لسا ما انحفظ في التصميم المفتوح: نحفظه قبل نفك الارتباط
     clearTimeout(histAutoT); setEditing(null);
-    const clean0 = { ...state, degree: '', title: '', student: '', day: '', date: '', time: '', place: DEFAULTS.place, placeNote: DEFAULTS.placeNote, link: DEFAULTS.link,
+    const clean0 = { ...state, country: '', degree: '', title: '', student: '', day: '', date: '', time: '', place: DEFAULTS.place, placeNote: DEFAULTS.placeNote, link: DEFAULTS.link,
       committeeLink: '', recordingLink: '', notes: '', committee: [] };
     state = applyRow(clean0, data); activeRow = r;
     $('#editingLabel').textContent = `يعرض سطر الجدول: ${data.student || 'السطر ' + (r + 1)}`;
@@ -2290,7 +2293,7 @@
     blob: async x => { const cv = await capture(rowMsgState(x.i), getFormat('exact'), 2); return new Promise(r => cv.toBlob(r, 'image/png')); },
     name: x => `${safeName(x.title || 'اعلان')}.png`,
   });
-  const rowMsgState = r => applyRow({ ...state, degree: '', student: '', title: '', day: '', date: '', time: '', place: DEFAULTS.place, placeNote: DEFAULTS.placeNote,
+  const rowMsgState = r => applyRow({ ...state, country: '', degree: '', student: '', title: '', day: '', date: '', time: '', place: DEFAULTS.place, placeNote: DEFAULTS.placeNote,
     link: DEFAULTS.link, committee: [], committeeLink: '', recordingLink: '' }, parseRow(gridToObj(grid[r])));
   // ---------- «📋 إرسال المناقشات الأسبوعية للتدقيق» (assets/js/week.js) ----------
   // «ماجستير - قرآن / سلمان التويجري - الاحد / 6/5 س 9:30 ص حضوري» من بيانات الجدول نفسها
