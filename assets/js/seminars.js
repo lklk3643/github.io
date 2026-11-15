@@ -296,9 +296,9 @@
       ab('⧉', 'تكرار السطر لندوة مشابهة', () => duplicate(s));
       ab('🕘', 'سجل التعديلات: مين أضافها ومين عدّلها ومتى', () => openRowLog(s));
       // رسائل السطر: بيانات السطر نفسه (مثل جدول المناقشات): دعوة 💬 تسجيل 💬
-      ab('دعوة', 'نسخ رسالة الدعوة', () => copyMsg('invite', s), 'msg-b');
+      ab('دعوة', 'نسخ رسالة الدعوة (الإرسال من 💬 اللي جنبه)', () => copyMsg('invite', s), 'msg-b');
       ab('💬', 'إرسال الدعوة بالواتساب', () => sendDirect(s, 'invite'), 'wa-i');
-      ab('تسجيل', 'نسخ رسالة التسجيل', () => copyMsg('record', s), 'msg-b' + (hasRec(s) ? ' has' : ''));
+      ab('تسجيل', 'نسخ رسالة التسجيل (الإرسال من 💬 اللي جنبه)', () => copyMsg('record', s), 'msg-b' + (hasRec(s) ? ' has' : ''));
       ab('💬', 'إرسال التسجيل بالواتساب', async () => { await saveRecordImage(s); sendDirect(s, 'record'); }, 'wa-i');
       tr.appendChild(act);
       GCOLS.forEach(([k, , type, cls]) => {
@@ -353,7 +353,8 @@
   }
 
   // البرنامج بعرض الجزء الظاهر من الجدول (الجدول الكبير يتمرر أفقياً، والبرنامج يبقى كامل قدامك)
-  function fitProg() { const w = $('.gridwrap'); if (w) $('#sheet').style.setProperty('--progw', Math.max(300, w.clientWidth - 28) + 'px'); }
+  function fitProg() { const w = $('.gridwrap'); if (w) $('#sheet').style.setProperty('--progw', Math.max(300, w.clientWidth - 28) + 'px');
+    const th = $('#sheet > thead'); if (th) $('#sheet').style.setProperty('--thh', th.offsetHeight + 'px'); }   // رأس البرنامج يلصق تحت رأس الجدول
   addEventListener('resize', fitProg);
   // ================= جدول البرنامج تحت سطر الندوة (مثل جدول المناقشات: تكتب في الخانات مباشرة) =================
   const openProg = new Set();

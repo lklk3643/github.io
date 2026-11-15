@@ -602,3 +602,12 @@ body:has(.sugg:not([hidden])) .cloud-badge, body:has(.qp-list:not([hidden])) .cl
   .bar-grp .bar-del { margin-inline-end: 4px; }
 }
 @media (pointer: coarse) { .bar-grp .help-q::after { inset: -3px; } }   /* أزرار الصف صغيرة: مساحة لمس «؟» ما تاكل الزر */
+/* الكمبيوتر بشاشة 1366: أزرار الشريط العلوي أصغر شوي عشان تبقى بسطر واحد (كان «خروج» ينزل لحاله) */
+@media (min-width: 1025px) and (max-width: 1500px) {
+  .topbar { gap: 8px; padding-inline: 12px; }
+  .topbar .tb-actions { gap: 4px; flex-wrap: nowrap; }
+  .topbar .tb-actions .btn { padding: 6px 8px; font-size: 13px; white-space: nowrap; }
+  .topbar .who { font-size: 12px; }
+}
+/* أزرار نسخ الرسائل: «📋» توضح إنها نسخ (الإرسال من 💬) — بالكمبيوتر بس، عشان عمود الأزرار الثابت بالآيباد ما يكبر */
+@media (min-width: 1025px) { .sheet td.act .msg-b::before { content: "📋 "; } }

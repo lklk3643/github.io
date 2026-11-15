@@ -281,7 +281,7 @@
 .prog-btn.open { background: var(--brand); color: #fff; border-color: var(--brand); }
 .prog-btn.empty { color: var(--muted); font-weight: 600; }
 .sheet tr.prog-row > td { padding: 0 10px 14px; background: var(--panel); border-top: 0; }
-.prog { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--bg, #fff); }
+.prog { border: 1px solid var(--line); border-radius: 12px; overflow: clip;   /* clip مو hidden: يقص الزوايا بدون ما يمنع رأس البرنامج يلصق */ background: var(--bg, #fff); }
 .ptab { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 14px; }
 .ptab th { background: var(--brand-l); color: var(--brand-d); font-weight: 700; padding: 7px 6px; text-align: right; }
 .ptab th:nth-child(1), .ptab th:nth-child(2) { width: 96px; } .ptab th:nth-child(3) { width: 96px; } .ptab th:nth-child(6) { width: 22%; } .ptab th:nth-child(7) { width: 86px; }
@@ -358,3 +358,7 @@
 }
 /* الكمبيوتر: عمودا الوقت أعرض عشان يبين ص/م */
 @media (min-width: 1025px) { .ptab th:nth-child(1), .ptab th:nth-child(2) { width: 124px; } }
+/* رأس جدول البرنامج يلصق تحت رأس جدول الندوات وأنت تنزل داخل برنامج طويل */
+.sheet .ptab th { position: sticky; top: var(--thh, 38px); z-index: 1; }
+/* الجوال: البرنامج مفتوح = الجدول يطول مع الصفحة بدل تمرير داخل تمرير */
+@media (max-width: 760px) { .gridwrap:has(tr.prog-row) { max-height: none; } }
