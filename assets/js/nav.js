@@ -61,3 +61,45 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', fit); else fit();
   addEventListener('load', fit); addEventListener('resize', fit); addEventListener('orientationchange', () => setTimeout(fit, 300));
 })();
+
+// تحديث الموقع للصفحات المفتوحة: إذا نزلت نسخة جديدة والصفحة مفتوحة من قبل، تتحدث لحالها لما ترجع لها
+// (أو بعد دقيقة بدون لمس)، بشرط ما يكون أحد يكتب أو فيه نافذة مفتوحة. التعديلات ما تضيع: الحفظ يصير قبل المغادرة.
+(function () {
+  const sig = html => (String(html).match(/assets\/(?:js|css)\/[\w-]+\.(?:js|css)\?v=\d+/g) || []).sort().join('|');
+  // تُقرأ ملفات الصفحة وقت الفحص (nav.js يتحمّل في نص الصفحة، فقبل اكتمالها تكون القائمة ناقصة)
+  const mineNow = () => sig([...document.querySelectorAll('script[src],link[rel=stylesheet][href]')].map(e => e.getAttribute('src') || e.getAttribute('href')).join(' '));
+  let fresh = false, lastTouch = Date.now(), bar = null;
+  ['pointerdown', 'keydown', 'input'].forEach(ev => addEventListener(ev, () => { lastTouch = Date.now(); }, true));
+  const busy = () => { const a = document.activeElement; return (a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) || document.querySelector('.modal.open'); };
+  let target = '';
+  function tryReload() {
+    if (!fresh || busy()) return;
+    // مرة وحدة لكل نسخة: لو المتصفح رجّع نسخة قديمة بعد التحديث ما ندخل في تحديث ورا تحديث — يبقى الشريط
+    try { if (sessionStorage.getItem('qu_reloaded_for') === target) return; sessionStorage.setItem('qu_reloaded_for', target); } catch (e) { return; }
+    try { if (window.QCloud && QCloud.flush) QCloud.flush(true); } catch (e) { /* اختياري */ }
+    setTimeout(() => location.reload(), 400);
+  }
+  function showBar() {
+    if (bar) return;
+    bar = document.createElement('button'); bar.type = 'button'; bar.className = 'update-bar';
+    bar.textContent = '🔄 فيه تحديث جديد للموقع — اضغط هنا للتحديث';
+    bar.onclick = () => { try { if (window.QCloud && QCloud.flush) QCloud.flush(true); } catch (e) { /* اختياري */ } setTimeout(() => location.reload(), 300); };
+    document.body.appendChild(bar);
+  }
+  async function check(back) {
+    if (document.readyState !== 'complete') return;
+    if (fresh) return tryReload();
+    try {
+      const r = await fetch(location.pathname + '?_=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' });
+      if (!r.ok) return;
+      const theirs = sig(await r.text());
+      const mine = mineNow();
+      if (theirs && mine && theirs !== mine) { fresh = true; target = theirs; showBar(); if (back || document.hidden || Date.now() - lastTouch > 60000) tryReload(); }
+    } catch (e) { /* بدون اتصال */ }
+  }
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) check(true); });   // رجعت للصفحة (الجوال خصوصاً)
+  addEventListener('focus', () => check(true));
+  addEventListener('pageshow', e => { if (e.persisted) check(true); });   // رجوع من ذاكرة المتصفح بالجوال
+  setInterval(check, 120000);
+  setInterval(() => { if (fresh && Date.now() - lastTouch > 60000) tryReload(); }, 15000);
+})();

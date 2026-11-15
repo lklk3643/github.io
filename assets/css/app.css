@@ -532,3 +532,8 @@ body:has(.modal.open) .grid-jump, body:has(.modal.open) .cloud-badge { display: 
   input[type="checkbox"] { width: 20px; height: 20px; }
 }
 .cloud-badge { pointer-events: none; }
+
+/* شريط «فيه تحديث جديد» أعلى الشاشة */
+.update-bar { position: fixed; top: 8px; left: 50%; transform: translateX(-50%); z-index: 300; max-width: calc(100% - 24px);
+  background: var(--brand, #2b7574); color: #fff; border: 0; border-radius: 999px; padding: 10px 18px; font: inherit; font-weight: 700;
+  box-shadow: 0 6px 20px rgba(0,0,0,.18); cursor: pointer; min-height: 44px; }
