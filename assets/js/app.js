@@ -2435,13 +2435,22 @@
       toast('جاهز ✓ — اضغط «إرسال للواتساب»');
     }
   }
+  // «تسجيل»: أول شي تنزل صورة التسجيل على الجهاز، بعدها واتساب كما هو (sendDirect بدون أي تغيير)
+  async function saveRecordImage(s) {
+    if (!String(s.recordingLink || '').trim()) return;          // بدون رابط تسجيل: sendDirect نفسه ينبّه
+    overlay.show('جارٍ تحميل صورة التسجيل على الجهاز...');
+    try { const cv = await capture(s, sendFmt('record'), 2); const blob = await new Promise(r => cv.toBlob(r, 'image/jpeg', 0.93)); saveBlob(blob, `${safeName(s.student || 'اعلان')}-تسجيل.jpg`); }
+    catch (e) { /* تعذّر التحميل: نكمل للواتساب عادي */ } finally { overlay.hide(); }
+  }
   $('#waInvite').onclick = () => sendDirect(state, 'invite', true);
-  $('#waRecord').onclick = () => sendDirect(state, 'record', true);
+  $('#waRecord').onclick = async () => { await saveRecordImage(state); sendDirect(state, 'record', true); };
   $('#sheet').addEventListener('click', e => {
     const b = e.target.closest('[data-wa]'); if (!b) return;
     const r = +b.closest('tr').dataset.r;
     if (isEmptyRow(grid[r])) return toast('هذا السطر فاضي', true);
-    sendDirect(rowMsgState(r), b.dataset.wa || 'invite', false);
+    const kind = b.dataset.wa || 'invite', st = rowMsgState(r);
+    if (kind === 'record') return saveRecordImage(st).then(() => sendDirect(st, 'record', false));
+    sendDirect(st, kind, false);
   });
 
   // ---------- مزامنة: تعديل سطر الجدول المفتوح من النموذج + تحديث تصميم السجل تلقائياً ----------

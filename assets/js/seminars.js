@@ -244,7 +244,7 @@
       ab('دعوة', 'نسخ رسالة الدعوة', () => copyMsg('invite', s), 'msg-b');
       ab('💬', 'إرسال الدعوة بالواتساب', () => sendDirect(s, 'invite'), 'wa-i');
       ab('تسجيل', 'نسخ رسالة التسجيل', () => copyMsg('record', s), 'msg-b' + (hasRec(s) ? ' has' : ''));
-      ab('💬', 'إرسال التسجيل بالواتساب', () => sendDirect(s, 'record'), 'wa-i');
+      ab('💬', 'إرسال التسجيل بالواتساب', async () => { await saveRecordImage(s); sendDirect(s, 'record'); }, 'wa-i');
       tr.appendChild(act);
       GCOLS.forEach(([k, , type, cls]) => {
         const td = el('td'); let inp;
@@ -1020,6 +1020,13 @@
   $('#sendCopy').onclick = async () => { if (await copyText($('#sendText').value)) toast('✓ تم نسخ الرسالة'); };
   $('#sendDl').onclick = () => { if (SEND.blob) saveBlob(SEND.blob, SEND.file.name); };
   // إرسال مباشر: في الجوال/الآيباد يفتح المشاركة فوراً، وإذا طلب الجهاز ضغطة إضافية تظهر نافذة جاهزة
+  // «تسجيل»: أول شي تنزل صورة التسجيل على الجهاز، بعدها واتساب كما هو (sendDirect بدون أي تغيير)
+  async function saveRecordImage(src) {
+    const s = clean(src || blank()); if (!hasRec(s)) return;      // بدون رابط تسجيل: sendDirect نفسه ينبّه
+    busy(true, 'جارٍ تحميل صورة التسجيل على الجهاز...');
+    try { const blob = await sendImage(s, 'record'); saveBlob(blob, `${fileBase(s, sendFmt('record'))}-تسجيل.jpg`); }
+    catch (e) { /* تعذّر التحميل: نكمل للواتساب عادي */ } finally { busy(false); }
+  }
   async function sendDirect(src, kind) {
     const s = clean(src || blank());
     if (kind === 'record' && !hasRec(s)) return toast('أضف «رابط التسجيل» أولاً (بعد انتهاء الندوة)', true);
@@ -1125,7 +1132,7 @@
   $('#zoomBtn').onclick = zoom;
   $('#btnWa').onclick = () => sendDirect(current, 'invite');
   $('#waInvite').onclick = () => sendDirect(current, 'invite');
-  $('#waRecord').onclick = () => sendDirect(current, 'record');
+  $('#waRecord').onclick = async () => { await saveRecordImage(current); sendDirect(current, 'record'); };
   $('#copyInvite').onclick = () => copyMsg('invite', current);
   $('#copyRecord').onclick = () => { copyMsg('record', current); if (!hasRec(current)) $('#f_rec').focus(); };
   // الجدول
