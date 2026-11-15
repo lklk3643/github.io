@@ -10,8 +10,8 @@
     if (!(sessionStorage.getItem('qu_session') || localStorage.getItem('qu_session'))) location.replace('index.html');
   </script>
   <link rel="stylesheet" href="assets/fonts/fonts.css?v=202611130001">
-  <link rel="stylesheet" href="assets/css/app.css?v=202611160300">
-  <link rel="stylesheet" href="assets/css/seminars.css?v=202611160300">
+  <link rel="stylesheet" href="assets/css/app.css?v=202611160500">
+  <link rel="stylesheet" href="assets/css/seminars.css?v=202611160500">
 </head>
 <body class="sem-page">
   <div class="topbar">
@@ -22,6 +22,9 @@
       <a class="btn sm" href="app.html?v=202611130001" title="إعلانات المناقشات">📢<span class="lbl"> المناقشات</span></a>
       <button class="btn sm" id="btnHelp" title="دليل الاستخدام">❓<span class="lbl"> الدليل</span></button>
       <button class="btn sm" id="btnSheet" title="جدول البيانات">📋<span class="lbl"> جدول البيانات</span></button>
+      <button class="btn sm" id="btnUsers" title="الموظفون" hidden>👥<span class="lbl"> الموظفون</span></button>
+      <button class="btn sm" id="btnBackups" title="النسخ الاحتياطية (المدير العام)" hidden>🛡️<span class="lbl"> النسخ الاحتياطية</span></button>
+      <button class="btn sm" id="btnPass" title="كلمة المرور">🔑<span class="lbl"> كلمة المرور</span></button>
       <button class="btn sm" id="btnSetup" title="إعداد النشر" hidden>⚙️<span class="lbl"> إعداد النشر</span></button>
       <button class="btn sm" id="btnLogout" title="خروج">⏻<span class="lbl"> خروج</span></button>
     </div>
@@ -188,22 +191,35 @@
         <button class="btn sm conf-btn" id="gConflicts" hidden></button>
         <span class="hint">كل سطر = ندوة. اكتب مباشرة في الخانات وتنحفظ تلقائياً. 👁 يعرض السطر في التصميم، والبرنامج يُعبّأ من تبويب «البرنامج».</span>
       </div>
-      <details class="ds-adv">
-      <summary>⚙️ أدوات متقدمة (ترتيب، حذف، تصدير Excel، تحميل المحدد)</summary>
       <div class="ds-tools">
-        <div class="ds-group"><span class="ds-label">الصفوف</span>
-          <button class="btn sm" id="gSort" title="ترتيب حسب التاريخ ثم الوقت">↕️ ترتيب بالتاريخ</button>
-          <button class="btn sm danger" id="gDel">🗑️ حذف المحدد</button>
-        </div>
-        <div class="ds-group"><span class="ds-label">تصدير</span>
-          <button class="btn sm" id="gExport">⬇️ Excel</button>
-          <button class="btn sm" id="gExportCsv">⬇️ CSV</button>
-        </div>
         <div class="ds-group"><span class="ds-label">الإعلانات</span>
           <button class="btn sm" id="gSelAll">☑️ تحديد الكل</button>
           <button class="btn sm" id="gSelNone">إلغاء التحديد</button>
           <button class="btn sm primary" id="gDl">📦 تحميل المحدد</button>
+          <button class="btn sm" id="gPrint">🖨️ طباعة المحدد</button>
           <span class="hint" id="gSelCount"></span>
+          <button class="btn sm danger" id="gDel" style="margin-inline-start:14px">🗑️ حذف المحدد</button>
+        </div>
+        <div class="ds-group">
+          <button class="btn sm" id="gUndo" disabled title="تراجع عن آخر تغيير في الجدول (Ctrl+Z)">↶ تراجع</button>
+          <button class="btn sm" id="gRedo" disabled title="إعادة">↷ إعادة</button>
+          <button class="btn sm" id="gTrash" title="الندوات المحذوفة — تقدر ترجعها">🗑️ المحذوفات <span id="gTrashN" class="hint"></span></button>
+        </div>
+      </div>
+      <details class="ds-adv">
+      <summary>⚙️ أدوات متقدمة (استيراد من Excel، تصدير، ترتيب)</summary>
+      <div class="ds-tools">
+        <div class="ds-group"><span class="ds-label">الأسطر</span>
+          <button class="btn sm" id="gSort" title="ترتيب حسب التاريخ ثم الوقت">↕️ ترتيب بالتاريخ</button>
+        </div>
+        <div class="ds-group"><span class="ds-label">استيراد</span>
+          <label class="btn sm" for="semImport" title="ملف Excel أو CSV بنفس أعمدة «⬇️ نموذج Excel» — يضيف ندوات وما يمسح شي">📄 من ملف Excel / CSV</label>
+          <input type="file" id="semImport" accept=".xlsx,.xls,.csv" hidden>
+          <button class="btn sm" id="gTplXlsx" title="ملف Excel فاضي بأعمدة الندوات — عبّه وارفعه من «📄 من ملف Excel / CSV»">⬇️ نموذج Excel</button>
+        </div>
+        <div class="ds-group"><span class="ds-label">تصدير</span>
+          <button class="btn sm" id="gExport">⬇️ Excel</button>
+          <button class="btn sm" id="gExportCsv">⬇️ CSV</button>
         </div>
       </div>
       </details>
@@ -217,6 +233,7 @@
         <button class="btn week-btn" id="btnReview" title="رسالة واتساب بندوات الأسبوع القادم للتدقيق — تنفتح جاهزة وأنت ترسلها">📋 إرسال الندوات الأسبوعية للتدقيق</button>
         <button class="btn save-btn" id="btnSave" title="الحفظ تلقائي دايماً — هذا الزر للتأكيد ويرسل الحين">💾 حفظ</button>
         <input type="search" id="search" name="sem-filter" autocomplete="off" readonly onfocus="this.removeAttribute('readonly')" class="ds-find" placeholder="🔎 ابحث بالعنوان أو اسم مشارك" aria-label="بحث">
+        <button class="btn sm" id="gShowPastSem" hidden title="الندوات اللي مضى تاريخها مخفية عشان الجدول يكون أخف وأوضح"></button>
       </div>
       <div class="gridbox">
         <div class="gridwrap"><table class="sheet" id="sheet"></table></div>
@@ -224,6 +241,16 @@
     </section>
   </div>
 
+  <div class="modal" id="mTrash"><div class="box" style="width:min(720px,100%)">
+    <h2>🗑️ الندوات المحذوفة <button class="btn sm" data-close>✕</button></h2>
+    <p class="hint" style="margin:0 0 10px">ما حذفه أي موظف خلال 30 يوم. «↩️ رجّعها» يرجعها للجدول والبث بمكانها.</p>
+    <div id="semTrashList" class="trash-list"></div>
+  </div></div>
+  <div class="modal" id="mRowLog"><div class="box" style="width:min(720px,100%)">
+    <h2>🕘 سجل الندوة: <span id="rowLogTitle"></span> <button class="btn sm" data-close>✕</button></h2>
+    <p class="hint" style="margin:0 0 10px">مين أضاف الندوة، ومين عدّل وش، ومتى. الأحدث فوق.</p>
+    <div id="rowLogList" class="trash-list"></div>
+  </div></div>
   <!-- إرسال بالواتساب: الصورة + الرسالة -->
   <div class="modal" id="mSend"><div class="box" style="width:min(760px,100%)">
     <h2>💬 إرسال بالواتساب <button class="btn sm" data-close>✕</button></h2>
@@ -313,14 +340,14 @@
 
   <script src="assets/js/auth.js?v=202611141201"></script>
   <script src="assets/js/cloud.js?v=202611160100"></script>
-  <script src="assets/js/nav.js?v=202611160300"></script>
+  <script src="assets/js/nav.js?v=202611160500"></script>
   <script src="assets/vendor/xlsx.full.min.js?v=202610170020"></script>
   <script src="assets/vendor/jszip.min.js?v=202610170020"></script>
   <script src="assets/vendor/html-to-image.js?v=202610170020"></script>
   <script src="assets/vendor/qrcode.js?v=202610170020"></script>
   <script src="assets/vendor/jspdf.umd.min.js?v=202610170020"></script>
   <script src="assets/js/people.js?v=202611141201"></script>
-  <script src="assets/js/week.js?v=202611160300"></script>
-  <script src="assets/js/seminars.js?v=202611160300"></script>
+  <script src="assets/js/week.js?v=202611160500"></script>
+  <script src="assets/js/seminars.js?v=202611160500"></script>
 </body>
 </html>

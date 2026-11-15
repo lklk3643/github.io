@@ -546,3 +546,8 @@ body:has(.modal.open) .grid-jump, body:has(.modal.open) .cloud-badge { display: 
 .wk-attach { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 10px 2px 2px; cursor: pointer; }
 .wk-attach input { width: 20px; height: 20px; }
 .wk-attach-text { flex-basis: 100%; direction: rtl; overflow-wrap: anywhere; }
+/* «؟» شرح الأزرار */
+.help-q { width: 24px; height: 24px; min-width: 24px; min-height: 24px !important; padding: 0; border-radius: 50%; border: 1px solid var(--line); background: var(--panel); color: var(--brand); font: 700 14px/1 inherit; cursor: pointer; vertical-align: middle; margin-inline-start: -4px; margin-inline-end: 6px; }
+.help-q:hover { background: var(--brand-l); }
+.help-pop { position: absolute; z-index: 400; background: var(--brand-d, #0f4a4d); color: #fff; border-radius: 12px; padding: 10px 14px; font-size: 14px; line-height: 1.6; box-shadow: 0 8px 24px rgba(0,0,0,.25); }
+[data-theme="dark"] .help-pop { background: #e6f2f2; color: #0f2b2d; }

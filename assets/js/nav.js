@@ -110,3 +110,45 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', fold); else fold();
   addEventListener('pageshow', fold);
 })();
+
+// «؟» بجنب الأزرار المهمة: ضغطة تطلع شرح قصير وش يسوي الزر (يشتغل بالجوال، مو بس مرور الماوس)
+(function () {
+  const HELP = {
+    gNew: 'يوديك لسطر «اكتب هنا للمناقشة الجديدة» أول الجدول. اكتب اسم الطالب وكمّل الخانات — كل شي ينحفظ لحاله.',
+    gAdd: 'يوديك لسطر «اكتب هنا للندوة الجديدة» أول الجدول. اكتب العنوان وكمّل الخانات، والبرنامج من «＋ البرنامج».',
+    gWeek: 'يجهّز صور إعلانات هذا الأسبوع (الأحد ← الخميس): تنزيلها، أو إرسالها للواتساب مرة وحدة، أو نسخها للمدونة.',
+    btnWeek: 'يجهّز صور إعلانات ندوات هذا الأسبوع (الأحد ← الخميس): تنزيلها، أو إرسالها للواتساب مرة وحدة، أو نسخها للمدونة.',
+    gReview: 'يجهّز رسالة واتساب بمناقشات الأسبوع القادم للتدقيق (الدرجة، الاسم، اليوم، التاريخ، الوقت، حضوري/عن بعد). تنفتح جاهزة وأنت ترسلها.',
+    btnReview: 'يجهّز رسالة واتساب بندوات الأسبوع القادم للتدقيق. تنفتح جاهزة وأنت ترسلها.',
+    gSave: 'الحفظ تلقائي دايماً. هذا الزر للتأكيد: يرسل التعديلات الحين ويقول لك إنها وصلت للزملاء وللبث.',
+    btnSave: 'الحفظ تلقائي دايماً. هذا الزر للتأكيد: يرسل التعديلات الحين ويقول لك إنها وصلت للزملاء وللبث.',
+    gShowPast: 'المناقشات اللي مضى تاريخها مخفية عشان الجدول يكون أريح للعين. هذا الزر يعرضها أو يخفيها.',
+    gShowPastSem: 'الندوات اللي مضى تاريخها مخفية عشان الجدول يكون أريح للعين. هذا الزر يعرضها أو يخفيها.',
+    gDl: 'ينزّل صور إعلانات الأسطر اللي عليها صح (المربع جنب الرقم) بالمقاس المختار في «التحميل».',
+    gPrint: 'يطبع إعلانات الأسطر اللي عليها صح، كل إعلان في صفحة.',
+    gDel: 'يحذف الأسطر اللي عليها صح. تقدر ترجعها من «🗑️ المحذوفات» أو «↶ تراجع».',
+    gUndo: 'يرجّع آخر تغيير سويته في الجدول (وCtrl+Z). «↷ إعادة» يرجّع اللي تراجعت عنه.',
+    gTrash: 'المحذوفات خلال 30 يوم من كل الموظفين — «↩️ رجّعها» يرجع السطر للجدول والبث.',
+  };
+  function pop(btn, text) {
+    document.querySelectorAll('.help-pop').forEach(p => p.remove());
+    const p = document.createElement('div'); p.className = 'help-pop'; p.setAttribute('role', 'tooltip'); p.textContent = text;
+    document.body.appendChild(p);
+    const r = btn.getBoundingClientRect(), w = Math.min(300, innerWidth - 24);
+    p.style.width = w + 'px';
+    p.style.top = (scrollY + r.bottom + 8) + 'px';
+    p.style.left = Math.max(12, Math.min(innerWidth - w - 12, r.left + r.width / 2 - w / 2)) + 'px';
+    setTimeout(() => document.addEventListener('click', function off(e) { if (!p.contains(e.target)) { p.remove(); document.removeEventListener('click', off, true); } }, true), 0);
+  }
+  function add() {
+    Object.entries(HELP).forEach(([id, text]) => {
+      const el = document.getElementById(id); if (!el || el.dataset.helped) return; el.dataset.helped = '1';
+      const q = document.createElement('button'); q.type = 'button'; q.className = 'help-q'; q.textContent = '؟'; q.setAttribute('aria-label', 'وش يسوي هذا الزر؟'); q.title = 'وش يسوي هذا الزر؟';
+      q.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); pop(q, text); });
+      el.insertAdjacentElement('afterend', q);
+      const sync = () => { q.hidden = el.hidden; }; sync(); new MutationObserver(sync).observe(el, { attributes: true, attributeFilter: ['hidden'] });
+    });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', add); else add();
+  addEventListener('load', add);
+})();

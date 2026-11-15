@@ -535,6 +535,19 @@ async function semPidsOnce(store) {
 // الفيد العام (OBS): بنود المسودة الفاضية ما تطلع (تبقى للصفحة نفسها مع ?all=1)
 const feedSem = doc => ({ ...doc, seminars: doc.seminars.map(x => ({ ...x, participants: (x.participants || []).filter(q => !(q && q.draft && !q.name && !q.topic && !q.moderator)) })) });
 
+// مرة وحدة (2026-11-16): دولة الطالب من الإعلانات — سمير الزعراوي «فرنسا»، سامي عبد الكريم «السودان» (كانت في الملاحظات)
+const COUNTRY_FLAG = 'countries-2026-11-16';
+async function countriesOnce(store) {
+  if (await getJSON(store, COUNTRY_FLAG)) return;
+  const C = n => GCOLS.indexOf(n), sh = await sharedDoc(store), g = parseGrid(sh.grid); let n = 0;
+  const SET = { 'سمير بن فريد الزعراوي': 'فرنسا', 'سامي بن عبد الجابر عبد الكريم': 'السودان' };
+  for (const r of g) { const st = String(r[C('الطالب')] || '').trim(); if (!SET[st]) continue;
+    while (r.length < GCOLS.length) r.push('');
+    r[C('الدولة')] = SET[st]; if (/^من دولة/.test(String(r[C('الملاحظات')] || '').trim())) r[C('الملاحظات')] = ''; n++; }
+  if (n) { sh.grid = JSON.stringify(g); sh.ver = (sh.ver || 0) + 1; sh.by = 'مدير النظام'; sh.at = Date.now(); await setJSON(store, 'state/_shared', sh); await writeSharedRows(store, g); }
+  await setJSON(store, COUNTRY_FLAG, { at: new Date().toISOString(), rows: n });
+}
+
 export async function handle(req, store) {
   const url = new URL(req.url);
   const origin = url.origin;
@@ -549,6 +562,7 @@ export async function handle(req, store) {
   await removeTrials2Once(store);   // 2026-11-15: المستخدم قال «احذف البيانات التجريبية» — مرة وحدة، مع نسخة في trash/
   await addReal3Once(store);
   await semPidsOnce(store);
+  await countriesOnce(store);
 
   // --- عام: ملفات OBS
   if (method === 'GET' && path === 'feed/defenses.json') return json(await feedDefenses(store, origin), 200, PUBLIC);
@@ -579,9 +593,9 @@ export async function handle(req, store) {
 
   // سجل التعديلات: لمناقشة (?st=اسم الطالب) أو آخر التعديلات — لكل من سجّل دخوله
   if (method === 'GET' && path === 'audit') {
-    const st = String(new URL(req.url).searchParams.get('st') || '').trim().replace(/\s+/g, ' ');
+    const sp = new URL(req.url).searchParams, st = String(sp.get('st') || '').trim().replace(/\s+/g, ' '), kk = String(sp.get('k') || '');
     const log = await getJSON(store, 'audit', []);
-    const list = st ? log.filter(e => String(e.st || '').replace(/\s+/g, ' ') === st) : log;
+    const list = kk ? log.filter(e => e.k === kk) : st ? log.filter(e => String(e.st || '').replace(/\s+/g, ' ') === st) : log;
     return json({ entries: list.slice(-300).reverse().map(({ row, sem, ...e }) => e) });
   }
   // المحذوفات المشتركة: ما حذفه أي موظف خلال 30 يوم ولم يرجع للجدول
@@ -723,6 +737,7 @@ export async function handle(req, store) {
     const { upsert = [], remove = [], base = {} } = await body();
     await seminarsDoc(store, origin);                         // يضمن نقل البيانات القديمة أول مرة
     await backupNow(store, 'day', me.name || me.u, await sharedDoc(store));
+    if (Array.isArray(remove) && remove.length >= 5) await backupNow(store, 'op', me.name || me.u, await sharedDoc(store), `قبل حذف ${remove.length} ندوات`);
     const semLog = [];
     for (const id of Array.isArray(remove) ? remove : []) { const old = await getJSON(store, semKey(id)); if (old) semLog.push({ t: 'del', k: 'sem:' + id, st: old.title || 'ندوة', d: old.date || '', sem: old }); }
     for (const s of Array.isArray(upsert) ? upsert : []) if (s && s.id && !(await getJSON(store, semKey(s.id)))) semLog.push({ t: 'add', k: 'sem:' + s.id, st: s.title || 'ندوة', d: s.date || '' });
@@ -737,6 +752,15 @@ export async function handle(req, store) {
         out = { ...cur };
         for (const k of new Set([...Object.keys(s), ...Object.keys(b)])) if (!SKIP.has(k) && !same(s[k], b[k])) out[k] = k === 'participants' ? mergeParts(b[k], s[k], cur[k]) : s[k];
         out.updated = s.updated || cur.updated;
+      }
+      if (cur) {
+        const LBL = { title: 'العنوان', subtitle: 'العنوان الفرعي', date: 'التاريخ', start: 'من', end: 'إلى', place: 'المكان', place_note: 'ملاحظة المكان', status: 'الحالة',
+          link: 'رابط البث', recording_link: 'رابط التسجيل', series: 'النوع', department: 'القسم', organizer: 'الجهة', notes: 'الملاحظات', public_note: 'ملاحظة للجمهور' };
+        const ch = {};
+        for (const [k, lb] of Object.entries(LBL)) if (!same(cur[k], out[k])) ch[lb] = [String(cur[k] ?? ''), String(out[k] ?? '')];
+        const pn = a => (a || []).filter(q => q && (q.name || q.topic || q.moderator)).map(q => [q.kind, q.topic, q.name, q.title, q.start, q.moderator].join('|')).join('\n');
+        if (pn(cur.participants) !== pn(out.participants)) { const c = a => (a || []).filter(q => q && (q.name || q.topic || q.moderator)).length; ch['البرنامج'] = [`${c(cur.participants)} بند`, `${c(out.participants)} بند (تعدّل)`]; }
+        if (Object.keys(ch).length) await auditAdd(store, me.name || me.u, [{ t: 'edit', k: 'sem:' + s.id, st: out.title || 'ندوة', d: out.date || '', ch }]);
       }
       await setJSON(store, semKey(s.id), { ...out, participants: withPids(out.participants), id: String(s.id), by: me.u });
     }

@@ -90,7 +90,8 @@
     Object.values(local.items).forEach(s => map.set(s.id, s));
     local.deleted.forEach(id => map.delete(id));
     const arr = Array.from(map.values()).sort((a, b) => (b.date + b.start).localeCompare(a.date + a.start));
-    return sortAsc ? arr.reverse() : arr;
+    const out = sortAsc ? arr.reverse() : arr;
+    return [...out.filter(x => !x.date), ...out.filter(x => x.date)];   // بلا تاريخ (جديدة): أول الجدول
   }
   const pendingCount = () => Object.keys(local.items).length + local.deleted.length;
 
@@ -214,7 +215,20 @@
     return all.filter(o => o.id !== s.id && o.date === s.date && o.status !== 'cancelled' && o.place && o.place.trim() === s.place.trim() && (() => {
       const b1 = tmin(o.start); if (b1 == null) return false; const b2 = endMin(o.end, b1); return a1 < b2 && b1 < a2; })());
   }
+  let semPastOn = false;   // المنتهية مخفية دايماً عند فتح الصفحة (مثل المناقشات)
   function renderList() { renderGrid(); }
+  // أول حرف في سطر الإضافة: تنشأ ندوة جديدة وتصير سطر عادي، والمؤشر يكمل فيها نفسها
+  function newFromRow(k, v) {
+    if (!String(v || '').trim()) return;
+    semSnap('ندوة جديدة');
+    const s = clean(blank()); s[k] = v; s.updated = new Date().toISOString();
+    local.items[s.id] = s; local.deleted = local.deleted.filter(x => x !== s.id); saveLocal();
+    const a = document.activeElement, sel = a && a.selectionStart;
+    renderGrid(); renderPub(); flagSaved();
+    const i = $(`#sheet tr[data-id="${s.id}"] [data-k="${k}"]`); if (i) { i.focus(); try { i.setSelectionRange(sel, sel); } catch (e) { /* تاريخ/وقت */ } }
+    if (CLOUD()) { clearTimeout(progPubT); progPubT = setTimeout(() => publishCloud(true), 900); }
+    toast('➕ انضافت ندوة جديدة — كمّل الخانات، والبرنامج من «＋ البرنامج»');
+  }
   // إعادة رسم آمنة: إذا الموظف يكتب داخل الجدول نأجلها لين يطلع منه (حتى ما تضيع الكتابة ولا قائمة الأسماء)
   let gridDirty = false;
   function safeRender() { const a = document.activeElement, T = $('#sheet'); if (a && T && T.contains(a) && /^(INPUT|SELECT|TEXTAREA)$/.test(a.tagName)) { gridDirty = true; return; } renderGrid(); }
@@ -226,13 +240,33 @@
     const keep = focusKey();
     const q = $('#search').value.trim();
     const all = merged();
-    rowsView = all.filter(s => !q || s.title.includes(q) || s.participants.some(p => (p.name || '').includes(q)));
+    const isPast = s => s.date && s.date < todayIso();
+    const nPast = all.filter(isPast).length;
+    rowsView = all.filter(s => !q || s.title.includes(q) || s.participants.some(p => (p.name || '').includes(q)))
+      .filter(s => q || semPastOn || !isPast(s) || (current && current.id === s.id && local.items[s.id]));   // المنتهية مخفية (البحث يشملها)
+    { const pb = $('#gShowPastSem'); if (pb) { pb.hidden = !nPast || !!q; pb.textContent = semPastOn ? '🙈 إخفاء المنتهية' : `📜 عرض المنتهية (${nPast})`; } }
     const T = $('#sheet'); T.textContent = '';
     const thead = el('thead'), hr = el('tr');
     hr.appendChild(el('th', 'n', '#')); hr.appendChild(el('th', 'act', 'عرض / نسخ'));
     GCOLS.forEach(c => hr.appendChild(el('th', null, c[1]))); hr.appendChild(el('th', 'th-prog', 'البرنامج'));
     thead.appendChild(hr); T.appendChild(thead);
     const tb = el('tbody'); let nConf = 0;
+    if (!q) {   // أول الجدول: سطر فاضي تكتب فيه مباشرة ندوة جديدة (مثل جدول المناقشات)
+      const nr = el('tr', 'newrow'); nr.dataset.new = '1';
+      const n0 = el('td', 'n'); n0.appendChild(el('span', 'hint', '+')); nr.appendChild(n0);
+      nr.appendChild(el('td', 'act'));
+      GCOLS.forEach(([k, , type, cls]) => {
+        const td = el('td'); let inp;
+        if (type === 'status') { td.textContent = ''; nr.appendChild(td); return; }
+        inp = el('input'); inp.type = type === 'url' ? 'text' : type; if (type === 'url') inp.dir = 'ltr'; if (type === 'text') inp.type = 'text';
+        if (cls) inp.className = cls; inp.dataset.k = k; inp.dataset.newrow = '1';
+        if (k === 'title') { inp.placeholder = '✏️ اكتب هنا للندوة الجديدة'; inp.title = 'اكتب عنوان الندوة هنا لإضافة ندوة جديدة'; }
+        inp.addEventListener('input', () => newFromRow(k, inp.value));
+        td.appendChild(inp); nr.appendChild(td);
+      });
+      nr.appendChild(el('td', 'td-prog'));
+      tb.appendChild(nr);
+    }
     rowsView.forEach((s, i) => {
       const miss = missingOf(s), conf = conflictsOf(s, all);
       if (conf.length) nConf++;
@@ -254,6 +288,7 @@
       ab('👁', 'عرض في التصميم', () => { openSem(s); $('#previewPanel').scrollIntoView({ behavior: 'smooth', block: 'start' }); });
       ab('⬇️', 'تحميل صورة الإعلان (بالمقاس المحدد في «التحميل»)', () => runExport([{ label: s.title || 'ندوة', s: clean(s) }], `${safe(s.title) || 'ندوة'}.zip`));
       ab('⧉', 'تكرار السطر لندوة مشابهة', () => duplicate(s));
+      ab('🕘', 'سجل التعديلات: مين أضافها ومين عدّلها ومتى', () => openRowLog(s));
       // رسائل السطر: بيانات السطر نفسه (مثل جدول المناقشات): دعوة 💬 تسجيل 💬
       ab('دعوة', 'نسخ رسالة الدعوة', () => copyMsg('invite', s), 'msg-b');
       ab('💬', 'إرسال الدعوة بالواتساب', () => sendDirect(s, 'invite'), 'wa-i');
@@ -263,12 +298,21 @@
       GCOLS.forEach(([k, , type, cls]) => {
         const td = el('td'); let inp;
         if (type === 'status') { inp = el('select'); [['confirmed', 'مؤكدة'], ['postponed', 'مؤجلة'], ['cancelled', 'ملغاة']].forEach(([v, t]) => { const o = el('option', null, t); o.value = v; inp.appendChild(o); }); }
-        else { inp = el('input'); inp.type = type === 'url' ? 'url' : type; if (type === 'url') { inp.dir = 'ltr'; inp.placeholder = 'بدون رابط'; } }
+        else { inp = el('input'); inp.type = type === 'url' ? 'text' : type; if (type === 'url') { inp.dir = 'ltr'; inp.placeholder = 'بدون رابط'; } }
         if (cls) inp.className = cls;
         inp.dataset.k = k;
         if (type === 'text') inp.type = 'text';
         inp.value = s[k] || (k === 'status' ? 'confirmed' : '');
+        // أثناء الكتابة: ينحفظ ويرسل بدون إعادة رسم (مثل جدول المناقشات)، وبعد الخروج من الخانة يتحدث كل شي
+        let typeT = 0;
+        inp.addEventListener('input', () => { clearTimeout(typeT); typeT = setTimeout(() => {
+          const item = clean(local.items[s.id] || s); if (item[k] === inp.value) return; item[k] = inp.value; item.updated = new Date().toISOString();
+          local.items[item.id] = item; local.deleted = local.deleted.filter(x => x !== item.id); saveLocal(); renderPub();
+          if (CLOUD()) { clearTimeout(progPubT); progPubT = setTimeout(() => publishCloud(true), 700); }
+        }, 500); });
+        inp.addEventListener('focus', () => { inp._snap = snapNow(); });
         inp.addEventListener('change', () => {
+          clearTimeout(typeT); if (inp._snap) { uS.push({ g: inp._snap, label: 'تعديل خانة' }); if (uS.length > 40) uS.shift(); rS.length = 0; updUndo(); inp._snap = null; }
           const item = clean(local.items[s.id] || s); item[k] = inp.value; item.updated = new Date().toISOString();
           local.items[item.id] = item; local.deleted = local.deleted.filter(x => x !== item.id); saveLocal();
           if (current && current.id === item.id) openSem(item, true); else renderGrid();
@@ -288,6 +332,13 @@
     if (!rowsView.length) { const tr = el('tr'); const td = el('td', null, q ? 'لا نتائج للبحث' : 'لا توجد ندوات بعد. اضغط «➕ ندوة».'); td.colSpan = GCOLS.length + 3; tr.appendChild(td); tb.appendChild(tr); }
     T.appendChild(tb);
     fitProg();
+    { // عرض العمود على قد أطول نص (النوع والقسم والمكان ما تنقص)
+      const first = T.querySelector('tbody input[type=text]');
+      if (first) { const cs = getComputedStyle(first), ctx = (renderGrid.c = renderGrid.c || document.createElement('canvas').getContext('2d')); ctx.font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+        const rules = ['series', 'department', 'place'].map(k => { let w = 0; T.querySelectorAll(`tbody > tr > td > input[data-k="${k}"]`).forEach(i => { w = Math.max(w, ctx.measureText(i.value || i.placeholder || '').width); });
+          return `#sheet > tbody > tr > td > input[data-k="${k}"]{width:${Math.min(420, Math.max(120, Math.ceil(w + 26)))}px}`; });
+        let st = document.getElementById('fitCols'); if (!st) { st = document.createElement('style'); st.id = 'fitCols'; document.head.appendChild(st); } st.textContent = rules.join('\n'); }
+    }
     restoreFocus(keep);
     $('#gridCount').textContent = `(${all.length})`;
     const b = $('#gConflicts'); b.hidden = !nConf; b.textContent = `🔴 ${QN.row(nConf)} ${nConf === 1 ? 'فيه' : 'فيها'} تعارض`;
@@ -322,8 +373,10 @@
   }
   let progPubT = 0;
   // حفظ برنامج ندوة: محلياً فوراً، والإرسال بعد توقف الكتابة شوي؛ النموذج الجانبي يتحدث بدون إعادة رسم الجدول
+  let progSnapT = 0;
   function commitProg(id, parts, rerender) {
     const base = local.items[id] || merged().find(x => x.id === id); if (!base) return;
+    if (Date.now() - progSnapT > 4000) semSnap('تعديل البرنامج'); progSnapT = Date.now();
     const item = clean(base); item.participants = parts.map(p => ({ ...p })); autofill(item);
     const fresh = clean(item); fresh.updated = new Date().toISOString();
     local.items[id] = fresh; local.deleted = local.deleted.filter(x => x !== id); saveLocal();
@@ -513,11 +566,103 @@
     pane.appendChild(acts); pane.appendChild(prev); box.appendChild(pane); ta.focus();
   }
 
+  { const pb = $('#gShowPastSem'); if (pb) pb.onclick = () => { semPastOn = !semPastOn; renderGrid(); }; }
+
+  // ================= أدوات الجدول (نفس صفحة المناقشات) =================
+  const capi = (path, opt) => fetch('/api/' + path, { ...(opt || {}), headers: { 'content-type': 'application/json', authorization: 'Bearer ' + session.token } }).then(async r => { const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || r.status); return j; });
+  // ↶ تراجع / ↷ إعادة: لقطة من الندوات قبل كل تغيير في الجدول (40 خطوة)
+  const uS = [], rS = [];
+  const snapNow = () => JSON.stringify(merged().map(clean));
+  function semSnap(label) { uS.push({ g: snapNow(), label }); if (uS.length > 40) uS.shift(); rS.length = 0; updUndo(); }
+  function updUndo() { const u = $('#gUndo'), r = $('#gRedo'); if (!u) return; u.disabled = !uS.length; r.disabled = !rS.length; u.title = uS.length ? `تراجع: ${uS[uS.length - 1].label} (Ctrl+Z)` : 'تراجع عن آخر تغيير في الجدول (Ctrl+Z)'; }
+  function applySnap(json) {
+    const want = new Map(JSON.parse(json).map(x => [x.id, x])), now = merged();
+    for (const x of now) if (!want.has(x.id)) { delete local.items[x.id]; if (published.seminars.some(y => y.id === x.id) && !local.deleted.includes(x.id)) local.deleted.push(x.id); }
+    for (const [id, x] of want) { const cur = now.find(y => y.id === id); if (!cur || JSON.stringify(clean(cur)) !== JSON.stringify(clean(x))) { local.items[id] = { ...clean(x), updated: new Date().toISOString() }; local.deleted = local.deleted.filter(y => y !== id); } }
+    saveLocal(); if (current && !want.has(current.id)) current = blank();
+    renderGrid(); renderPub(); if (current) { const c = merged().find(y => y.id === current.id); if (c) openSem(c, false); }
+    if (CLOUD()) publishCloud(true);
+  }
+  function semRestore(from, to, verb) { if (!from.length) return; const it = from.pop(); to.push({ g: snapNow(), label: it.label }); applySnap(it.g); updUndo(); toast(`${verb}: ${it.label}`); }
+  const semUndo = () => semRestore(uS, rS, '↶ تم التراجع'), semRedo = () => semRestore(rS, uS, '↷ تمت الإعادة');
+  { const u = $('#gUndo'), r = $('#gRedo'); if (u) u.onclick = semUndo; if (r) r.onclick = semRedo; }
+  document.addEventListener('keydown', e => {
+    if (!(e.ctrlKey || e.metaKey) || /^(INPUT|TEXTAREA|SELECT)$/.test((document.activeElement || {}).tagName || '')) return;
+    if (e.key.toLowerCase() === 'z' && !e.shiftKey && uS.length) { e.preventDefault(); semUndo(); } else if ((e.key.toLowerCase() === 'y' || (e.key.toLowerCase() === 'z' && e.shiftKey)) && rS.length) { e.preventDefault(); semRedo(); }
+  });
+  // 🗑️ المحذوفات: ما حذفه أي موظف (30 يوم)، ويرجع بضغطة
+  async function openTrash() {
+    const box = $('#semTrashList'); box.innerHTML = '<p class="hint">جارٍ التحميل...</p>'; $('#mTrash').classList.add('open');
+    if (!CLOUD()) { box.innerHTML = '<p class="hint">المحذوفات تحتاج اتصال بالموقع.</p>'; return; }
+    try {
+      const items = (await capi('trash')).items.filter(x => x.sem);
+      $('#gTrashN').textContent = items.length ? `(${items.length})` : '';
+      box.innerHTML = items.length ? '' : '<p class="hint">ما فيه ندوات محذوفة خلال 30 يوم.</p>';
+      items.forEach(it => {
+        const d = el('div', 'trash-it'), t = el('span'); t.appendChild(el('b', null, it.sem.title || 'ندوة'));
+        t.appendChild(el('br')); t.appendChild(el('small', 'hint', `${it.sem.date || ''} · حذفها ${it.by || ''} · ${new Date(it.at).toLocaleString('ar-SA-u-ca-islamic-umalqura', { dateStyle: 'medium', timeStyle: 'short' })}`));
+        const b = el('button', 'btn sm', '↩️ رجّعها'); b.type = 'button';
+        b.onclick = async () => { b.disabled = true; try { semSnap('استرجاع ندوة'); await QCloud.seminars([clean(it.sem)], [], {}); await refreshPublished(); d.remove(); toast('↩️ رجعت الندوة للجدول والبث'); } catch (e) { b.disabled = false; toast('تعذر الاسترجاع الحين', true); } };
+        d.append(t, b); box.appendChild(d);
+      });
+    } catch (e) { box.innerHTML = '<p class="hint">تعذر الاتصال الحين.</p>'; }
+  }
+  { const t = $('#gTrash'); if (t) t.onclick = openTrash; }
+  // 🕘 سجل الندوة
+  async function openRowLog(s) {
+    $('#rowLogTitle').textContent = s.title || 'ندوة'; $('#rowLogList').innerHTML = '<p class="hint">جارٍ التحميل...</p>'; $('#mRowLog').classList.add('open');
+    if (!CLOUD()) { $('#rowLogList').innerHTML = '<p class="hint">السجل يحتاج اتصال بالموقع.</p>'; return; }
+    try {
+      const { entries } = await capi('audit?k=' + encodeURIComponent('sem:' + s.id));
+      const verb = { add: '➕ أضافها', del: '🗑️ حذفها', edit: '✏️ عدّل', restore: '🛡️ استرجع نسخة' };
+      const box = $('#rowLogList'); box.textContent = '';
+      if (!entries.length) { box.appendChild(el('p', 'hint', 'ما فيه تعديلات مسجلة لهذي الندوة بعد (تسجيل تعديلات الندوات بدأ 16 نوفمبر 2026).')); return; }
+      entries.forEach(e => { const d = el('div', 'trash-it'), t = el('span'); t.appendChild(el('b', null, e.by || '')); t.appendChild(document.createTextNode(' ' + (verb[e.t] || e.t) + (e.t === 'edit' ? ':' : '')));
+        if (e.t === 'edit') Object.entries(e.ch || {}).forEach(([c, [o, n]]) => { t.appendChild(el('br')); const sm = el('small'); sm.appendChild(document.createTextNode(c + ': ')); sm.appendChild(el('s', null, o || 'فاضي')); sm.appendChild(document.createTextNode(' ← ')); sm.appendChild(el('b', null, n || 'فاضي')); t.appendChild(sm); });
+        d.append(t, el('small', 'hint', new Date(e.at).toLocaleString('ar-SA-u-ca-islamic-umalqura', { dateStyle: 'medium', timeStyle: 'short' }))); box.appendChild(d); });
+    } catch (e) { $('#rowLogList').innerHTML = '<p class="hint">تعذر الاتصال الحين.</p>'; }
+  }
+  // 🖨️ طباعة المحدد: كل ندوة محددة في صفحة
+  async function printSelected() {
+    const list = merged().filter(x => gridSel.has(x.id)); if (!list.length) return toast('حدد الندوات من مربعات الجدول أولاً', true);
+    const w = window.open('', '_blank'); if (!w) return toast('اسمح بالنوافذ المنبثقة للطباعة', true);
+    busy(true, 'جارٍ تجهيز الطباعة...');
+    try {
+      const doc = w.document; doc.title = 'طباعة الندوات'; doc.body.style.margin = '0';
+      for (const x of list) { const { canvas } = await capture(clean(x), fmtOf(size), 2); const img = doc.createElement('img'); img.src = canvas.toDataURL('image/png'); img.style.cssText = 'width:100%;display:block;page-break-after:always'; doc.body.appendChild(img); }
+      setTimeout(() => { w.focus(); w.print(); }, 500);
+    } catch (e) { w.close(); toast('تعذر تجهيز الطباعة', true); } finally { busy(false); }
+  }
+  { const b = $('#gPrint'); if (b) b.onclick = printSelected; }
+  // 📄 استيراد من Excel/CSV (نفس أعمدة التصدير) — يضيف ندوات وما يمسح شي
+  const IMPORT_COLS = { 'التاريخ': 'date', 'من': 'start', 'إلى': 'end', 'العنوان': 'title', 'العنوان الفرعي': 'subtitle', 'النوع': 'series', 'القسم': 'department', 'الجهة': 'organizer', 'المكان': 'place', 'ملاحظة المكان': 'place_note', 'رابط البث': 'link', 'رابط التسجيل': 'recording_link', 'الملاحظات': 'notes' };
+  const STATUS_FROM = { 'مؤجلة': 'postponed', 'ملغاة': 'cancelled', 'مؤكدة': 'confirmed' };
+  const toIso = v => { if (v instanceof Date) return v.toISOString().slice(0, 10); const t = String(v || '').trim(); let m = t.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/); if (m && +m[1] > 1900) return `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`; m = t.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/); return m ? `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}` : ''; };
+  const toHm = v => { const t = String(v || '').trim(); const m = t.match(/(\d{1,2}):(\d{2})/); if (!m) return ''; let h = +m[1]; if (/م|PM/i.test(t) && h < 12) h += 12; if (/ص|AM/i.test(t) && h === 12) h = 0; return String(h).padStart(2, '0') + ':' + m[2]; };
+  { const f = $('#semImport'); if (f) f.onchange = async () => {
+    const file = f.files[0]; f.value = ''; if (!file) return;
+    try {
+      const wb = XLSX.read(await file.arrayBuffer(), { type: 'array', cellDates: true });
+      const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '' });
+      const have = new Set(merged().map(x => (x.title || '') + '|' + (x.date || '')));
+      const add = [];
+      for (const r of rows) { const o = clean(blank()); Object.entries(IMPORT_COLS).forEach(([h, k]) => { if (r[h] !== undefined && r[h] !== '') o[k] = k === 'date' ? toIso(r[h]) : (k === 'start' || k === 'end') ? toHm(r[h]) : String(r[h]).trim(); });
+        if (r['الحالة']) o.status = STATUS_FROM[String(r['الحالة']).trim()] || 'confirmed';
+        if (!o.title || have.has(o.title + '|' + o.date)) continue; o.updated = new Date().toISOString(); add.push(o); }
+      if (!add.length) return toast(rows.length ? 'كل الندوات اللي في الملف موجودة أصلاً — ما تغيّر شي' : 'الملف فاضي أو أعمدته مختلفة — استخدم «⬇️ نموذج Excel»', true);
+      if (!confirm(`بنضيف ${QN.sem(add.length)} من الملف للجدول. ما ينحذف ولا يتغير أي شي موجود. نكمل؟`)) return;
+      semSnap('استيراد ملف'); add.forEach(o => { local.items[o.id] = o; }); saveLocal(); renderGrid(); renderPub();
+      if (CLOUD()) publishCloud(true); toast(`✓ أُضيف ${QN.sem(add.length)} — البرنامج لكل ندوة من «＋ البرنامج»`);
+    } catch (e) { toast('تعذر قراءة الملف — تأكد إنه Excel أو CSV', true); }
+  }; }
+  { const b = $('#gTplXlsx'); if (b) b.onclick = () => { const ws = XLSX.utils.aoa_to_sheet([[...Object.keys(IMPORT_COLS), 'الحالة'], ['2026-12-01', '10:00', '12:00', 'عنوان الندوة', '', 'ندوة', 'قسم الفقه', 'كلية الشريعة', 'قاعة الشيخ ابن عثيمين', '(والبث عبر الإنترنت)', '', '', '', 'مؤكدة']]); ws['!rtl'] = true; const wb = XLSX.utils.book_new(); wb.Workbook = { Views: [{ RTL: true }] }; XLSX.utils.book_append_sheet(wb, ws, 'الندوات'); XLSX.writeFile(wb, 'نموذج-الندوات.xlsx'); }; }
+
   function updSel() {
     [...gridSel].forEach(id => { if (!merged().some(s => s.id === id)) gridSel.delete(id); });
     $('#gSelCount').textContent = gridSel.size ? `المحدد: ${gridSel.size}` : '';
   }
   function duplicate(s) {
+    semSnap('تكرار ندوة');
     const c = clean(s); c.id = newId(); c.updated = new Date().toISOString();
     local.items[c.id] = c; saveLocal(); openSem(c); renderPub(); toast('تمت إضافة نسخة جديدة — عدّل التاريخ والعنوان');
   }
@@ -628,7 +773,8 @@
   }
   function delSelected() {
     if (!gridSel.size) return toast('حدد الأسطر أولاً من مربعات الجدول', true);
-    if (!confirm(`حذف ${QN.sem(gridSel.size)}؟ تنحذف من عند الجميع ومن البث.`)) return;
+    if (!confirm(`حذف ${QN.sem(gridSel.size)}؟ تنحذف من عند الجميع ومن البث (وتقدر ترجعها من «🗑️ المحذوفات» أو «↶ تراجع»).`)) return;
+    semSnap('حذف ' + QN.sem(gridSel.size));
     gridSel.forEach(id => { delete local.items[id]; if (published.seminars.some(x => x.id === id) && !local.deleted.includes(id)) local.deleted.push(id); });
     if (current && gridSel.has(current.id)) current = blank();
     gridSel.clear(); saveLocal(); openSem(current || blank()); renderPub();
@@ -1335,7 +1481,7 @@
   });
   const newSem = () => { openSem(blank()); $$('.tabs button')[0].click(); $('#f_title').focus(); };
   $('#btnNew').onclick = newSem;
-  $('#gAdd').onclick = () => { newSem(); $('.side').scrollIntoView({ behavior: 'smooth', block: 'start' }); };
+  $('#gAdd').onclick = () => { $('#search').value = ''; renderGrid(); const i = $('#sheet tr.newrow input[data-k="title"]'); if (!i) return; i.closest('tr').scrollIntoView({ behavior: 'smooth', block: 'center' }); i.focus(); i.closest('tr').classList.add('flash'); setTimeout(() => i.closest('tr').classList.remove('flash'), 1600); };
   $('#btnDup').onclick = () => current && duplicate(current);
   $('#btnDelete').onclick = del;
   $('#btnPublish').onclick = publish;
@@ -1411,6 +1557,9 @@
       return null;
     });
   }
+  // أزرار الشريط العلوي المشتركة: تفتح نفس نوافذ صفحة المناقشات (حتى ما تتكرر الأدوات بنسختين)
+  if (session.role === 'super') { $('#btnUsers').hidden = false; $('#btnBackups').hidden = false; }
+  [['#btnUsers', 'users'], ['#btnBackups', 'backups'], ['#btnPass', 'pass']].forEach(([id, k]) => { const b = $(id); if (b) b.onclick = () => { location.href = 'app.html#open=' + k; }; });
   openSem(blank());
   // تحديث مباشر: ندوات الزملاء تظهر بدون إعادة تحميل (كل 20 ثانية، وما يقاطع الكتابة)
   if (CLOUD()) setInterval(async () => {

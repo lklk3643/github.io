@@ -800,7 +800,8 @@
     return true;
   }
   // المناقشات المنتهية مخفية افتراضياً: الجدول خفيف (بدل آلاف الخانات) ويعرض اللي يهم الموظف — زر «عرض المنتهية» يظهرها
-  const pastShown = () => { try { return localStorage.getItem(userKey('showpast2')) !== '0'; } catch (e) { return true; } };   // افتراضياً ظاهرة (بدفعات)
+  let pastOn = false;   // المنتهية مخفية دايماً عند فتح الصفحة (أريح للعين)؛ «📜 عرض المنتهية» يظهرها لين تسكّر الصفحة
+  const pastShown = () => pastOn;
   // المنتهية تُعرض بدفعات (الأحدث أولاً) والبحث يشمل الكل — حتى لا يرسم الجدول آلاف الخانات مرة وحدة
   const PAST_STEP = 50, FIND_MAX = 120;
   const FIND_COLS = GCOLS.map((c, j) => /^(الطالب|العنوان|الدرجة|عضو\d+ الاسم)$/.test(c) ? j : -1).filter(j => j >= 0);   // البحث: الطالب والعنوان والدرجة وأسماء اللجنة
@@ -831,6 +832,22 @@
     if (more) { const left = n - pastVis.size; more.hidden = !pastShown() || !!findHits || left <= 0; more.textContent = `⬇️ عرض أقدم (باقي ${left} — أو انزل لآخر الجدول)`; }
     if (info) info.textContent = findHits ? (findHits.size ? `النتائج: ${findHits.size}${findHits.size >= FIND_MAX ? ' (أول النتائج — دقّق البحث)' : ''}` : 'ما فيه نتائج — جرّب جزء من الاسم') : '';
   }
+  // عرض كل عمود على قد أطول نص فيه (الاسم والدرجة والصفة ما تنقص) — بحد أدنى وأعلى، والعنوان والروابط بعرضها الثابت
+  function fitColumns() {
+    const T = $('#sheet'); if (!T) return;
+    const first = T.querySelector('tbody input[type=text]'); if (!first) return;
+    const cs = getComputedStyle(first), ctx = (fitColumns.c = fitColumns.c || document.createElement('canvas').getContext('2d'));
+    ctx.font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+    const pad = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight) + 10, rules = [];
+    GCOLS.forEach((c, j) => {
+      if (/العنوان|رابط|الكاتب/.test(c)) return;
+      let w = 0; T.querySelectorAll(`tbody input[data-c="${j}"]`).forEach(i => { const v = i.value || i.placeholder || ''; if (v) w = Math.max(w, ctx.measureText(v).width); });
+      const px = Math.min(420, Math.max(/الجنس|اليوم|الوقت|الدور/.test(c) ? 90 : 120, Math.ceil(w + pad)));
+      rules.push(`#sheet input[data-c="${j}"]{width:${px}px}`);
+    });
+    let st = document.getElementById('fitCols'); if (!st) { st = document.createElement('style'); st.id = 'fitCols'; document.head.appendChild(st); }
+    st.textContent = rules.join('\n');
+  }
   function renderGrid() {
     ensureBlankTop(); planRows();
     computeConflicts();
@@ -839,6 +856,7 @@
       <tbody>${grid.map((r, i) => hideRow(r, i) ? '' : `${(b => b ? `<tr class="wk-sep"><td colspan="${GCOLS.length + 2}"><span>🌙 إجازة أسبوعية</span> الجمعة ${b.fri} · السبت ${b.sat}${b.gap ? ` <small>(بعدها ${b.gap === 1 ? 'أسبوع' : QN.week(b.gap)} بدون مناقشات)</small>` : ''}</td></tr>` : '')(weekBreak(i))}<tr data-r="${i}" class="${gridSel.has(i) ? 'sel' : ''} ${i === activeRow ? 'active' : ''} ${missingOf(r).length ? 'incomplete' : ''} ${isPast(r) ? 'past' : ''} ${conflicts.has(i) ? 'conflict' : ''}"><td class="n"><label><input type="checkbox" data-gsel ${gridSel.has(i) ? 'checked' : ''}>${i + 1}</label>${warnHtml(r)}${conflictHtml(i)}</td><td class="act"><button data-view title="عرض في التصميم">👁</button><button data-dl title="تحميل صورة الإعلان (بالمقاس المحدد في «التحميل»)">⬇️</button><button data-dup title="تكرار السطر (نفس اللجنة لطالب آخر)">⧉</button><button data-log title="سجل التعديلات: مين أضافها ومين عدّلها ومتى">🕘</button><button data-msg="invite" class="msg-b" title="نسخ رسالة الدعوة">دعوة</button><button data-wa="invite" class="wa-i" title="إرسال الدعوة بالواتساب">💬</button><button data-msg="record" class="msg-b ${r[GCOLS.indexOf('رابط التسجيل')] ? 'has' : ''}" title="نسخ رسالة التسجيل">تسجيل</button><button data-wa="record" class="wa-i" title="إرسال التسجيل بالواتساب">💬</button></td>${
         DORD.map(j => [GCOLS[j], j]).map(([c, j]) => `<td><input type="text" class="${cls(c)}" data-c="${j}" value="${esc(r[j] || '')}"${pickOf(c) ? ` inputmode="none" data-pick="${pickOf(c)}"` : ''}${c === 'الدولة' ? ' list="qCountries" placeholder="الدولة (اختياري)"' : ''}${c === 'الكاتب' ? ' readonly tabindex="-1" title="يتعبّى تلقائياً باسم المستخدم اللي كتب السطر أو عدّله آخر مرة"' : ''}${c === 'رابط البث' ? ' dir="ltr" placeholder="يوتيوب (افتراضي)"' : c === 'رابط اللجنة' ? ' dir="ltr" placeholder="زوم (اختياري)"' : c === 'رابط التسجيل' ? ' dir="ltr" placeholder="بعد المناقشة"' : ''}></td>`).join('')}</tr>`).join('')}</tbody>`;
     updateGridInfo(); pastBtn(); try { if (presence.length) paintPresence(); } catch (e) { /* قبل التهيئة */ }
+    fitColumns();
     // الجوال: أول ما ينفتح الجدول يتحرك أفقياً لين تبان خانة «الطالب» في سطر الإضافة (بدل ما تكون برّا الشاشة)
     if (!renderGrid._sx && matchMedia('(max-width: 760px)').matches) {
       const w = $('.gridwrap'), c = $(`#sheet tr[data-r="0"] input[data-c="${CI('الطالب')}"]`);
@@ -1509,7 +1527,7 @@
   };
   $('#gSelAll').onclick = () => { grid.forEach((r, i) => { if (!isEmptyRow(r) && !hideRow(r, i)) gridSel.add(i); }); renderGrid(); };
   { const b = $('#gShowPast'); if (b) b.onclick = () => {
-    try { localStorage.setItem(userKey('showpast2'), pastShown() ? '0' : '1'); } catch (e) { /* اختياري */ }
+    pastOn = !pastOn;
     pastLimit = PAST_STEP; renderGrid();
   }; }
   function morePast() {
@@ -1835,6 +1853,8 @@
 
   // كلمة المرور
   $('#btnPass').onclick = () => { ['#pOld', '#pNew', '#pNew2'].forEach(s => { $(s).value = ''; }); openModal('#mPass'); };
+  // جاي من صفحة الندوات (الموظفون/النسخ الاحتياطية/كلمة المرور): تنفتح النافذة مباشرة
+  { const m = /#open=(users|backups|pass)/.exec(location.hash); if (m) setTimeout(() => { const b = $({ users: '#btnUsers', backups: '#btnBackups', pass: '#btnPass' }[m[1]]); if (b && !b.hidden) b.click(); history.replaceState(null, '', location.pathname + location.search); }, 900); }
   $('#pSave').onclick = async () => {
     if ($('#pNew').value !== $('#pNew2').value) return toast('كلمتا المرور غير متطابقتين', true);
     try {
