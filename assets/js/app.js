@@ -833,7 +833,7 @@
     computeConflicts();
     const cls = c => /العنوان/.test(c) ? 'w-title' : /رابط/.test(c) ? 'w-link' : c === 'الكاتب' ? 'w-sm w-auto' : /الجنس|اليوم|الوقت|الدور/.test(c) ? 'w-sm' : '';
     $('#sheet').innerHTML = `<thead><tr><th class="n">#</th><th class="act">عرض / نسخ</th>${GCOLS.map(c => `<th class="${/^عضو/.test(c) ? 'mem' : ''}">${c}</th>`).join('')}</tr></thead>
-      <tbody>${grid.map((r, i) => hideRow(r, i) ? '' : `${(b => b ? `<tr class="wk-sep"><td colspan="${GCOLS.length + 2}"><span>🌙 إجازة أسبوعية</span> الجمعة ${b.fri} · السبت ${b.sat}${b.gap ? ` <small>(بعدها ${b.gap === 1 ? 'أسبوع' : QN.week(b.gap)} بدون مناقشات)</small>` : ''}</td></tr>` : '')(weekBreak(i))}<tr data-r="${i}" class="${gridSel.has(i) ? 'sel' : ''} ${i === activeRow ? 'active' : ''} ${missingOf(r).length ? 'incomplete' : ''} ${isPast(r) ? 'past' : ''} ${conflicts.has(i) ? 'conflict' : ''}"><td class="n"><label><input type="checkbox" data-gsel ${gridSel.has(i) ? 'checked' : ''}>${i + 1}</label>${warnHtml(r)}${conflictHtml(i)}</td><td class="act"><button data-view title="عرض في التصميم">👁</button><button data-dup title="تكرار السطر (نفس اللجنة لطالب آخر)">⧉</button><button data-log title="سجل التعديلات: مين أضافها ومين عدّلها ومتى">🕘</button><button data-msg="invite" class="msg-b" title="نسخ رسالة الدعوة">دعوة</button><button data-wa="invite" class="wa-i" title="إرسال الدعوة بالواتساب">💬</button><button data-msg="record" class="msg-b ${r[GCOLS.indexOf('رابط التسجيل')] ? 'has' : ''}" title="نسخ رسالة التسجيل">تسجيل</button><button data-wa="record" class="wa-i" title="إرسال التسجيل بالواتساب">💬</button></td>${
+      <tbody>${grid.map((r, i) => hideRow(r, i) ? '' : `${(b => b ? `<tr class="wk-sep"><td colspan="${GCOLS.length + 2}"><span>🌙 إجازة أسبوعية</span> الجمعة ${b.fri} · السبت ${b.sat}${b.gap ? ` <small>(بعدها ${b.gap === 1 ? 'أسبوع' : QN.week(b.gap)} بدون مناقشات)</small>` : ''}</td></tr>` : '')(weekBreak(i))}<tr data-r="${i}" class="${gridSel.has(i) ? 'sel' : ''} ${i === activeRow ? 'active' : ''} ${missingOf(r).length ? 'incomplete' : ''} ${isPast(r) ? 'past' : ''} ${conflicts.has(i) ? 'conflict' : ''}"><td class="n"><label><input type="checkbox" data-gsel ${gridSel.has(i) ? 'checked' : ''}>${i + 1}</label>${warnHtml(r)}${conflictHtml(i)}</td><td class="act"><button data-view title="عرض في التصميم">👁</button><button data-dl title="تحميل صورة الإعلان (بالمقاس المحدد في «التحميل»)">⬇️</button><button data-dup title="تكرار السطر (نفس اللجنة لطالب آخر)">⧉</button><button data-log title="سجل التعديلات: مين أضافها ومين عدّلها ومتى">🕘</button><button data-msg="invite" class="msg-b" title="نسخ رسالة الدعوة">دعوة</button><button data-wa="invite" class="wa-i" title="إرسال الدعوة بالواتساب">💬</button><button data-msg="record" class="msg-b ${r[GCOLS.indexOf('رابط التسجيل')] ? 'has' : ''}" title="نسخ رسالة التسجيل">تسجيل</button><button data-wa="record" class="wa-i" title="إرسال التسجيل بالواتساب">💬</button></td>${
         GCOLS.map((c, j) => `<td><input type="text" class="${cls(c)}" data-c="${j}" value="${esc(r[j] || '')}"${pickOf(c) ? ` inputmode="none" data-pick="${pickOf(c)}"` : ''}${c === 'الكاتب' ? ' readonly tabindex="-1" title="يتعبّى تلقائياً باسم المستخدم اللي كتب السطر أو عدّله آخر مرة"' : ''}${c === 'رابط البث' ? ' dir="ltr" placeholder="يوتيوب (افتراضي)"' : c === 'رابط اللجنة' ? ' dir="ltr" placeholder="زوم (اختياري)"' : c === 'رابط التسجيل' ? ' dir="ltr" placeholder="بعد المناقشة"' : ''}></td>`).join('')}</tr>`).join('')}</tbody>`;
     updateGridInfo(); pastBtn(); try { if (presence.length) paintPresence(); } catch (e) { /* قبل التهيئة */ }
     // الجوال: أول ما ينفتح الجدول يتحرك أفقياً لين تبان خانة «الطالب» في سطر الإضافة (بدل ما تكون برّا الشاشة)
@@ -1024,6 +1024,14 @@
       renderGrid(); gridChanged();
       const st = cellAt(r + 1, GCOLS.indexOf('الطالب')); if (st) st.focus();
       return toast('تم تكرار السطر — اكتب اسم الطالب والعنوان الجديد');
+    }
+    // ⬇️ تحميل صورة إعلان السطر مباشرة — بالمقاس والنوع المحددين في قسم «التحميل» (الافتراضي الإعلان الرسمي PNG)
+    const dlb = e.target.closest('[data-dl]');
+    if (dlb) {
+      const r = +dlb.closest('tr').dataset.r;
+      if (isEmptyRow(grid[r])) return toast('هذا السطر فاضي', true);
+      const st = rowMsgState(r);
+      return runExport([{ label: st.student || 'اعلان', state: st }], `${safeName(st.student || 'اعلان')}.zip`, { history: false });
     }
     if (!e.target.closest('[data-view]')) return;
     const r = +e.target.closest('tr').dataset.r;

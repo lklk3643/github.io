@@ -238,6 +238,7 @@
       const act = el('td', 'act');
       const ab = (txt, title, fn, cls) => { const b = el('button', cls || null, txt); b.type = 'button'; b.title = title; b.onclick = fn; act.appendChild(b); };
       ab('👁', 'عرض في التصميم', () => { openSem(s); $('#previewPanel').scrollIntoView({ behavior: 'smooth', block: 'start' }); });
+      ab('⬇️', 'تحميل صورة الإعلان (بالمقاس المحدد في «التحميل»)', () => runExport([{ label: s.title || 'ندوة', s: clean(s) }], `${safe(s.title) || 'ندوة'}.zip`));
       ab('⧉', 'تكرار السطر لندوة مشابهة', () => duplicate(s));
       // رسائل السطر: بيانات السطر نفسه (مثل جدول المناقشات): دعوة 💬 تسجيل 💬
       ab('دعوة', 'نسخ رسالة الدعوة', () => copyMsg('invite', s), 'msg-b');
