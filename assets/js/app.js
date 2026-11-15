@@ -1222,6 +1222,26 @@
     const c = e.target.dataset && e.target.dataset.c; if (c == null || !SORT_COLS.has(+c)) return;
     sortPending = grid[+e.target.closest('tr').dataset.r];
   });
+  /* سطر الإضافة (الأول) ما يصير مناقشة إلا إذا فيه اسم الطالب أو العنوان أو التاريخ.
+     لمسة غلط (وقت، مكان، اسم دكتور في خانة عضو…) ثم الخروج من السطر = يرجع فاضي بدل ما ينحفظ سطر ناقص
+     يوصل للزملاء والبث (من هنا جات أسطر مثل «خال» و«خالد»). */
+  const KEYCOLS = [CI('الطالب'), CI('العنوان'), CI('التاريخ')];
+  const stillPicking = () => { const a = document.activeElement;
+    return !!(a && a.closest && a.closest('#picker, .sugg, .qp-list, .modal.open')) || !$('#picker').hidden || !!$('.modal.open'); };
+  function dropPartialNew(row) {
+    if (activeRow === 0) return false;                                      // «➕ مناقشة جديدة» من النموذج: النموذج يعبّي السطر خانة خانة
+    if (!row || row !== grid[0] || isEmptyRow(row) || KEYCOLS.some(j => String(row[j] || '').trim())) return false;
+    grid[0] = emptyRow(); if (sortPending === row) sortPending = null;
+    renderGrid(); gridChanged();
+    toast('ما انحفظ السطر الجديد: ابدأ باسم الطالب أو العنوان أو التاريخ، وبعدها كمّل باقي الخانات', true);
+    return true;
+  }
+  // بعد الاختيار من منتقي ما يصير «خروج» من الخانة، فنراقب أول لمسة برّا السطر (والمنتقي والقوائم)
+  document.addEventListener('pointerdown', e => {
+    const row = grid[0]; if (!row || isEmptyRow(row)) return;
+    const t = e.target; if (t.closest && t.closest('#sheet tr[data-r="0"], #picker, .sugg, .qp-list, .modal')) return;
+    setTimeout(() => { if (grid[0] === row && !stillPicking()) { const a = document.activeElement; if (!(a && a.closest && a.closest('#sheet tr[data-r="0"]'))) dropPartialNew(row); } }, 350);
+  }, true);
   $('#sheet').addEventListener('focusout', e => {
     if (!sortPending) return;
     const tr = e.target.closest && e.target.closest('tr'), to = e.relatedTarget;
@@ -1229,6 +1249,8 @@
     setTimeout(() => {
       const a = document.activeElement, row = sortPending;
       if (!row || (a && a.closest && a.closest('tr') && grid[+a.closest('tr').dataset.r] === row)) return;
+      if (row === grid[0] && stillPicking()) return;                           // يختار من المنتقي: نفس السطر
+      if (dropPartialNew(row)) return;
       sortPending = null; autoSort(row);
     }, 250);
   });
@@ -1238,6 +1260,8 @@
       if (sortPending || isEmptyRow(grid[0])) return;                       // الترتيب بالتاريخ يتكفّل بإعادة الرسم
       const a = document.activeElement, atr = a && a.closest && a.closest('#sheet tr[data-r]');
       if (atr && atr.dataset.r === '0') return;                              // ما زال في نفس السطر
+      if (stillPicking()) return;                                            // يختار من منتقي أو قائمة أسماء
+      if (dropPartialNew(grid[0])) return;
       const r = atr ? +atr.dataset.r : -1, c = a && a.dataset ? a.dataset.c : null;
       renderGrid();
       if (r >= 0 && c != null) { const n = $(`#sheet tr[data-r="${r + 1}"] input[data-c="${c}"]`); if (n) n.focus(); }
@@ -2017,9 +2041,10 @@
     const box = document.createElement('div');
     box.className = 'sugg'; box.hidden = true; document.body.appendChild(box);
     let target = null, items = [], idx = -1;
-    function hide() { box.hidden = true; target = null; items = []; idx = -1; }
+    // (كانت اسمها hide وتتغطى بدالة «إخفاء قيمة» بنفس الاسم تحت، فالقائمة ما تتسكر أبداً)
+    function closeList() { box.hidden = true; target = null; items = []; idx = -1; }
     function show(el) {
-      const key = keyOf(el); if (!key || document.activeElement !== el) return hide();
+      const key = keyOf(el); if (!key || document.activeElement !== el) return closeList();
       items = matches(key, el.value);
       // أسماء أعضاء هيئة التدريس في الشريعة (assets/js/people.js) بعد الأسماء السابقة، مع الرتبة والقسم كصفة
       if (key === 'mName' && window.QPeople && el.value.trim().length >= 2) {
@@ -2030,7 +2055,7 @@
           items.push(p.name); if (!nameTitle[p.name]) nameTitle[p.name] = new Map([[p.title, 1]]);
         }
       }
-      if (!items.length) return hide();
+      if (!items.length) return closeList();
       target = el; idx = -1;
       const q = norm(el.value);
       box.innerHTML = `<div class="sugg-h">${key === 'mName' ? 'أسماء الدكاترة — اختر أو كمّل الكتابة' : key === 'link' ? 'روابط البث' : 'اقتراحات'}</div>` + items.map((v, i) => {
@@ -2043,9 +2068,13 @@
       const w = Math.max(r.width, 240);
       box.style.width = w + 'px';
       box.style.left = Math.max(8, Math.min(r.right - w, innerWidth - w - 8)) + 'px';
-      box.hidden = false;
-      const below = innerHeight - r.bottom, h = box.offsetHeight;
-      box.style.top = (below < h + 10 && r.top > h + 10 ? r.top - h - 4 : r.bottom + 4) + 'px';
+      const topLimit = (parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sticky-h')) || 0) + 8;
+      const botLimit = innerHeight - ((parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--mnav-h')) || 0) + 8);
+      if (r.bottom < topLimit || r.top > botLimit) return closeList();
+      box.style.maxHeight = ''; box.hidden = false;
+      const h = box.offsetHeight, below = botLimit - r.bottom - 4, above = r.top - topLimit - 4;
+      if (below >= Math.min(h, 200) || below >= above) { box.style.top = (r.bottom + 4) + 'px'; box.style.maxHeight = Math.max(120, below) + 'px'; }
+      else { const hh = Math.min(h, above); box.style.top = (r.top - hh - 4) + 'px'; box.style.maxHeight = hh + 'px'; }
     }
     function pick(i) {
       const el = target, v = items[i]; if (!el || v == null) return;
@@ -2059,7 +2088,7 @@
         else if (el.dataset.c != null) t = el.closest('tr').querySelector(`input[data-c="${+el.dataset.c + 1}"]`);
         if (t && !t.value.trim()) { t.value = best; t.dispatchEvent(new Event('input', { bubbles: true })); }
       }
-      learn(key, v); hide();
+      learn(key, v); closeList();
     }
     box.addEventListener('mousedown', e => e.preventDefault());
     box.addEventListener('click', e => { const it = e.target.closest('.sugg-i'); if (it) pick(+it.dataset.i); });
@@ -2067,7 +2096,7 @@
     document.addEventListener('input', e => { if (keyOf(e.target) && e.isTrusted) show(e.target); });
     document.addEventListener('focusout', e => {
       const k = keyOf(e.target); if (k) learn(k, e.target.value);
-      setTimeout(() => { if (document.activeElement !== target) hide(); }, 120);
+      setTimeout(() => { if (document.activeElement !== target) closeList(); }, 120);
     });
     document.addEventListener('keydown', e => {
       if (box.hidden || e.target !== target) return;
@@ -2077,10 +2106,12 @@
         idx = (idx + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length;
         all.forEach((n, i) => n.classList.toggle('on', i === idx));
       } else if (e.key === 'Enter' && idx >= 0) { e.preventDefault(); e.stopPropagation(); pick(idx); }
-      else if (e.key === 'Escape') hide();
+      else if (e.key === 'Escape') closeList();
     }, true);
     window.addEventListener('scroll', () => { if (target) show(target); }, true);
-    window.addEventListener('resize', hide);
+    window.addEventListener('resize', closeList);
+    // ضغطة برّا الخانة والقائمة = تتسكر (حتى لو المؤشر باقي)
+    document.addEventListener('pointerdown', e => { if (!box.hidden && e.target !== target && !box.contains(e.target)) closeList(); }, true);
     refreshHistory();
     if (window.QPeople) QPeople.load();
     function top(key, n = 80) {
@@ -2608,7 +2639,7 @@
       }
       if (build && !items.length) pkTab('build');
       if (build) pkBuildUpd();
-    } else if (kind === 'day') {    } else if (kind === 'day') {
+    } else if (kind === 'day') {
       pk.innerHTML = `<h4>اختر اليوم</h4><div class="pk-row">${DAYS.map(d => `<button class="pk ${d === cur ? 'on' : ''}" data-v="${d}">${d}</button>`).join('')}</div>${pkFoot}`;
     } else if (kind === 'time') {
       const m = toLatin(cur).match(/:(\d{2})/); const mins = m ? m[1] : '00';

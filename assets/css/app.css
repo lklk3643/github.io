@@ -546,8 +546,21 @@ body:has(.modal.open) .grid-jump, body:has(.modal.open) .cloud-badge { display: 
 .wk-attach { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 10px 2px 2px; cursor: pointer; }
 .wk-attach input { width: 20px; height: 20px; }
 .wk-attach-text { flex-basis: 100%; direction: rtl; overflow-wrap: anywhere; }
-/* «؟» شرح الأزرار */
-.help-q { width: 24px; height: 24px; min-width: 24px; min-height: 24px !important; padding: 0; border-radius: 50%; border: 1px solid var(--line); background: var(--panel); color: var(--brand); font: 700 14px/1 inherit; cursor: pointer; vertical-align: middle; margin-inline-start: -4px; margin-inline-end: 6px; }
-.help-q:hover { background: var(--brand-l); }
+/* «؟» شرح الأزرار: دائرة صغيرة على زاوية الزر (بدون ما تأخذ مكان في الصف) */
+.has-help { position: relative; overflow: visible; padding-inline-start: calc(var(--hb-pad, 10px) + 14px) !important; }
+/* الدائرة داخل الزر نفسه (بداية الزر، بمساحة محجوزة لها) — ما تطلع على زر جار ولا على الصف اللي فوقه */
+.help-q { position: absolute; top: 50%; transform: translateY(-50%); inset-inline-start: 5px; width: 17px; height: 17px; border-radius: 50%; display: grid; place-items: center;
+  border: 1px solid var(--line); background: var(--panel); color: var(--brand); font: 700 11px/1 system-ui, sans-serif; cursor: pointer; z-index: 2; }
+.help-q:hover, .help-q:focus-visible { background: var(--brand); color: #fff; outline: none; }
+@media (pointer: coarse) { .help-q::after { content: ''; position: absolute; inset: -7px; border-radius: 50%; } }   /* مساحة لمس أكبر بالجوال */
 .help-pop { position: absolute; z-index: 400; background: var(--brand-d, #0f4a4d); color: #fff; border-radius: 12px; padding: 10px 14px; font-size: 14px; line-height: 1.6; box-shadow: 0 8px 24px rgba(0,0,0,.25); }
 [data-theme="dark"] .help-pop { background: #e6f2f2; color: #0f2b2d; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .help-pop { background: #e6f2f2; color: #0f2b2d; } }
+
+.sugg { overflow-y: auto; overscroll-behavior: contain; }
+/* قائمة الأسماء مفتوحة: الأزرار العائمة (↑↓ وشارة الحفظ) تختفي لين تتسكر، فما يتراكب شي على الأسماء */
+body:has(.sugg:not([hidden])) .grid-jump, body:has(.qp-list:not([hidden])) .grid-jump,
+body:has(.sugg:not([hidden])) .cloud-badge, body:has(.qp-list:not([hidden])) .cloud-badge { visibility: hidden; }
+/* أزرار البداية/النهاية فوق شارة «محفوظ في السحابة» (نفس الزاوية) بدل ما تتراكب عليها */
+@media (min-width: 981px) { .grid-jump { bottom: 64px; } }
+@media (pointer: coarse) { .cloud-badge { pointer-events: none; } }   /* باللمس ما تمسك الضغطات اللي تحتها */

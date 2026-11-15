@@ -10,7 +10,7 @@
     if (!(sessionStorage.getItem('qu_session') || localStorage.getItem('qu_session'))) location.replace('index.html');
   </script>
   <link rel="stylesheet" href="assets/fonts/fonts.css?v=202610170020">
-  <link rel="stylesheet" href="assets/css/app.css?v=202611160500">
+  <link rel="stylesheet" href="assets/css/app.css?v=202611161600">
   <link rel="stylesheet" href="assets/css/poster.css?v=202611160300">
 </head>
 <body>
@@ -468,8 +468,8 @@
   <!-- نافذة القوالب -->
   <div class="modal" id="mDesigns"><div class="box">
     <h2>قوالبي المحفوظة <button class="btn sm" data-close>✕</button></h2>
-    <div style="display:flex;gap:8px;margin-bottom:10px">
-      <input type="text" id="designName" placeholder="اسم القالب" style="flex:1;padding:8px;border:1px solid var(--line);border-radius:9px">
+    <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+      <input type="text" id="designName" placeholder="اسم القالب" style="flex:1;min-width:0;padding:8px;border:1px solid var(--line);border-radius:9px">
       <button class="btn primary" id="saveDesign">💾 حفظ الحالي</button>
     </div>
     <table class="ulist"><tbody id="designList"></tbody></table>
@@ -525,11 +525,11 @@
   <script src="assets/vendor/html-to-image.js?v=202610170020"></script>
   <script src="assets/js/auth.js?v=202611141201"></script>
   <script src="assets/js/cloud.js?v=202611151900"></script>
-  <script src="assets/js/nav.js?v=202611160500"></script>
+  <script src="assets/js/nav.js?v=202611161600"></script>
   <script src="assets/js/poster.js?v=202611160300"></script>
   <script src="assets/js/details.js?v=202611130010"></script>
-  <script src="assets/js/people.js?v=202611141201"></script>
+  <script src="assets/js/people.js?v=202611151600"></script>
   <script src="assets/js/week.js?v=202611160500"></script>
-  <script src="assets/js/app.js?v=202611160500"></script>
+  <script src="assets/js/app.js?v=202611161600"></script>
 </body>
 </html>

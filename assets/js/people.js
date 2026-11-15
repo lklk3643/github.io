@@ -64,9 +64,16 @@
   const box = document.createElement('div');
   box.className = 'qp-list'; box.setAttribute('role', 'listbox'); box.hidden = true;
   let cur = null, items = [], act = -1;
+  // المكان: تحت الخانة إن وسعت، وإلا فوقها — ولا تدخل تحت الشريط العلوي الثابت أو شريط الجوال السفلي
+  const cssPx = n => parseFloat(getComputedStyle(document.documentElement).getPropertyValue(n)) || 0;
   function place() {
     const r = cur.getBoundingClientRect();
-    box.style.top = (r.bottom + window.scrollY + 2) + 'px';
+    const topLimit = cssPx('--sticky-h') + 8, botLimit = innerHeight - cssPx('--mnav-h') - 8;
+    if (r.bottom < topLimit || r.top > botLimit) return hide();         // الخانة طلعت من الشاشة
+    box.style.maxHeight = ''; const h = Math.min(box.scrollHeight + 2, 320);
+    const below = botLimit - r.bottom - 2, above = r.top - topLimit - 2;
+    if (below >= Math.min(h, 200) || below >= above) { box.style.top = (r.bottom + window.scrollY + 2) + 'px'; box.style.maxHeight = Math.max(120, Math.min(320, below)) + 'px'; }
+    else { const hh = Math.min(h, above); box.style.top = (r.top + window.scrollY - hh - 2) + 'px'; box.style.maxHeight = hh + 'px'; }
     box.style.width = Math.max(r.width, 300) + 'px';
     box.style.left = Math.max(8, Math.min(r.right - Math.max(r.width, 300), window.innerWidth - Math.max(r.width, 300) - 8)) + window.scrollX + 'px';
   }
@@ -111,6 +118,8 @@
   }, true);
   box.addEventListener('mousedown', e => { const o = e.target.closest('.qp-it'); if (!o) return; e.preventDefault(); choose(+o.dataset.i); });
   document.addEventListener('focusout', e => { if (e.target === cur) setTimeout(hide, 120); });
+  // لمسة برّا الخانة والقائمة تسكّرها (الآيباد ما يشيل التركيز من الخانة إذا لمست مكان فاضي)
+  document.addEventListener('pointerdown', e => { if (!box.hidden && e.target !== cur && !box.contains(e.target)) hide(); }, true);
   window.addEventListener('resize', () => { if (!box.hidden) place(); });
   document.addEventListener('scroll', () => { if (!box.hidden && cur) place(); }, true);
 

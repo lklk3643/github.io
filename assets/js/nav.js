@@ -114,7 +114,7 @@
 // «؟» بجنب الأزرار المهمة: ضغطة تطلع شرح قصير وش يسوي الزر (يشتغل بالجوال، مو بس مرور الماوس)
 (function () {
   const HELP = {
-    gNew: 'يوديك لسطر «اكتب هنا للمناقشة الجديدة» أول الجدول. اكتب اسم الطالب وكمّل الخانات — كل شي ينحفظ لحاله.',
+    gNew: 'يوديك لسطر «اكتب هنا للمناقشة الجديدة» أول الجدول. ابدأ باسم الطالب (أو التاريخ) وكمّل الخانات — كل شي ينحفظ لحاله.',
     gAdd: 'يوديك لسطر «اكتب هنا للندوة الجديدة» أول الجدول. اكتب العنوان وكمّل الخانات، والبرنامج من «＋ البرنامج».',
     gWeek: 'يجهّز صور إعلانات هذا الأسبوع (الأحد ← الخميس): تنزيلها، أو إرسالها للواتساب مرة وحدة، أو نسخها للمدونة.',
     btnWeek: 'يجهّز صور إعلانات ندوات هذا الأسبوع (الأحد ← الخميس): تنزيلها، أو إرسالها للواتساب مرة وحدة، أو نسخها للمدونة.',
@@ -141,12 +141,18 @@
     setTimeout(() => document.addEventListener('click', function off(e) { if (!p.contains(e.target)) { p.remove(); document.removeEventListener('click', off, true); } }, true), 0);
   }
   function add() {
+    // gAdd موجود بالصفحتين بمعنى مختلف: بالمناقشات «➕ سطر فوق»
+    const SEM = /seminars/.test(location.pathname);
+    if (!SEM) HELP.gAdd = 'يضيف سطر فاضي أول الجدول ويوديك له. اكتب اسم الطالب أو التاريخ أول، وبعدها كمّل باقي الخانات — كل شي ينحفظ لحاله.';
     Object.entries(HELP).forEach(([id, text]) => {
       const el = document.getElementById(id); if (!el || el.dataset.helped) return; el.dataset.helped = '1';
-      const q = document.createElement('button'); q.type = 'button'; q.className = 'help-q'; q.textContent = '؟'; q.setAttribute('aria-label', 'وش يسوي هذا الزر؟'); q.title = 'وش يسوي هذا الزر؟';
-      q.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); pop(q, text); });
-      el.insertAdjacentElement('afterend', q);
-      const sync = () => { q.hidden = el.hidden; }; sync(); new MutationObserver(sync).observe(el, { attributes: true, attributeFilter: ['hidden'] });
+      // دائرة صغيرة على زاوية الزر نفسه (ما تزحم الصف ولا تحرك الأزرار)
+      const q = document.createElement('span'); q.className = 'help-q'; q.textContent = '؟'; q.setAttribute('role', 'button'); q.tabIndex = 0;
+      q.setAttribute('aria-label', 'وش يسوي هذا الزر؟'); q.title = 'وش يسوي هذا الزر؟';
+      const open = e => { e.preventDefault(); e.stopPropagation(); pop(q, text); };
+      q.addEventListener('click', open); q.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') open(e); });
+      q.addEventListener('pointerdown', e => e.stopPropagation());
+      el.classList.add('has-help'); el.appendChild(q);
     });
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', add); else add();
